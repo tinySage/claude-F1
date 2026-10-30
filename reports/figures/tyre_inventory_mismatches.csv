@@ -1,0 +1,31 @@
+Driver,first_lap,compound,set,laps_needed,nearest_laps,off_by,event
+HAM,2,SOFT,"used, TyreLife 3",2.0,3.0,1.0,Spain
+MAG,1,SOFT,"used, TyreLife 3",2.0,3.0,1.0,Spain
+MSC,1,SOFT,"used, TyreLife 3",2.0,3.0,1.0,Spain
+RUS,52,SOFT,"used, TyreLife 3",2.0,3.0,1.0,Spain
+STR,28,MEDIUM,"used, TyreLife 2",1.0,11.0,10.0,Spain
+VET,43,MEDIUM,"used, TyreLife 2",1.0,11.0,10.0,Spain
+GAS,47,SOFT,new,0.0,3.0,3.0,Hungary
+PER,1,SOFT,new,0.0,3.0,3.0,Hungary
+RIC,1,SOFT,"used, TyreLife 3",2.0,3.0,1.0,Hungary
+STR,15,MEDIUM,"used, TyreLife 2",1.0,0.0,-1.0,Hungary
+TSU,34,SOFT,new,0.0,3.0,3.0,Hungary
+VER,1,SOFT,"used, TyreLife 2",1.0,3.0,2.0,Hungary
+VET,16,MEDIUM,"used, TyreLife 2",1.0,0.0,-1.0,Hungary
+ZHO,52,SOFT,new,0.0,3.0,3.0,Hungary
+SAI,2,MEDIUM,new,0.0,1.0,1.0,Britain
+ALB,19,HARD,TyreLife missing in race data,,,,Monaco
+ALO,22,HARD,TyreLife missing in race data,,,,Monaco
+BOT,21,HARD,TyreLife missing in race data,,,,Monaco
+BOT,31,HARD,"used, TyreLife 11",10.0,0.0,-10.0,Monaco
+GAS,23,HARD,TyreLife missing in race data,,,,Monaco
+GAS,31,HARD,"used, TyreLife 9",8.0,0.0,-8.0,Monaco
+LAT,23,MEDIUM,TyreLife missing in race data,,,,Monaco
+MSC,18,HARD,TyreLife missing in race data,,,,Monaco
+OCO,22,HARD,TyreLife missing in race data,,,,Monaco
+RIC,20,HARD,TyreLife missing in race data,,,,Monaco
+RIC,31,HARD,"used, TyreLife 12",11.0,0.0,-11.0,Monaco
+SAI,22,HARD,TyreLife missing in race data,,,,Monaco
+SAI,31,HARD,"used, TyreLife 10",9.0,0.0,-9.0,Monaco
+TSU,22,HARD,TyreLife missing in race data,,,,Monaco
+ZHO,20,HARD,TyreLife missing in race data,,,,Monaco

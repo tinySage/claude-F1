@@ -57,23 +57,23 @@ def apply_cutoff(laps: pd.DataFrame, cutoff: Cutoff | None) -> pd.DataFrame:
     return laps[earlier | same_race]
 
 
-def prepare(cleaned: pd.DataFrame) -> pd.DataFrame:
-    """Model-ready clean laps from :func:`f1strat.clean.clean_laps` output.
+def lap_features(cleaned: pd.DataFrame) -> pd.DataFrame:
+    """Model features for every lap with a stint and tyre age, clean or not.
 
-    Stint features are computed on all laps first (the out lap and in lap are
-    excluded from modelling but still define where a stint starts and ends),
-    then only clean laps (``exclude_reason`` null) with a recorded
-    ``TyreLife`` are kept. Missing tyre age is not filled in (73 clean laps,
-    all Austria 2022), matching the missing-compound decision.
+    Stint features are computed on all laps, so the out lap and in lap still
+    define where a stint starts and ends. Used by :func:`prepare` (clean laps
+    for fitting) and by Phase 4 estimates that need the model's free-air pace
+    on laps that are not clean (e.g. overtaking attempts).
 
     Returns:
-        Clean laps with ``lap_s`` (lap time in seconds), ``race_lap``
-        (``LapNumber``), ``laps_since_stop`` (0 on the out lap or race start),
-        ``first_two_flying`` (``laps_since_stop`` is 1 or 2, only in stints
-        that began with a pit stop), ``opening_laps`` (race laps 2–3) and
-        ``final_stint`` (the driver's last stint of the race).
+        Laps with a recorded ``Stint`` and ``TyreLife``, plus ``lap_s`` (lap
+        time in seconds), ``race_lap`` (``LapNumber``), ``laps_since_stop`` (0
+        on the out lap or race start), ``first_two_flying``
+        (``laps_since_stop`` is 1 or 2, only in stints that began with a pit
+        stop), ``opening_laps`` (race laps 2–3) and ``final_stint`` (the
+        driver's last stint of the race).
     """
-    df = cleaned.copy()
+    df = cleaned[cleaned["Stint"].notna()].copy()
     key = ["RoundNumber", "Driver"]
     stint_start = df.groupby(key + ["Stint"])["LapNumber"].transform("min")
     df["laps_since_stop"] = (df["LapNumber"] - stint_start).astype("int64")
@@ -81,12 +81,23 @@ def prepare(cleaned: pd.DataFrame) -> pd.DataFrame:
     df["first_two_flying"] = df["laps_since_stop"].isin(POST_STOP_LAPS) & after_stop
     df["opening_laps"] = df["LapNumber"].isin(OPENING_LAPS)
     df["final_stint"] = df["Stint"] == df.groupby(key)["Stint"].transform("max")
-    df = df[df["exclude_reason"].isna() & df["TyreLife"].notna()].copy()
+    df = df[df["TyreLife"].notna()].copy()
     df["lap_s"] = df["LapTime"].dt.total_seconds()
     df["race_lap"] = df["LapNumber"].astype("int64")
     df["TyreLife"] = df["TyreLife"].astype("int64")
     df["Compound"] = df["Compound"].astype(str)
-    return df.reset_index(drop=True)
+    return df
+
+
+def prepare(cleaned: pd.DataFrame) -> pd.DataFrame:
+    """Model-ready clean laps from :func:`f1strat.clean.clean_laps` output.
+
+    :func:`lap_features`, then only clean laps (``exclude_reason`` null) are
+    kept. Missing tyre age is not filled in (73 clean laps, all Austria 2022),
+    matching the missing-compound decision.
+    """
+    df = lap_features(cleaned)
+    return df[df["exclude_reason"].isna()].reset_index(drop=True)
 
 
 def split_last_stint(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -269,6 +280,9 @@ class BayesFit:
     lap_centre: float
     diagnostics: dict[str, float] = field(default_factory=dict)
     stints: list[tuple[int, str, int]] = field(default_factory=list)
+    #: Rounds with final-stint data in the fit (their ``final_race`` is
+    #: estimated). ``None`` means every race in the fit.
+    final_stint_races: list[int] | None = None
 
 
 def _index(values: pd.Series, levels: list) -> np.ndarray:
@@ -446,8 +460,10 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
         )
         pm.StudentT("lap_time", nu=nu, mu=mu, sigma=sigma[r], observed=y)
 
+    final_rounds = sorted({int(r) for r in laps.loc[laps["final_stint"], "RoundNumber"]})
     meta = {"races": races, "drivers": drivers, "teams": teams,
-            "driver_race": pairs, "lap_centre": lap_centre, "stints": stints}
+            "driver_race": pairs, "lap_centre": lap_centre, "stints": stints,
+            "final_stint_races": final_rounds}
     return model, meta
 
 
@@ -504,7 +520,7 @@ def fit(
     return BayesFit(posterior=posterior, diagnostics=diag, races=meta["races"],
                     drivers=meta["drivers"], teams=meta["teams"],
                     driver_race=meta["driver_race"], lap_centre=meta["lap_centre"],
-                    stints=meta["stints"])
+                    stints=meta["stints"], final_stint_races=meta["final_stint_races"])
 
 
 def _flat(post: "xr.Dataset", name: str, idx: np.ndarray) -> np.ndarray:
@@ -911,6 +927,7 @@ def save_fit(fitted: BayesFit, path: Path) -> Path:
         "driver_race": json.dumps([[r, d] for r, d in fitted.driver_race]),
         "lap_centre": fitted.lap_centre, "diagnostics": json.dumps(fitted.diagnostics),
         "stints": json.dumps([[r, d, k] for r, d, k in fitted.stints]),
+        "final_stint_races": json.dumps(fitted.final_stint_races),
     }
     ds.to_netcdf(path, engine="h5netcdf",
                  encoding={v: {"zlib": True, "complevel": 5} for v in ds.data_vars})
@@ -929,10 +946,29 @@ def load_fit(path: Path) -> BayesFit:
         driver_race=[(int(r), d) for r, d in json.loads(a["driver_race"])],
         lap_centre=float(a["lap_centre"]), diagnostics=json.loads(a["diagnostics"]),
         stints=[(int(r), d, int(k)) for r, d, k in json.loads(a.get("stints", "[]"))],
+        final_stint_races=json.loads(a.get("final_stint_races", "null")),
     )
 
 
 FULL_FIT_PATH = MODELS_DIR / "deg_full_2022.nc"
+#: Thinned copy of the full fit (committed); the simulator reads this one.
+THIN_FIT_PATH = MODELS_DIR / "deg_full_2022_thin.nc"
+
+
+def thin_fit(fitted: BayesFit, n_draws: int = 1000) -> BayesFit:
+    """Keep ``n_draws`` draws spread evenly across chains (every k-th draw).
+
+    Thinning keeps the posterior's shape while cutting the file to a size that
+    can be committed, so a new session does not have to refit.
+    """
+    post = fitted.posterior
+    per_chain = n_draws // post.sizes["chain"]
+    step = post.sizes["draw"] // per_chain
+    thinned = post.isel(draw=slice(0, per_chain * step, step))
+    return BayesFit(posterior=thinned, races=fitted.races, drivers=fitted.drivers,
+                    teams=fitted.teams, driver_race=fitted.driver_race,
+                    lap_centre=fitted.lap_centre, diagnostics=fitted.diagnostics,
+                    stints=fitted.stints, final_stint_races=fitted.final_stint_races)
 
 
 def split_fit_path(split: str) -> Path:
@@ -955,11 +991,15 @@ def main(argv: list[str] | None = None) -> None:
 
     parser = argparse.ArgumentParser(prog="python -m f1strat.deg_model")
     parser.add_argument("target", nargs="?", default="full",
-                        choices=["full", "splits", "all", *SPLITS])
+                        choices=["full", "splits", "all", "thin", *SPLITS])
     parser.add_argument("--draws", type=int, default=5000)
     parser.add_argument("--tune", type=int, default=1500)
     args = parser.parse_args(argv)
     target = args.target
+    if target == "thin":
+        thinned = thin_fit(load_fit(FULL_FIT_PATH))
+        print(f"wrote {save_fit(thinned, THIN_FIT_PATH)}")
+        return
     laps = prepare(clean_laps(load_season(2022)))
     jobs: list[tuple[str, pd.DataFrame, Path]] = []
     if target in ("full", "all"):
@@ -973,6 +1013,8 @@ def main(argv: list[str] | None = None) -> None:
         minutes = (time.time() - start) / 60
         print(f"{name}: {len(train)} laps, {minutes:.1f} min, {fitted.diagnostics}", flush=True)
         print(f"wrote {save_fit(fitted, path)}", flush=True)
+        if name == "full":
+            print(f"wrote {save_fit(thin_fit(fitted), THIN_FIT_PATH)}", flush=True)
 
 
 if __name__ == "__main__":

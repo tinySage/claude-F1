@@ -90,6 +90,25 @@ Case studies (2022):
     Phase 4 can apply it.
   - The likely cause is `sigma_final_race` being estimated from the 9 even
     rounds only in that split (0.12 s vs 0.24 s in the full fit).
+- **Thinned posterior (Phase 4):** the simulator reads
+  `models/deg_full_2022_thin.nc` (1,000 draws, 250 per chain, of the final
+  full fit; 6.7 MB, committed), so new sessions skip the ~40 min refit.
+- **Tyre inventory (Phase 4):** reconstructed from FP1–FP3 and qualifying
+  (FIA 2022 Sporting Regulations Art. 30.2, 30.5).
+  - The rules don't say which sets are returned. Assumed: the most-used
+    eligible set first; when a car has too few used sets, unused softs first.
+    Softs first was chosen by validation: 40 race-stint mismatches over Spain,
+    Hungary, Britain and Monaco, against 56 (hards first) and 63 (mediums
+    first).
+  - FP1 stand-ins are charged to the driver they replaced.
+  - Remaining mismatches are reported in `reports/figures/`, not patched.
+- **Stratified shortlist (Phase 4):** the best 3 plans per stop count and
+  compound sequence are Monte Carlo'd, so traffic can promote a strategy
+  family the no-traffic ranking would have dropped.
+- **Late SC restarts (Phase 4):** races where an SC ended in the last 20 laps
+  can draw `final_race` from the prior (`final_race_prior=True`), so the
+  simulator's own SCs are the only SC luck. Only Bahrain and São Paulo show the
+  restart sprint in `final_race`.
 - **Hungary confounding (Phase 3 → Phase 6):** Leclerc's stint 3 is Ferrari's
   only hard stint at Hungary. The data identify the sum of
   `team_compound[Ferrari, hard, Hungary]` and his stint effect, not the split,
@@ -134,11 +153,11 @@ Result:
 **Done when:** every PyMC fit has R-hat < 1.01 on every parameter, zero divergences and ESS ≥ 400; the model matches or beats the baseline on both test sets; `last_stint` 80% coverage is in 75–85% (`long_tyre` coverage and error by tyre age are reported as limitations, no threshold); and the XGBoost comparison plot exists.
 
 ## Phase 4: Race simulator (built in layers)
-- [ ] Single car vs the clock
-- [ ] Strategy search over legal 1- and 2-stop plans
-- [ ] Rivals with dirty air and overtake probability
-- [ ] Safety cars
-- [ ] Monte Carlo over the model's posterior
+- [x] Single car vs the clock (`RaceState`, one stint draw per stint, Student-t lap noise, pit losses resampled from observed stops, ×1.188 final-stint widening on by default; `docs/simulator.md`)
+- [x] Strategy search over every legal remaining plan (0–3 more stops, any lap, any dry compound, new or used sets, two-compound rule), common random numbers; Spain 2022 demo in `notebooks/04_simulator.ipynb`
+- [x] Rivals: whole field lap by lap, held up within the following gap unless passing; pass probability by pace gap and circuit, fitted on 2022 passes; rival plans are inputs (fixed or weighted options)
+- [x] Safety cars: SC/VSC rates and lengths, slower laps, SC bunching, pit loss under SC/VSC (`data/processed/2022/sim_params.json`); start mid-race and under SC
+- [x] Monte Carlo over the model's posterior with common random numbers; Spain 2022 rerun with traffic (`notebooks/04_simulator.ipynb`, `docs/simulator.md`)
 
 Notes from Phase 3:
 - **Check before reusing `final_race` in the SC layer.** The largest race-wide
@@ -147,12 +166,23 @@ Notes from Phase 3:
   `final_race` partly encodes SC timing, and the SC layer must not count it
   twice.
 
+Result:
+- From any `RaceState`, a strategy search returns finishing-position and
+  race-time distributions for the whole field.
+- Speed: ~0.5 s per plan per 1,000 simulations (50 plans ≈ 25 s).
+- Calibration item for Phase 5: simulated passes per race are ~2.5× the 2022
+  rate (see `docs/simulator.md`, Known limitations).
+
 **Done when:** `src/f1strat/simulator.py` returns a distribution of finishing positions/times per strategy, with tests for each layer.
 
 ## Phase 5: Validation
 - [ ] Backtest on 2022 races outside the case studies (excluding Austria; see Decisions log)
 - [ ] Check interval calibration
 - [ ] Loop back to Phase 3/4 if needed
+
+Watch items from Phase 4:
+- Passing: simulated passes per race are ~2.5× the 2022 rate. Backtest pass
+  counts and position changes per race before relying on position verdicts.
 
 Watch items from Phase 3 (if these races backtest badly, look here first):
 - Negative field hard degradation: Australia, Saudi Arabia, Miami.

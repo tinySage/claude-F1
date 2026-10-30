@@ -11,7 +11,7 @@ For each, the question is: using only what the pit wall knew at the decision lap
 was the call within the range of good options?
 
 ## Current phase
-**Phase 4: Race simulator.** Phases 0–3 are complete. The degradation model is in `docs/model.md`; the full-data posterior is `models/deg_full_2022.nc` (gitignored, rebuild with `uv run python -m f1strat.deg_model full`, ~40 min). See `ROADMAP.md` for the full plan and checkpoints.
+**Phase 5: Validation.** Phases 0–4 are complete. Model: `docs/model.md`; simulator: `docs/simulator.md`. The simulator reads the committed thinned posterior `models/deg_full_2022_thin.nc`; the full posterior is gitignored (rebuild: `uv run python -m f1strat.deg_model full`, ~40 min, also rewrites the thinned file). See `ROADMAP.md` for the full plan and checkpoints.
 
 ## Repo layout
 ```
@@ -19,7 +19,11 @@ src/f1strat/        Package code. All logic lives here.
   data.py           FastF1 loading and parquet I/O
   clean.py          Lap filtering, dirty-air flags, pit loss estimates
   deg_model.py      Tyre degradation models (linear, PyMC hierarchical, XGBoost)
-  simulator.py      Layered race simulator and strategy search
+  simulator.py      Race state, single car, strategy search, whole field with traffic and SC/VSC
+  tyres.py          Race-day tyre inventory from practice and qualifying
+  race_events.py    Passing and SC/VSC parameters from 2022 (sim_params.json)
+models/             Posteriors; only the thinned full fit is committed
+docs/               model.md (degradation model), simulator.md
 notebooks/          Exploration and plots only. Imports from f1strat.
 tests/              pytest tests
 data/processed/     Processed parquet per race (committed). Schema: data/processed/README.md

@@ -18,3 +18,5 @@ __pycache__/
 # Model posteriors are over 25 MB with the stint term; rebuild all three with
 #   uv run python -m f1strat.deg_model all
 models/*.nc
+# Thinned full fit (1,000 draws, ~7 MB) is committed; the simulator reads it.
+!models/deg_full_2022_thin.nc
