@@ -198,3 +198,24 @@ def test_cutoff_inputs_use_no_future_laps() -> None:
     assert not laps.loc[laps["RoundNumber"] == 6, "final_stint"].any()
     assert laps.loc[laps["RoundNumber"] == 5, "final_stint"].any()
     assert len(laps) == len(laps2)
+
+
+def test_practice_long_runs_join_the_model() -> None:
+    """Practice laps add their own likelihood and share the race's tyre terms;
+    without them the model is unchanged."""
+    from f1strat.data import load_season
+    from f1strat.deg_model import Cutoff, build_model, cutoff_inputs
+
+    raw = load_season(2022)
+    raw = raw[raw["RoundNumber"].isin([5, 6])]
+    _, laps = cutoff_inputs(raw, Cutoff(6, 20))
+    practice = pd.DataFrame({
+        "RoundNumber": 6, "session": "FP2", "Driver": "VER", "Team": "Red Bull Racing",
+        "Compound": "HARD", "TyreLife": np.arange(2, 10), "lap_s": 81.0 + 0.1 * np.arange(8),
+        "run": "FP2_VER_1", "lap_in_run": np.arange(8)})
+    base, _ = build_model(laps)
+    with_p, meta = build_model(laps, practice)
+    assert "practice_lap_time" in with_p.named_vars and "practice_lap_time" not in base.named_vars
+    assert {"practice_level", "fuel_practice", "z_run"} <= set(with_p.named_vars)
+    assert meta["practice_laps"] == 8
+    assert np.isfinite(with_p.point_logps()["practice_lap_time"])
