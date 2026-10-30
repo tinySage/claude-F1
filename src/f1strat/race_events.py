@@ -215,7 +215,12 @@ def previous_race(year: int, event_name: str, back: int = 4) -> tuple[int, pd.Da
             continue
         session = fastf1.get_session(y, int(hit["RoundNumber"].iloc[0]), "R")
         session.load(laps=True, telemetry=False, weather=True, messages=False)
-        return y, clean_laps(laps_table(session), mixed_conditions=())
+        try:
+            laps = laps_table(session)
+        except fastf1.exceptions.DataNotLoadedError as err:
+            # 2019 and earlier timing now needs an F1 account (none used here).
+            raise ValueError(f"{y} {event_name} timing data cannot be downloaded") from err
+        return y, clean_laps(laps, mixed_conditions=())
     raise ValueError(f"no earlier {event_name} in the last {back} seasons")
 
 

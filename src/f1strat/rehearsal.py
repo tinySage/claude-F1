@@ -99,8 +99,9 @@ def leakage_free_params(fitted: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
     - Pass model (slope, pooled intercept, held gaps) from the pass events of
       the dry rounds before it, with the cutoff fit's pace.
     - The decision circuit's intercept from its previous running (e.g. Spain
-      2021, Canada 2019), with a stint-line pace proxy, shrunk toward the
-      pooled intercept.
+      2021), with a stint-line pace proxy, shrunk toward the pooled
+      intercept. If no previous running can be downloaded (Canada: 2020 and
+      2021 cancelled, 2019 timing needs an F1 account), the pooled intercept.
     - SC/VSC rates, lengths and ratios from the rounds before it.
     - SC closing ratio and pass shift fitted on the earlier backtest-eligible
       rounds (replay), as in :mod:`f1strat.backtest`.
@@ -122,13 +123,21 @@ def leakage_free_params(fitted: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
     race_before = race[race["RoundNumber"] < round_number]
     passing = fit_pass_model(pass_events(before, fitted))
     event = str(race.loc[race["RoundNumber"] == round_number, "EventName"].iloc[0])
-    year, prev = previous_race(2022, event)
-    feats = lap_features(prev[~prev["EventName"].isin(list(MIXED_CONDITIONS_2022))])
-    feats = feats[feats["Compound"].isin(["SOFT", "MEDIUM", "HARD"])].copy()
-    feats["pace"] = stint_line_pace(prev).loc[feats.index]
-    prev_events = pair_events(feats)
-    passing.circuit[round_number] = circuit_intercept_from(prev_events, passing.slope,
-                                                           passing.intercept)
+    try:
+        year, prev = previous_race(2022, event)
+    except ValueError as err:
+        # No downloadable previous running (e.g. Canada: 2020-21 cancelled, 2019
+        # needs an F1 account): fall back to the pooled intercept.
+        year, prev_events, why = None, pd.DataFrame(columns=["passed"]), str(err)
+        passing.circuit[round_number] = passing.intercept
+    else:
+        feats = lap_features(prev[~prev["EventName"].isin(list(MIXED_CONDITIONS_2022))])
+        feats = feats[feats["Compound"].isin(["SOFT", "MEDIUM", "HARD"])].copy()
+        feats["pace"] = stint_line_pace(prev).loc[feats.index]
+        prev_events = pair_events(feats)
+        passing.circuit[round_number] = circuit_intercept_from(prev_events, passing.slope,
+                                                               passing.intercept)
+        why = None
     neutral = fit_neutralisations(before, race_before)
     params = SimParams(passing, neutral)
     replay_rounds = [r for r in BACKTEST_ROUNDS if r < round_number]
@@ -140,6 +149,7 @@ def leakage_free_params(fitted: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
     dry_before = race_before[~race_before["EventName"].isin(list(MIXED_CONDITIONS_2022))]
     info = {"dry_rounds_before": sorted(int(r) for r in dry_before["RoundNumber"].unique()),
             "replay_rounds": replay_rounds, "previous_running": year,
+            "previous_running_note": why,
             "previous_events": len(prev_events),
             "previous_passes": int(prev_events["passed"].sum()) if len(prev_events) else 0,
             "circuit_intercept": round(passing.circuit[round_number], 3),
