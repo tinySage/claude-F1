@@ -1,0 +1,31 @@
+{
+ "dry_rounds_before": [
+  1,
+  2,
+  3,
+  5
+ ],
+ "replay_rounds": [
+  1,
+  2,
+  3,
+  5
+ ],
+ "previous_running": 2021,
+ "previous_events": 204,
+ "previous_passes": 33,
+ "circuit_intercept": -3.211,
+ "pooled_intercept": -2.447,
+ "slope": 2.332,
+ "pass_events_before": 871,
+ "shift": 1.346,
+ "sc_close_ratio": 0.5750000000000004,
+ "p_sc_per_lap": 0.0266,
+ "p_vsc_per_lap": 0.0106,
+ "fit_diagnostics": {
+  "max_r_hat": 1.0061217921070933,
+  "min_ess_bulk": 1384.7989519954572,
+  "min_ess_tail": 1688.6235249470792,
+  "divergences": 0.0
+ }
+}
