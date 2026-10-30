@@ -19,8 +19,8 @@ Case studies (2022):
 **Done when:** `uv run pytest` passes, including the FastF1 smoke test, and the setup is pushed.
 
 ## Phase 1: Data
-- [ ] Pull all 2022 race laps with FastF1
-- [ ] Save to parquet in `data/`
+- [x] Pull all 2022 race laps with FastF1
+- [x] Save to parquet in `data/processed/`
 
 **Done when:** every 2022 race's laps are in parquet with a documented schema and a loader in `src/f1strat/data.py`.
 
