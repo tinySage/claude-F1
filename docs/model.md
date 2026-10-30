@@ -1,8 +1,7 @@
 # Tyre degradation model (Phase 3)
 
-Status: **spec approved** (with car-specific tyre terms, a separate opening-laps
-term and scaled inputs). Code: `src/f1strat/deg_model.py`. Results are in the
-"Results" section at the end once fitted.
+Status: **spec approved and fitted; intervals under-cover on held-out data**
+(see "Results"). Code: `src/f1strat/deg_model.py`.
 
 ## What the model is for
 
@@ -87,8 +86,8 @@ All pooled terms use a non-centred parametrisation (`value = mean + scale * z`,
 `z ~ Normal(0, 1)`), which samples better when a group has little data.
 
 ```
-driver[d]                  ~ ZeroSumNormal(sigma_driver)               over drivers
-driver_raw[d,r]             = driver[d] + sigma_driver_race * z[d,r]
+driver_season[d]           ~ ZeroSumNormal(sigma_driver)               over drivers
+driver_raw[d,r]             = driver_season[d] + sigma_driver_race * z[d,r]
 driver_offset[d,r]          = driver_raw[d,r] − mean over drivers in race r
 
 compound_offset[medium,r]   = 0
@@ -260,7 +259,15 @@ separately per race.
   `lap`, and drops later rounds. Phase 6 refits through the same function.
   Caveat: cleaning currently uses whole-race information (see ROADMAP Phase 6
   open issues).
-- **Sampler:** nutpie (NUTS), 4 chains, 1,000 tuning and 1,000 draws.
+- **Sampler:** nutpie (NUTS), 4 chains, 1,000 tuning and 1,500 draws, with
+  low-rank mass-matrix adaptation. The default diagonal adaptation left the
+  full fit at R-hat 1.012 on `mu_deg[HARD]`, because linear deg, cliff and
+  trend are correlated; low-rank adaptation fixes that without changing the
+  model.
+- **Saved fits:**
+  - `models/deg_full_2022.nc` (committed, 21.6 MB);
+  - the two split fits are gitignored. Rebuild everything with
+    `uv run python -m f1strat.deg_model all`.
 - **Diagnostics required:** R-hat < 1.01, zero divergences, bulk and tail
   ESS ≥ 400.
 - **Time budget:** ~10 minutes per fit. If it won't fit in that, I report it
@@ -275,3 +282,91 @@ separately per race.
   behaviour is carried by `team_compound` and `team_deg`.
 - **Race-specific team deg:** `team_deg` is season-level, so a team's wear
   relative to the field is assumed stable across tracks.
+
+## Results (2022, first fit)
+
+### Diagnostics
+
+| Fit | Laps | Time | Max R-hat | Min ESS bulk / tail | Divergences |
+|---|---|---|---|---|---|
+| full | 15,604 | 10.8 min | 1.0097 | 689 / 1,116 | 0 |
+| last_stint training | 9,842 | 7.9 min | 1.0052 | 811 / 1,308 | 0 |
+| long_tyre training | 10,065 | 9.0 min | 1.0044 | 1,366 / 1,883 | 0 |
+
+- In the full fit, the parameter with the highest R-hat (1.009) and the lowest
+  bulk/tail ESS (773 / 1,249) among reported parameters is `mu_deg[HARD]`.
+  Lower values above (689 / 1,116) are non-centred z-scores, which are not
+  saved.
+- Ferrari's Hungary terms and Hungary's deg terms all have bulk and tail ESS
+  above 4,400.
+- These fits were sampled with the three zero-sum terms (`driver_season`,
+  `team_compound_season`, `team_deg`) written in centred form. The code now
+  writes them non-centred, as the spec says. It is the same model, and the
+  next refit uses the new form.
+
+### Held-out comparison
+
+The 80% coverage column is for the Bayesian model only.
+
+| Split | Subset | Model | MAE (s) | RMSE (s) | 80% coverage |
+|---|---|---|---|---|---|
+| last_stint | common (5,542) | Baseline OLS | 1.238 | 4.685 | |
+| last_stint | common | XGBoost | 0.819 | 1.064 | |
+| last_stint | common | Bayesian | **0.578** | **0.832** | 67.9% |
+| last_stint | all (5,618) | XGBoost | 0.822 | 1.070 | |
+| last_stint | all | Bayesian | 0.585 | 0.849 | 68.1% |
+| long_tyre | all (5,539) | Baseline OLS | 0.524 | 0.742 | |
+| long_tyre | all | XGBoost | 0.510 | 0.760 | |
+| long_tyre | all | Bayesian | 0.531 | 0.741 | 70.2% |
+
+**Intervals under-cover (68–70% vs the 75–85% target).**
+- In-sample coverage is 82%, so the per-lap noise model is fine.
+- On held-out data, 37% (`last_stint`) and 50% (`long_tyre`) of the residual
+  variance is a constant shift per stint: a driver's whole stint runs faster
+  or slower than predicted.
+- The model has no stint-level term, so its intervals omit that uncertainty.
+- Removing each stint's mean residual restores coverage to 79% and 86%.
+
+On `long_tyre` the Bayesian model is slightly too slow beyond ~40 laps (mean
+error +0.3 to +0.75 s). XGBoost is flat beyond its training range and too fast
+(−0.2 to −0.6 s).
+
+### Season degradation (field-average car, 80% intervals)
+
+| Compound | Deg (s/lap) | Cliff (s/lap²) | Loss after 10 laps (s) | Loss after 20 laps (s) |
+|---|---|---|---|---|
+| Soft | 0.091 [0.067, 0.115] | 0.00026 [0.00001, 0.00052] | 0.94 [0.70, 1.17] | 1.92 [1.47, 2.39] |
+| Medium | 0.076 [0.062, 0.091] | −0.00009 [−0.00020, 0.00002] | 0.75 [0.61, 0.90] | 1.49 [1.20, 1.78] |
+| Hard | 0.051 [0.036, 0.067] | 0.00010 [0.00003, 0.00018] | 0.52 [0.37, 0.68] | 1.07 [0.76, 1.38] |
+
+Other season effects:
+- trend −0.055 s/lap [−0.060, −0.050];
+- dirty air +0.22 s [0.21, 0.23];
+- opening laps +0.37 s [0.33, 0.41];
+- soft −0.38 s and hard +0.39 s vs a new medium.
+
+### Flags (reported, not forced)
+
+- **Negative field hard deg:**
+  - Australia −0.010 s/lap [−0.016, −0.004], P(<0) = 0.98;
+  - Saudi Arabia −0.004 (P = 0.80);
+  - Miami −0.000 (P = 0.55).
+- **Hard degrading faster than soft:** São Paulo, hard 0.103 vs soft
+  0.040 s/lap, P = 0.98.
+- **`rain_effect` is negative:** −0.17 s [−0.23, −0.11], so rain laps come
+  out faster. It is identified by Hungary alone and overlaps Hungary's late
+  trend and deg (identifiability point 9).
+- **`warmup` is negative for medium and hard** (−0.07 and −0.11 s): the first
+  flying laps after a stop are faster than the linear deg line predicts,
+  rather than slower. A peak in fresh-tyre grip that linear deg doesn't
+  capture is one reading.
+
+### Ferrari at Hungary (full data; interpretation is Phase 6)
+
+All values are relative to medium, 80% intervals.
+
+| Compound | `team_compound` (s) | Field offset (s) | Ferrari total (s) | Ferrari `team_deg` (s/lap, season) |
+|---|---|---|---|---|
+| Soft | +0.193 [0.056, 0.330] | −0.750 | −0.557 [−0.740, −0.377] | +0.007 [0.002, 0.011] |
+| Medium | 0 (reference) | 0 | 0 | +0.007 [0.005, 0.010] |
+| Hard | +0.307 [0.111, 0.510] | +1.111 | +1.418 [1.207, 1.631] | +0.001 [−0.002, 0.004] |

@@ -78,7 +78,12 @@ Case studies (2022):
 ## Phase 3: Tyre degradation model
 - [x] Linear baseline (per-race OLS; results in `docs/model.md`)
 - [ ] Bayesian hierarchical model in PyMC: car pace offsets, per-compound degradation with a cliff term, fuel effect, track evolution
-- [ ] XGBoost fit, used only to show it fails to extrapolate on long stints
+- [x] XGBoost fit, used only to show it fails to extrapolate on long stints (`reports/figures/xgb_vs_bayes_long_tyre.png`)
+
+Open issue (awaiting decision): the Bayesian 80% intervals cover 68–70% on the
+held-out sets (target 75–85%). The cause is stint-level shifts the model has no
+term for (see `docs/model.md`, Results). The Bayesian item stays unticked until
+that is resolved.
 
 **Done when:** the PyMC model converges (R-hat, ESS checked), beats the linear baseline on held-out stints, and the XGBoost extrapolation failure is shown in a plot.
 
