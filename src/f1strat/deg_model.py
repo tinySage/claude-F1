@@ -57,23 +57,23 @@ def apply_cutoff(laps: pd.DataFrame, cutoff: Cutoff | None) -> pd.DataFrame:
     return laps[earlier | same_race]
 
 
-def prepare(cleaned: pd.DataFrame) -> pd.DataFrame:
-    """Model-ready clean laps from :func:`f1strat.clean.clean_laps` output.
+def lap_features(cleaned: pd.DataFrame) -> pd.DataFrame:
+    """Model features for every lap with a stint and tyre age, clean or not.
 
-    Stint features are computed on all laps first (the out lap and in lap are
-    excluded from modelling but still define where a stint starts and ends),
-    then only clean laps (``exclude_reason`` null) with a recorded
-    ``TyreLife`` are kept. Missing tyre age is not filled in (73 clean laps,
-    all Austria 2022), matching the missing-compound decision.
+    Stint features are computed on all laps, so the out lap and in lap still
+    define where a stint starts and ends. Used by :func:`prepare` (clean laps
+    for fitting) and by Phase 4 estimates that need the model's free-air pace
+    on laps that are not clean (e.g. overtaking attempts).
 
     Returns:
-        Clean laps with ``lap_s`` (lap time in seconds), ``race_lap``
-        (``LapNumber``), ``laps_since_stop`` (0 on the out lap or race start),
-        ``first_two_flying`` (``laps_since_stop`` is 1 or 2, only in stints
-        that began with a pit stop), ``opening_laps`` (race laps 2–3) and
-        ``final_stint`` (the driver's last stint of the race).
+        Laps with a recorded ``Stint`` and ``TyreLife``, plus ``lap_s`` (lap
+        time in seconds), ``race_lap`` (``LapNumber``), ``laps_since_stop`` (0
+        on the out lap or race start), ``first_two_flying``
+        (``laps_since_stop`` is 1 or 2, only in stints that began with a pit
+        stop), ``opening_laps`` (race laps 2–3) and ``final_stint`` (the
+        driver's last stint of the race).
     """
-    df = cleaned.copy()
+    df = cleaned[cleaned["Stint"].notna()].copy()
     key = ["RoundNumber", "Driver"]
     stint_start = df.groupby(key + ["Stint"])["LapNumber"].transform("min")
     df["laps_since_stop"] = (df["LapNumber"] - stint_start).astype("int64")
@@ -81,12 +81,23 @@ def prepare(cleaned: pd.DataFrame) -> pd.DataFrame:
     df["first_two_flying"] = df["laps_since_stop"].isin(POST_STOP_LAPS) & after_stop
     df["opening_laps"] = df["LapNumber"].isin(OPENING_LAPS)
     df["final_stint"] = df["Stint"] == df.groupby(key)["Stint"].transform("max")
-    df = df[df["exclude_reason"].isna() & df["TyreLife"].notna()].copy()
+    df = df[df["TyreLife"].notna()].copy()
     df["lap_s"] = df["LapTime"].dt.total_seconds()
     df["race_lap"] = df["LapNumber"].astype("int64")
     df["TyreLife"] = df["TyreLife"].astype("int64")
     df["Compound"] = df["Compound"].astype(str)
-    return df.reset_index(drop=True)
+    return df
+
+
+def prepare(cleaned: pd.DataFrame) -> pd.DataFrame:
+    """Model-ready clean laps from :func:`f1strat.clean.clean_laps` output.
+
+    :func:`lap_features`, then only clean laps (``exclude_reason`` null) are
+    kept. Missing tyre age is not filled in (73 clean laps, all Austria 2022),
+    matching the missing-compound decision.
+    """
+    df = lap_features(cleaned)
+    return df[df["exclude_reason"].isna()].reset_index(drop=True)
 
 
 def split_last_stint(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
