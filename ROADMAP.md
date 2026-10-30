@@ -34,7 +34,15 @@ Case studies (2022):
 - [x] Label laps unusable for the deg model with one `exclude_reason` (lap 1, after chequered, in/out laps, red flag, SC, VSC, restart lap, deleted, inaccurate, missing/wet compound, rainfall, >107% outlier). Yellow flags are not an exclude reason.
 - [x] Flag dirty-air laps (`gap_ahead_s < 1.0`; keep them, flag only)
 - [x] Estimate green-flag pit lane loss per circuit (`data/processed/2022/pit_loss.parquet`)
-- [ ] EDA notebook with plots
+- [x] EDA notebook with plots (`notebooks/02_eda.ipynb`, figures in `reports/figures/`)
+
+Open issues from the EDA (awaiting a decision; nothing changed yet):
+- Drying-track races (Imola, Monaco, Singapore): dry-compound laps on a damp
+  track pass every filter, so their clean laps mix track drying with tyre
+  wear, and their pit loss (45–52 s) is inflated by wet in/out laps.
+- Japan: no clean laps (all wet), so no pit loss estimate.
+- Hungary: `Rainfall` is True on most laps from 47 onward (light drizzle, all
+  on slicks), so those laps are excluded, which overlaps Leclerc's hard stint.
 
 **Done when:** `src/f1strat/clean.py` produces a tested clean dataset with a dirty-air flag, and a per-circuit pit loss table exists.
 

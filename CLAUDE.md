@@ -11,7 +11,7 @@ For each, the question is: using only what the pit wall knew at the decision lap
 was the call within the range of good options?
 
 ## Current phase
-**Phase 2: Cleaning + EDA.** Phases 0 (setup) and 1 (data) are complete. See `ROADMAP.md` for the full plan and checkpoints.
+**Phase 3: Tyre degradation model.** Phases 0–2 are complete; Phase 2 has open issues listed in `ROADMAP.md`. See `ROADMAP.md` for the full plan and checkpoints.
 
 ## Repo layout
 ```
@@ -23,6 +23,7 @@ src/f1strat/        Package code. All logic lives here.
 notebooks/          Exploration and plots only. Imports from f1strat.
 tests/              pytest tests
 data/processed/     Processed parquet per race (committed). Schema: data/processed/README.md
+reports/figures/    Saved figures from notebooks (committed)
 cache/              FastF1 HTTP cache. Gitignored.
 ROADMAP.md          Phase checklist with "done when" criteria
 ```
