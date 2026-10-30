@@ -142,11 +142,14 @@ every car lap by lap, vectorised over simulations.
 
 - **Following and passing (green laps).** Cars are processed in race order at
   the start of each lap.
-  - **Held up:** a car that would finish the lap closer than `follow_gap_s`
-    (0.68 s) to the car directly ahead on track is held at that gap, unless
-    it passes.
+  - **Held up:** a car that would finish the lap too close to the car
+    directly ahead on track is held behind it, unless it passes. The gap is
+    drawn from the 2022 gaps of cars within 1 s that did not pass
+    (`held_gaps`, 5th–95th percentile 0.26–1.45 s; Phase 5). Phase 4 used the
+    fixed median, `follow_gap_s` (0.68 s).
   - **Pass attempt:** only if it started the lap within 1 s of that car, with
-    P = `sigmoid(a[circuit] + b · pace gap)`.
+    P = `sigmoid(a[circuit] + shift + b · pace gap)`, where `shift`
+    (+0.674) is the Phase 5 calibration (`docs/validation.md`).
     - The pace gap is the free-air lap-time difference without this lap's
       noise, as in the fitted events.
     - A pass gains at most one place per lap.
@@ -198,6 +201,15 @@ slope (2.86 per s) and per-circuit intercepts shrunk toward the pooled one
 - Circuits without a fit (mixed-conditions races, e.g. Monaco) use the pooled
   intercept: **Phase 6 must decide Monaco's.**
 
+**Phase 5 calibration** (`docs/validation.md`): replaying the 2022 races with
+actual plans and SC/VSC, the simulator was 2–8% short of the real number of
+on-track passes. It also had 1.5× too much close following. Two changes:
+- held gaps are drawn from 2022 (no free parameter);
+- one intercept `shift` (+0.674), fitted on even rounds.
+
+Odd-round check: 303 simulated passes vs 318 real; close following is still
+1.2× real.
+
 ### Late SC restarts and `final_race` (ROADMAP note)
 
 `late_restart_rounds` lists races where an SC ended with racing resuming in the
@@ -243,15 +255,14 @@ plans): 82 plans × 1,000 simulations in 43 s (0.52 s per plan).
 
 ## Known limitations
 
-- **Too much passing.** The simulated races have about 89 passes per race (76
-  with no SC/VSC), against 35 in the real Spain race and 31 per race across
-  2022. Per attempt, the pass rate follows the fitted curve. But the simulation
-  creates more "faster car stuck behind slower car" encounters, with larger
-  pace gaps (median 0.56 s vs 0.09 s in the fitted events).
-  - Likely causes: strategy offsets and SC bunching.
-  - This is a **Phase 5 calibration item**: backtest race-level pass counts
-    and position changes before trusting position verdicts that hinge on
-    passing.
+- **Passing (Phase 5).** The Phase 4 figure of ~2.5× too many passes was
+  mostly a counting mismatch (`docs/validation.md`). After calibration, pass
+  counts match 2022, but cars still spend about 1.2× as many laps within 1 s
+  of the car ahead as in 2022.
+- **SC bunching is instant (Phase 5 finding).** The first SC lap closes every
+  gap to `sc_gap_s`. In 2022, gaps closed over 3–5 laps. This makes stopping
+  under the SC look worse than it was (`docs/validation.md`). A fix is
+  proposed, pending approval.
 - **Stint order does not matter on its own.** The lap model has no fuel ×
   compound interaction, so a plan's tyre cost depends only on each stint's
   compound, set and length, not on when in the race the stint is run.
@@ -263,7 +274,8 @@ plans): 82 plans × 1,000 simulations in 43 s (0.52 s per plan).
   which sets were returned.
 - **SC/VSC rates are pooled over the season** (not per circuit). Restart laps
   are simulated as normal green laps.
-- **No lapped-car or blue-flag effects; no retirements;** cars don't change
+- **No lapped-car or blue-flag effects; no random retirements** (backtests
+  force the actual ones with `simulate_field(retire=...)`); cars don't change
   plans in reaction to an SC (plans are inputs).
 - **Pit loss under SC/VSC** is a pooled ratio to the circuit's green-flag
   loss.

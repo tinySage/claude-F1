@@ -109,6 +109,20 @@ Case studies (2022):
   can draw `final_race` from the prior (`final_race_prior=True`), so the
   simulator's own SCs are the only SC luck. Only Bahrain and São Paulo show the
   restart sprint in `final_race`.
+- **Backtest setup (Phase 5):** `docs/validation.md`.
+  - **Races:** the 15 dry races outside the case studies and Austria.
+  - **Start:** the actual state after lap 1 (lap 1 is not modelled).
+  - **Plans and retirements:** actual pit laps, compounds and retirements.
+  - **Pace:** the full posterior (the simulator layers are under test; lap
+    times were tested out of sample in Phase 3). Stint effects are drawn.
+  - **Modes:** replay (actual SC/VSC forced) and random (SC/VSC drawn).
+- **Passing calibration (Phase 5):**
+  - Held gaps are drawn from the 2022 gaps of cars that did not pass (no free
+    parameter).
+  - One intercept shift (+0.674), fitted so that replayed even-round races
+    match the actual number of on-track passes; checked on odd rounds (303 vs
+    318).
+  - The Phase 4 "2.5× too many passes" was mostly a counting mismatch.
 - **Hungary confounding (Phase 3 → Phase 6):** Leclerc's stint 3 is Ferrari's
   only hard stint at Hungary. The data identify the sum of
   `team_compound[Ferrari, hard, Hungary]` and his stint effect, not the split,
@@ -176,13 +190,15 @@ Result:
 **Done when:** `src/f1strat/simulator.py` returns a distribution of finishing positions/times per strategy, with tests for each layer.
 
 ## Phase 5: Validation
-- [ ] Backtest on 2022 races outside the case studies (excluding Austria; see Decisions log)
-- [ ] Check interval calibration
-- [ ] Loop back to Phase 3/4 if needed
+- [x] Backtest on 2022 races outside the case studies (excluding Austria; see Decisions log): replay and random modes, `docs/validation.md`
+- [x] Check interval calibration (replay: fair 50%/80% position coverage 0.59/0.86, gaps 0.59/0.88; random mode gaps too wide)
+- [ ] Loop back to Phase 3/4 if needed (proposed: SC queue bunches in one lap; needs approval)
+- [ ] Phase 6 dress rehearsal: cutoff refit with leakage-free cleaning, two non-case races cut at mid-race
 
 Watch items from Phase 4:
 - Passing: simulated passes per race are ~2.5× the 2022 rate. Backtest pass
   counts and position changes per race before relying on position verdicts.
+  **Done:** mostly a counting mismatch; calibrated (see Decisions log).
 
 Watch items from Phase 3 (if these races backtest badly, look here first):
 - Negative field hard degradation: Australia, Saudi Arabia, Miami.
@@ -197,6 +213,17 @@ Open issues for Phase 6:
 - **Cleaning leaks future information into a cutoff refit.** The 107% outlier
   median and the pit loss are computed from the whole race. A refit at a
   decision lap must recompute both from laps up to that lap only.
+- **Monaco has no pass-difficulty estimate.** It currently gets the season
+  average (pooled) intercept, which is wrong for Monaco, where passing is
+  nearly impossible. Phase 6 must set it, e.g. from Monaco 2021
+  (downloadable).
+- **Hungary inventory mismatches.** Hungary's reconstructed inventory had 8
+  mismatches, including new softs that the "softs first" return assumption
+  sent back. Phase 6 must print Ferrari's reconstructed Hungary sets and
+  check them against Leclerc's actual fittings.
+- **SC timing verdicts (from Phase 5).** The simulated SC queue bunches the
+  field in one lap; 2022 gaps closed over 3–5 laps. Silverstone's verdict
+  depends on this (`docs/validation.md`).
 - [ ] Hungary
 - [ ] Silverstone
 - [ ] Monaco (wet crossover; state limitations)
