@@ -112,7 +112,8 @@ driver's median clean lap in that race.
 | RoundNumber | Int64 | 2022 round |
 | EventName | str | Event name |
 | Circuit | str | Circuit short name |
-| pit_loss_s | float | Median loss over stops (s); null if no value yet |
+| pit_loss_s | float | Median loss over stops (s); null when `not_needed` |
 | q25_s, q75_s | float | Interquartile range of the loss (s) |
 | n_stops | Int64 | Stops used |
-| source_year | Int64 | Season the stops come from: 2022, or a reference season for the mixed-conditions circuits (Imola, Monaco, Singapore, Suzuka); null while pending |
+| source_year | Int64 | Season the stops come from: 2022, or 2021 for Monaco; null when `not_needed` |
+| pit_loss_status | str | `own_race` (2022 stops), `reference` (Monaco: green-flag, dry-to-dry stops from the most recent downloadable dry Monaco GP) or `not_needed` (Imola, Singapore, Suzuka: mixed-conditions races outside the dry fit, backtests and case studies) |

@@ -6,8 +6,8 @@ adds the gap to the car ahead plus a dirty-air flag. Nothing is dropped:
 filter on ``exclude_reason.isna()`` to get model laps.
 
 :func:`pit_loss` estimates the green-flag pit lane time loss per circuit;
-:func:`pit_loss_with_references` fills the mixed-conditions circuits from a
-dry race at the same circuit in another season.
+:func:`pit_loss_with_references` fills the mixed-conditions circuits that
+need it from a dry race at the same circuit in another season.
 
 Track status codes inside a lap's ``TrackStatus`` string: 1 green, 2 yellow,
 4 SC, 5 red flag, 6 VSC deployed, 7 VSC ending.
@@ -54,6 +54,11 @@ MIXED_CONDITIONS_2022: frozenset[str] = frozenset(
         "Japanese Grand Prix",
     }
 )
+
+#: Mixed-conditions races that need a reference pit loss. Monaco is a case
+#: study (Phase 6). Imola, Singapore and Suzuka are not needed: they are out
+#: of the dry fit and the backtests, and none is a case study.
+PIT_LOSS_REFERENCE_2022: frozenset[str] = frozenset({"Monaco Grand Prix"})
 
 WET_COMPOUNDS = frozenset({"INTERMEDIATE", "WET"})
 DRY_COMPOUNDS = frozenset({"SOFT", "MEDIUM", "HARD"})
@@ -274,14 +279,14 @@ def reference_pit_loss(
     first_year: int = 2018,
     today: pd.Timestamp | None = None,
 ) -> pd.DataFrame:
-    """Pit loss for one circuit from its most recent dry race in another season.
+    """Pit loss for one circuit from its most recent downloadable dry race.
 
     Seasons are tried newest first, skipping ``exclude_year`` and races not yet
-    held. A race is dry if no lap was run on an intermediate or wet tyre; the
-    first dry one is used (a wet candidate is loaded, checked and skipped).
-    A candidate whose data cannot be downloaded is an error, not a skip, so an
-    older season is never used just because a newer one is unavailable. Uses
-    green-flag, dry-to-dry stops only.
+    held. A candidate whose timing data cannot be downloaded is skipped (F1
+    live timing needs a signed-in F1 account for most seasons). A race is dry
+    if no lap was run on an intermediate or wet tyre; the first dry one is used
+    (a wet candidate is loaded, checked and skipped). Uses green-flag,
+    dry-to-dry stops only.
 
     Args:
         event_name: Event name, stable across seasons (e.g. "Monaco Grand Prix").
@@ -294,10 +299,7 @@ def reference_pit_loss(
         ``n_stops``, ``source_year``.
 
     Raises:
-        LookupError: If no dry race is found.
-        RuntimeError: If a candidate race's timing data cannot be loaded (F1
-            live timing needs a signed-in F1 account for most seasons; FastF1
-            reads ``F1_USERNAME`` and ``F1_PASSWORD``).
+        LookupError: If no downloadable dry race is found.
     """
     today = today or pd.Timestamp.now()
     configure_cache()
@@ -313,11 +315,10 @@ def reference_pit_loss(
         rnd = int(match["RoundNumber"].iloc[0])
         try:
             laps = laps_table(load_race_session(year, rnd))
-        except fastf1.exceptions.DataNotLoadedError as err:
-            raise RuntimeError(
-                f"{year} {event_name}: timing data unavailable (most likely needs "
-                "a signed-in F1 account: set F1_USERNAME and F1_PASSWORD)"
-            ) from err
+        except fastf1.exceptions.DataNotLoadedError:
+            logger.info("%d %s: timing data unavailable; trying an earlier season",
+                        year, event_name)
+            continue
         logger.info("loaded %d %s as pit loss reference candidate", year, event_name)
         if laps["Compound"].isin(WET_COMPOUNDS).any():
             logger.info("%d %s had wet running; trying an earlier season", year, event_name)
@@ -327,7 +328,9 @@ def reference_pit_loss(
         out = _summarise_stops(stops).drop(columns="RoundNumber")
         out["source_year"] = year
         return out
-    raise LookupError(f"no dry {event_name} found between {first_year} and {today.year}")
+    raise LookupError(
+        f"no downloadable dry {event_name} found between {first_year} and {today.year}"
+    )
 
 
 def pit_loss_with_references(
@@ -335,38 +338,43 @@ def pit_loss_with_references(
     race: pd.DataFrame,
     year: int = 2022,
     mixed_conditions: Collection[str] = MIXED_CONDITIONS_2022,
+    reference_events: Collection[str] = PIT_LOSS_REFERENCE_2022,
 ) -> pd.DataFrame:
-    """Season pit loss table with mixed-conditions circuits filled by reference.
+    """Season pit loss table, one row per race, with its source recorded.
 
     Args:
         cleaned: Output of :func:`clean_laps` for ``year``.
         race: Race table for ``year``.
         year: The season studied; its own races get ``source_year == year``.
-        mixed_conditions: Event names to fill from :func:`reference_pit_loss`.
+        mixed_conditions: Event names whose own stops are not used.
+        reference_events: Mixed-conditions events filled from
+            :func:`reference_pit_loss`; the rest are left null.
 
     Returns:
-        :func:`pit_loss` columns plus ``source_year``, one row per race. A
-        mixed-conditions race whose reference cannot be loaded keeps its row
-        with null ``pit_loss_s`` and ``source_year`` and ``n_stops == 0``; the
-        error is logged.
+        :func:`pit_loss` columns plus ``source_year`` and ``pit_loss_status``:
+        ``own_race`` (stops from ``year``), ``reference`` (from
+        ``source_year``) or ``not_needed`` (null value, ``n_stops == 0``).
     """
-    own = pit_loss(cleaned, race, mixed_conditions).assign(source_year=year)
+    own = pit_loss(cleaned, race, mixed_conditions).assign(
+        source_year=year, pit_loss_status="own_race"
+    )
     circuits = race.groupby("RoundNumber")[["EventName", "Circuit"]].first()
-    refs = []
+    extra = []
     for rnd, row in circuits[circuits["EventName"].isin(list(mixed_conditions))].iterrows():
-        try:
+        if row["EventName"] in reference_events:
             ref = reference_pit_loss(row["EventName"], exclude_year=year)
-        except (RuntimeError, LookupError) as err:
-            logger.error("no pit loss reference for %s: %s", row["EventName"], err)
+            ref["pit_loss_status"] = "reference"
+        else:
             ref = pd.DataFrame(
                 {"EventName": [row["EventName"]], "pit_loss_s": [float("nan")],
                  "q25_s": [float("nan")], "q75_s": [float("nan")],
-                 "n_stops": [0], "source_year": [pd.NA]}
+                 "n_stops": [0], "source_year": [pd.NA],
+                 "pit_loss_status": ["not_needed"]}
             )
         ref.insert(0, "RoundNumber", rnd)
         ref.insert(2, "Circuit", row["Circuit"])
-        refs.append(ref)
-    out = pd.concat([own, *refs], ignore_index=True)
+        extra.append(ref)
+    out = pd.concat([own, *extra], ignore_index=True)
     out = out.sort_values("RoundNumber").reset_index(drop=True)
     out["RoundNumber"] = out["RoundNumber"].astype("Int64")
     out["n_stops"] = out["n_stops"].astype("Int64")
@@ -400,6 +408,7 @@ def main() -> None:
 __all__ = [
     "EXCLUDE_REASONS",
     "MIXED_CONDITIONS_2022",
+    "PIT_LOSS_REFERENCE_2022",
     "clean_laps",
     "pit_loss",
     "pit_loss_with_references",

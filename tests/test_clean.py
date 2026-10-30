@@ -6,6 +6,7 @@ import pytest
 from f1strat.clean import (
     EXCLUDE_REASONS,
     MIXED_CONDITIONS_2022,
+    PIT_LOSS_REFERENCE_2022,
     clean_laps,
     pit_loss,
 )
@@ -123,14 +124,32 @@ def test_pit_loss_positive(saved_pit_loss: pd.DataFrame) -> None:
 
 
 def test_pit_loss_sources(saved_pit_loss: pd.DataFrame) -> None:
-    """Mixed-conditions circuits never use their own 2022 stops; every other
-    race does. A missing value is only allowed for a mixed-conditions race."""
-    mixed = saved_pit_loss["EventName"].isin(list(MIXED_CONDITIONS_2022))
-    assert (saved_pit_loss.loc[~mixed, "source_year"] == 2022).all()
-    assert (saved_pit_loss.loc[mixed, "source_year"].fillna(0) != 2022).all()
-    assert saved_pit_loss.loc[saved_pit_loss["pit_loss_s"].isna(), "EventName"].isin(
-        list(MIXED_CONDITIONS_2022)
-    ).all()
+    """Every race has a status; only mixed-conditions races avoid their own stops."""
+    by_event = saved_pit_loss.set_index("EventName")
+    status = by_event["pit_loss_status"]
+    mixed = by_event.index.isin(list(MIXED_CONDITIONS_2022))
+    assert (status[~mixed] == "own_race").all()
+    assert (by_event.loc[~mixed, "source_year"] == 2022).all()
+    assert set(status[mixed]) <= {"reference", "not_needed"}
+
+
+def test_pit_loss_reference_for_monaco(saved_pit_loss: pd.DataFrame) -> None:
+    """Monaco (a case study) uses the 2021 race; the other three are not needed."""
+    by_event = saved_pit_loss.set_index("EventName")
+    for event in PIT_LOSS_REFERENCE_2022:
+        assert by_event.loc[event, "pit_loss_status"] == "reference"
+        assert by_event.loc[event, "source_year"] == 2021
+        assert by_event.loc[event, "pit_loss_s"] > 0
+    not_needed = MIXED_CONDITIONS_2022 - PIT_LOSS_REFERENCE_2022
+    assert set(by_event.index[by_event["pit_loss_status"] == "not_needed"]) == not_needed
+
+
+def test_pit_loss_null_only_when_not_needed(saved_pit_loss: pd.DataFrame) -> None:
+    """A null value means not needed, never missing by accident."""
+    null = saved_pit_loss["pit_loss_s"].isna()
+    assert (saved_pit_loss.loc[null, "pit_loss_status"] == "not_needed").all()
+    assert saved_pit_loss.loc[null, "source_year"].isna().all()
+    assert (saved_pit_loss.loc[~null, "pit_loss_status"] != "not_needed").all()
 
 
 def test_saved_pit_loss_matches_2022_recompute(
@@ -140,7 +159,7 @@ def test_saved_pit_loss_matches_2022_recompute(
     own = pit_loss(cleaned_2022, load_season(2022, table="race"))
     saved = saved_pit_loss[saved_pit_loss["source_year"] == 2022]
     pd.testing.assert_frame_equal(
-        saved.drop(columns="source_year").reset_index(drop=True),
+        saved.drop(columns=["source_year", "pit_loss_status"]).reset_index(drop=True),
         own.reset_index(drop=True),
         check_dtype=False,
     )
