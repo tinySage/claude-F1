@@ -387,6 +387,127 @@ bunches the field, and passes follow at the restart.
   - Hamilton's remaining miss (simulated 6.9th, finished 10th) fits the watch
     item: a 40-lap first stint on hards that loses no time to wear.
 
+## Part B: Phase 6 dress rehearsal
+
+**Goal:** run the whole case-study pipeline on two non-case races, cut at
+mid-race with no future information, and compare its picks with what
+happened. Code: `src/f1strat/rehearsal.py`. Reports:
+`reports/figures/rehearsal_<race>[_cutoff].md`.
+
+**Pipeline** (`python -m f1strat.rehearsal <race> [--cutoff-data]`):
+1. **Leakage-free data:** `deg_model.cutoff_inputs` keeps earlier rounds plus
+   the decision race up to the cutoff lap.
+   - Cleaning is recomputed from those laps only: the 107% outlier median,
+     and the pit stops whose losses the simulator resamples.
+   - No stint of the decision race is labelled final.
+   - (Phase 6 open issue, now resolved. A test changes every later lap and
+     checks that nothing moves.)
+2. **Refit:** `fit(laps, cutoff=...)` with the Phase 3 sampler settings.
+3. **Race state** at the cutoff lap, with each car's remaining sets from its
+   reconstructed practice/qualifying inventory.
+4. **Search for one front-runner** (Verstappen in both). Rivals' plans come
+   from their own single-car searches on the same fit (top 3, weighted),
+   never their actual later stops. SC/VSC are drawn. Widening 1.0, with
+   ×1.188 as a sensitivity check.
+5. **Compare** with the race:
+   - the focal pick vs the actual plan;
+   - every finisher's simulated position under the focal's actual plan,
+     re-ranked among the cars that finished (later retirements are
+     unknowable at the cutoff);
+   - rivals' option plans vs their actual stops.
+
+**Races:**
+- **Spain**, cut after lap 33 of 66.
+- **Canada**, cut after lap 35 of 70: a strategy race (Verstappen vs Sainz,
+  two VSCs and a late SC), round 9, so its refit is manageable.
+
+**Two data modes:**
+- **Part B (as first specified):** race laps only; passing and SC/VSC
+  parameters from the whole season.
+- **Part C (added after Part B):** the decision race's practice long runs in
+  the fit (`docs/model.md`); passing and SC/VSC parameters from earlier
+  rounds only, and the circuit's pass difficulty from its previous running.
+  Fits must have 0 divergences.
+
+### Results
+
+| | Spain B | Spain C | Canada B | Canada C |
+|---|---|---|---|---|
+| Fit | 5 races, 13.5 min | 5 races + 239 practice laps, 16.2 min | 7 races, 24.9 min | CANADA_C_FIT |
+| R-hat max / ESS min / divergences | 1.005 / 954 / **3** | 1.006 / 1,385 / **0** | 1.002 / 2,428 / 0 | CANADA_C_DIAG |
+| Spain hard degradation (s/lap; full fit 0.123) | **0.038** | **0.116** | | |
+| Focal pick (best mean position) | S → 39 H(new) | S → 46 M(new) | H → 40 H(new) | CANADA_C_PICK |
+| Pick: mean position / P(win) | 1.87 / 0.46 | 1.46 / 0.68 | 1.50 / 0.60 | CANADA_C_PICKP |
+| Actual plan | S → 44 M(new) | same | H → 43 H(new) | same |
+| Actual plan: mean position / P(win) | 2.95 / 0.38 | 1.50 / 0.65 | 1.62 / 0.59 | CANADA_C_ACTP |
+| Actual plan: rank among candidates; places behind pick | 7th; 1.08 | 3rd; 0.05 | 4th; 0.12 | CANADA_C_RANK |
+| Verstappen actually finished | 1 | 1 | 1 | 1 |
+| Finishers inside simulated 10–90% | 94% | 94% | 94% | CANADA_C_COV |
+| Rivals whose top option fits a hard | 16 of 17 (13 new) | 1 of 17 (used) | — | — |
+
+**Spain, Part B: the search sent everyone onto hards.** By lap 33, Spain had
+2 clean hard laps.
+- Spain's `deg[hard]` fell back to the season pool: 0.038 s/lap, against
+  0.123 s/lap once the whole race is in.
+- The search picked a new hard for Verstappen (actual medium plan 1.1 places
+  worse). For 16 of 17 rivals the top option also fitted a hard (13 new); in
+  the race almost nobody used hards.
+- This is exactly the Hungary case-study situation (Leclerc onto hards).
+
+**Spain, Part C: practice fixes it.**
+- With the FP1–FP3 long runs (only one 6-lap hard run, but 20 runs on softs
+  and mediums anchor the fuel slope), Spain's hard degradation is 0.116
+  s/lap. The hard is now slower and wears like the others.
+- Verstappen's pick becomes soft → new medium at lap 46. His actual soft →
+  new medium at lap 44 is third, 0.05 places behind, well inside the noise.
+- Only Vettel's top option fits a hard (a used one). Hamilton's top option
+  equals his actual plan; Russell's and Pérez's top options are their actual
+  compounds with one stop fewer.
+- **Race times** are about 100 s longer than in Part B. Verstappen's own
+  laps 34–66 are the same (2,874 s vs 2,873 s; actual 2,885 s). The extra
+  time is SC laps: the SC rate known after rounds 1–5 is 2.7% per lap,
+  double the season rate.
+
+**Canada:** the cutoff fit gets Verstappen's strategy right in Part B.
+- The pick is one stop onto new hards at lap 40, against his actual lap 43
+  (0.12 places, inside the noise).
+- Rivals' own searches chose one stop, like their actual plans, but mostly
+  4–13 laps earlier than they stopped.
+- Only 3 green-flag stops were known at lap 35: most cars had stopped under
+  the two VSCs. Pit losses are resampled from those 3, a thin basis.
+- CANADA_C_TEXT
+
+**Leakage-free parameters (Part C)**
+(`reports/figures/rehearsal_<race>_cutoff_params.json`):
+
+| | Spain (rounds 1–5) | Canada (rounds 1–8) | Season (`sim_params.json`) |
+|---|---|---|---|
+| Circuit pass intercept (previous running) | −3.21 (2021) | CANADA_C_INT | Spain −2.64, Canada −3.61 (own 2022 race) |
+| Pooled intercept / slope | −2.45 / 2.33 | CANADA_C_POOL | −2.75 / 2.86 |
+| Pass shift (replay of earlier rounds) | +1.35 | CANADA_C_SHIFT | +0.99 |
+| SC closing ratio | 0.575 | CANADA_C_SCR | 0.58 |
+| SC / VSC start per green lap | 2.7% / 1.1% | CANADA_C_SC | 1.35% / 1.35% |
+
+**Divergence rule.** Fits used for results must have 0 divergences.
+`rehearsal.clean_fit` reruns a fit with a new seed, then with target
+acceptance 0.99, until it has none.
+- Both Part C fits are divergence-free.
+- Spain's Part B fit had 3 divergences. Part B is superseded by Part C and
+  kept only to show the hard-tyre problem.
+
+**What the rehearsals say for Phase 6:**
+- **The pipeline runs end to end without future information.** With
+  practice data and leakage-free parameters, both rehearsals put the team's
+  actual call within about a tenth of a place of the best plan, and 94% of
+  finishers inside their simulated 10–90% range.
+- **Practice data is essential when the decision involves a compound not yet
+  raced** (Hungary's hards). Without it the model would favour the unseen
+  compound for the wrong reason.
+- **Pit losses can rest on few stops at the cutoff** (Canada: 3). Phase 6
+  should report how many stops back each pit-loss estimate.
+- **Early-season SC rates are noisy** (Spain: 2.7% per lap from 4 races).
+  Case-study verdicts should show sensitivity to the SC rate.
+
 ## Is calibration good enough for the case studies?
 
 - **Positions:** yes, slightly conservative. With widening 1.0 (the Phase 6
@@ -415,5 +536,6 @@ bunches the field, and passes follow at the restart.
   optimistic about pace. Phase 6 cutoff refits are the honest test (Part B).
 - **Not modelled:** lap 1 (taken as it happened), time penalties, blue flags,
   damage.
-- **Passing and SC/VSC parameters use the whole 2022 season,** including the
-  decision race (see Part B).
+- **Passing and SC/VSC parameters in these backtests use the whole 2022
+  season.** For cutoff fits, Part C estimates them from earlier rounds only
+  (see the Part B section).
