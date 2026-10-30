@@ -134,8 +134,8 @@ Result:
 **Done when:** every PyMC fit has R-hat < 1.01 on every parameter, zero divergences and ESS ≥ 400; the model matches or beats the baseline on both test sets; `last_stint` 80% coverage is in 75–85% (`long_tyre` coverage and error by tyre age are reported as limitations, no threshold); and the XGBoost comparison plot exists.
 
 ## Phase 4: Race simulator (built in layers)
-- [ ] Single car vs the clock
-- [ ] Strategy search over legal 1- and 2-stop plans
+- [x] Single car vs the clock (`RaceState`, one stint draw per stint, Student-t lap noise, pit losses resampled from observed stops, ×1.188 final-stint widening on by default; `docs/simulator.md`)
+- [x] Strategy search over every legal remaining plan (0–3 more stops, any lap, any dry compound, new or used sets, two-compound rule), common random numbers; Spain 2022 demo in `notebooks/04_simulator.ipynb`
 - [ ] Rivals with dirty air and overtake probability
 - [ ] Safety cars
 - [ ] Monte Carlo over the model's posterior
