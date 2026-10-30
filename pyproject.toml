@@ -7,6 +7,8 @@ requires-python = ">=3.11"
 dependencies = [
     "arviz>=0.23.4",
     "fastf1>=3.9.0",
+    "h5netcdf>=1.8.2",
+    "h5py>=3.16.0",
     "matplotlib>=3.11.2",
     "numpy>=2.4.6",
     "nutpie>=0.16.8",
@@ -34,4 +36,5 @@ dev = [
     "nbconvert>=7.17.2",
     "nbformat>=5.11.1",
     "pytest>=9.2.0",
+    "tabulate>=0.10.0",
 ]

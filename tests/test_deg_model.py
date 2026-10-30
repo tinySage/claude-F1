@@ -102,3 +102,50 @@ def test_baseline_cannot_predict_unseen_compound() -> None:
     pred = predict_baseline(model, df)
     assert pred[df["Compound"] == "HARD"].isna().all()
     assert pred[df["Compound"] == "MEDIUM"].notna().all()
+
+
+def _synthetic_season(rng: np.random.Generator) -> pd.DataFrame:
+    """Five races, six drivers in three teams, three compounds, staggered stops.
+
+    True field deg: soft 0.10, medium 0.06, hard 0.03 s/lap; trend −0.05 s/lap.
+    """
+    deg = {"SOFT": 0.10, "MEDIUM": 0.06, "HARD": 0.03}
+    offset = {"SOFT": -0.4, "MEDIUM": 0.0, "HARD": 0.4}
+    rows = []
+    drivers = [("AAA", "T1", -0.3), ("BBB", "T1", -0.1), ("CCC", "T2", 0.1),
+               ("DDD", "T2", 0.3), ("EEE", "T3", 0.0), ("FFF", "T3", 0.2)]
+    for rnd, base in [(1, 90.0), (2, 80.0), (3, 100.0), (4, 85.0), (5, 95.0)]:
+        for i, (drv, team, pace) in enumerate(drivers):
+            plan = [("SOFT", 10 + 2 * i), ("MEDIUM", 30 + 2 * i), ("HARD", 51)]
+            start = 2
+            for stint, (comp, end) in enumerate(plan, start=1):
+                for lap in range(start, end):
+                    age = lap - start + 1
+                    y = (base + pace + offset[comp] + deg[comp] * age - 0.05 * lap
+                         + rng.normal(0, 0.2))
+                    rows.append({
+                        "RoundNumber": rnd, "Driver": drv, "Team": team, "Compound": comp,
+                        "Stint": stint, "TyreLife": age, "race_lap": lap, "LapNumber": lap,
+                        "dirty_air": False, "Rainfall": False, "opening_laps": lap in (2, 3),
+                        "first_two_flying": stint > 1 and age in (1, 2), "lap_s": y,
+                    })
+                start = end + 1
+    return pd.DataFrame(rows)
+
+
+def test_bayesian_fit_recovers_deg_and_predicts() -> None:
+    """A short fit on synthetic data recovers deg ordering and trend; predict works."""
+    from f1strat.deg_model import fit, predict, season_deg_table
+
+    df = _synthetic_season(np.random.default_rng(1))
+    fitted = fit(df, draws=300, tune=300, chains=2, seed=1)
+    # The toy season has zero true team effects, so team-level scales sit at
+    # their boundary; allow a handful of divergences here (real fits must have 0).
+    assert fitted.diagnostics["divergences"] < 0.01 * 300 * 2
+    season = season_deg_table(fitted).set_index("compound")["deg_s_per_lap"]
+    assert season["SOFT"] > season["MEDIUM"] > season["HARD"]
+    trend = float(fitted.posterior["mu_trend"].mean())
+    assert trend == pytest.approx(-0.05, abs=0.02)
+    pred = predict(fitted, df, n_draws=200)
+    assert pred.mean.notna().all()
+    assert (pred.lo < pred.mean).all() and (pred.mean < pred.hi).all()

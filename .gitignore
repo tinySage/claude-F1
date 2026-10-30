@@ -14,3 +14,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+
+# Split-fit posteriors (rebuild: uv run python -m f1strat.deg_model splits)
+models/deg_last_stint_2022.nc
+models/deg_long_tyre_2022.nc
