@@ -133,6 +133,21 @@ Case studies (2022):
   - Replaces Phase 4's one-lap bunching.
 - **SC/VSC counting (Phase 5):** a VSC that turns into an SC counts as one SC
   period, not as both. 13 SCs and 13 VSCs (were 14 and 18).
+- **Practice long runs in cutoff fits (Phase 5 Part C):**
+  - The decision race's FP1–FP3 long runs (6+ consecutive clean laps on one
+    set) join the cutoff refit (`docs/model.md`). They share that race's
+    deg, compound, team and driver terms; each run has its own offset, and
+    each session one fuel slope with a prior on the race trend.
+  - Practice is before the race, so this adds no leakage.
+- **Leakage-free simulator parameters for cutoff fits (Phase 5 Part C):**
+  - Passing (slope, intercepts, held gaps, shift), SC/VSC rates and the SC
+    closing ratio come from the dry rounds before the decision race.
+  - The decision circuit's pass intercept comes from its previous running,
+    or the pooled intercept if that cannot be downloaded (Canada 2019 needs
+    an F1 account).
+- **Divergence rule for result fits (Phase 5):** fits used for verdicts must
+  have 0 divergences. `rehearsal.clean_fit` reruns with a new seed, then
+  target acceptance 0.99.
 - **Final-stint widening in Phase 6: 1.0 (Phase 5).** The replay backtests
   are better calibrated without the ×1.188 widening (fair position coverage
   0.57 / 0.85 vs 0.60 / 0.87; gaps 0.54 / 0.82 vs 0.55 / 0.84). Phase 6 uses
@@ -207,7 +222,17 @@ Result:
 - [x] Backtest on 2022 races outside the case studies (excluding Austria; see Decisions log): replay and random modes, `docs/validation.md`
 - [x] Check interval calibration (replay, widening 1.0: fair 50%/80% position coverage 0.57/0.85, gaps 0.54/0.82; Spearman 0.96 vs 0.76 naive; random-mode gaps too wide)
 - [x] Loop back to Phase 3/4 if needed: SC queue closing, VSC counting, passing calibration, widening choice
-- [ ] Phase 6 dress rehearsal: cutoff refit with leakage-free cleaning, two non-case races cut at mid-race
+- [x] Phase 6 dress rehearsal: Spain and Canada cut at mid-race, leakage-free cleaning, practice long runs and parameters (`docs/validation.md`, Part B)
+
+Result:
+- **Backtests** (15 races, replay, widening 1.0): fair 50%/80% position
+  coverage 0.57/0.85, gaps 0.54/0.82, Spearman 0.96 (naive lap-1 order
+  0.76).
+- **Passing** calibrated (odd-round check 2% low). SC queue closes
+  gradually; VSC counting fixed.
+- **Rehearsals:** with practice data and leakage-free parameters, Spain
+  ranks the actual call 0.05 places from the best plan. Canada's pick moves
+  to a 30-lap soft stint the race cannot check (see Phase 6 items).
 
 Watch items from Phase 4:
 - Passing: simulated passes per race are ~2.5× the 2022 rate. Backtest pass
@@ -232,19 +257,29 @@ Open issues for Phase 6:
   - No stint of the decision race is labelled final (on truncated data every
     current stint would be).
   - Tested by changing every later lap and checking nothing moves.
-- **Still from the whole season: passing and SC/VSC parameters.** The pass
-  intercepts, the Phase 5 pass shift, the SC closing ratio and the SC/VSC
-  rates in `sim_params.json` come from all of 2022, including each case
-  study's own race and later rounds. Phase 6 must re-estimate them from
-  races before the decision race, or state the leak and test its effect.
+- **Passing and SC/VSC parameters from the whole season. Resolved in
+  Phase 5:** `rehearsal.leakage_free_params` estimates them from earlier
+  rounds, and the circuit's pass difficulty from its previous running.
+  Phase 6 must confirm the 2021 Hungary and Britain races download.
 - **A compound not yet raced at the decision race takes its degradation from
   the season pool (Phase 5 rehearsal).**
   - Spain cut at lap 33 had 2 clean hard laps, so Spain's hard degradation
     came out at 0.039 s/lap, against 0.123 s/lap in the full fit. The search
     then sent Verstappen and most rivals onto hards, which almost nobody used.
   - Hungary is the same situation (Leclerc onto hards).
-  - Phase 6 must address it: use practice long runs, or show the verdict's
-    sensitivity to the hard degradation.
+  - Partly resolved in Phase 5 Part C: practice long runs bring Spain's
+    hard to 0.116 s/lap (full fit 0.123).
+  - **But practice runs are short.** In Canada, ~12-lap soft runs made a
+    30-lap soft stint look best, where no team ran the soft (linear
+    degradation extrapolated).
+  - For Hungary, Phase 6 must report the practice run lengths on the hard
+    against the stint the verdict needs, and show sensitivity to the hard's
+    degradation.
+- **Pit losses at the cutoff can rest on few stops** (Canada lap 35: 3, the
+  rest were under VSC). Report the count; consider a fallback (previous
+  running or a prior).
+- **SC rates from early rounds are noisy** (Spain: 2.7% per lap from 4
+  races). Show verdict sensitivity to the SC rate.
 - **Cutoff by lap number:** a lapped car's lap `L` ends a little after the
   leader's lap `L`, so it is a few seconds "in the future" at the cutoff.
   Negligible, but state it.

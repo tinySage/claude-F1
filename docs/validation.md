@@ -1,7 +1,13 @@
 # Validation (Phase 5)
 
-Status: **done.** Part A: passing diagnosis and calibration, SC queue and VSC
-fixes, backtests. Part B: Phase 6 dress rehearsal. Code:
+Status: **done.**
+- Part A: passing diagnosis and calibration, SC queue and VSC fixes,
+  backtests.
+- Part B: Phase 6 dress rehearsal.
+- Part C: the rehearsal with practice long runs and leakage-free
+  parameters.
+
+Code:
 `src/f1strat/backtest.py`, `src/f1strat/rehearsal.py`. Rebuild everything with:
 
 ```
@@ -9,8 +15,10 @@ uv run python -m f1strat.race_events          # SC/VSC rates, pass model (keeps 
 uv run python -m f1strat.backtest calibrate   # SC closing ratio, pass shift -> sim_params.json
 uv run python -m f1strat.backtest run         # backtests, tables and plots
 uv run python -m f1strat.backtest widening    # replay with widening 1.0 (sensitivity)
-uv run python -m f1strat.rehearsal spain      # Part B rehearsals (each refits the model)
-uv run python -m f1strat.rehearsal france
+uv run python -m f1strat.rehearsal spain                 # Part B (refits the model)
+uv run python -m f1strat.rehearsal canada
+uv run python -m f1strat.rehearsal spain --cutoff-data   # Part C (practice, leakage-free)
+uv run python -m f1strat.rehearsal canada --cutoff-data
 ```
 
 Tables: `reports/figures/backtest_*.csv`. Plots: `reports/figures/backtest_*.png`.
@@ -433,16 +441,16 @@ happened. Code: `src/f1strat/rehearsal.py`. Reports:
 
 | | Spain B | Spain C | Canada B | Canada C |
 |---|---|---|---|---|
-| Fit | 5 races, 13.5 min | 5 races + 239 practice laps, 16.2 min | 7 races, 24.9 min | CANADA_C_FIT |
-| R-hat max / ESS min / divergences | 1.005 / 954 / **3** | 1.006 / 1,385 / **0** | 1.002 / 2,428 / 0 | CANADA_C_DIAG |
+| Fit | 5 races, 13.5 min | 5 races + 239 practice laps, 16.2 min | 7 races, 24.9 min | 7 races + 311 practice laps, 74.4 min |
+| R-hat max / ESS min / divergences | 1.005 / 954 / **3** | 1.006 / 1,385 / **0** | 1.002 / 2,428 / 0 | 1.003 / 3,316 / **0** |
 | Spain hard degradation (s/lap; full fit 0.123) | **0.038** | **0.116** | | |
-| Focal pick (best mean position) | S → 39 H(new) | S → 46 M(new) | H → 40 H(new) | CANADA_C_PICK |
-| Pick: mean position / P(win) | 1.87 / 0.46 | 1.46 / 0.68 | 1.50 / 0.60 | CANADA_C_PICKP |
+| Focal pick (best mean position) | S → 39 H(new) | S → 46 M(new) | H → 40 H(new) | H → 40 S(new) |
+| Pick: mean position / P(win) | 1.87 / 0.46 | 1.46 / 0.68 | 1.50 / 0.60 | 1.28 / 0.78 |
 | Actual plan | S → 44 M(new) | same | H → 43 H(new) | same |
-| Actual plan: mean position / P(win) | 2.95 / 0.38 | 1.50 / 0.65 | 1.62 / 0.59 | CANADA_C_ACTP |
-| Actual plan: rank among candidates; places behind pick | 7th; 1.08 | 3rd; 0.05 | 4th; 0.12 | CANADA_C_RANK |
+| Actual plan: mean position / P(win) | 2.95 / 0.38 | 1.50 / 0.65 | 1.62 / 0.59 | 1.85 / 0.44 |
+| Actual plan: rank among candidates; places behind pick | 7th; 1.08 | 3rd; 0.05 | 4th; 0.12 | 7th; **0.57** |
 | Verstappen actually finished | 1 | 1 | 1 | 1 |
-| Finishers inside simulated 10–90% | 94% | 94% | 94% | CANADA_C_COV |
+| Finishers inside simulated 10–90% | 94% | 94% | 94% | 82% |
 | Rivals whose top option fits a hard | 16 of 17 (13 new) | 1 of 17 (used) | — | — |
 
 **Spain, Part B: the search sent everyone onto hards.** By lap 33, Spain had
@@ -475,18 +483,39 @@ happened. Code: `src/f1strat/rehearsal.py`. Reports:
   4–13 laps earlier than they stopped.
 - Only 3 green-flag stops were known at lap 35: most cars had stopped under
   the two VSCs. Pit losses are resampled from those 3, a thin basis.
-- CANADA_C_TEXT
+
+**Canada, Part C: practice moves the pick onto softs, and the race cannot
+check it.**
+- The pick becomes new softs at lap 40 for the last 30 laps, 0.57 places
+  better than Verstappen's actual new hards at lap 43 (P(win) 0.78 vs 0.44).
+- No car ran a soft in the Canada race, so even the full fit's soft
+  degradation there (0.104 s/lap) is just the season pool.
+- Practice had 4 soft runs. The 3 FP2 runs rise about 0.04 s/lap within the
+  run, raw; with the fuel slope that gives the fit's 0.078 s/lap (Part B,
+  pooled: 0.111).
+- The recommended 30-lap soft stint extrapolates runs of about 12 laps
+  linearly. Every team avoided the soft, which suggests wear (graining, a
+  cliff) that a linear model on short runs cannot see: the Phase 3
+  limitation "linear degradation on long stints".
+- **Canada's previous running is unavailable.** 2020 and 2021 were
+  cancelled, and 2019 timing data cannot be downloaded without an F1
+  account, so Canada uses the pooled pass intercept from rounds 1–8
+  (−2.49). Its own 2022 race gave −3.61. Passing is therefore easier in
+  Part C, which helps any plan that loses track position and has to pass
+  back.
+- Field check: 82% of finishers inside their simulated 10–90% range;
+  Magnussen, Albon and Latifi miss by one place.
 
 **Leakage-free parameters (Part C)**
 (`reports/figures/rehearsal_<race>_cutoff_params.json`):
 
 | | Spain (rounds 1–5) | Canada (rounds 1–8) | Season (`sim_params.json`) |
 |---|---|---|---|
-| Circuit pass intercept (previous running) | −3.21 (2021) | CANADA_C_INT | Spain −2.64, Canada −3.61 (own 2022 race) |
-| Pooled intercept / slope | −2.45 / 2.33 | CANADA_C_POOL | −2.75 / 2.86 |
-| Pass shift (replay of earlier rounds) | +1.35 | CANADA_C_SHIFT | +0.99 |
-| SC closing ratio | 0.575 | CANADA_C_SCR | 0.58 |
-| SC / VSC start per green lap | 2.7% / 1.1% | CANADA_C_SC | 1.35% / 1.35% |
+| Circuit pass intercept (previous running) | −3.21 (2021) | −2.49 (pooled: 2019 not downloadable) | Spain −2.64, Canada −3.61 (own 2022 race) |
+| Pooled intercept / slope | −2.45 / 2.33 | −2.49 / 2.28 | −2.75 / 2.86 |
+| Pass shift (replay of earlier rounds) | +1.35 | +1.28 | +0.99 |
+| SC closing ratio | 0.575 | 0.575 | 0.58 |
+| SC / VSC start per green lap | 2.7% / 1.1% | 1.7% / 1.3% | 1.35% / 1.35% |
 
 **Divergence rule.** Fits used for results must have 0 divergences.
 `rehearsal.clean_fit` reruns a fit with a new seed, then with target
@@ -495,18 +524,35 @@ acceptance 0.99, until it has none.
 - Spain's Part B fit had 3 divergences. Part B is superseded by Part C and
   kept only to show the hard-tyre problem.
 
+**Does the Spain search still push everyone onto hards?** No. With practice
+long runs, Spain's hard degradation is 0.116 s/lap (full fit 0.123). The
+search picks Verstappen's actual compound (medium) within two laps of his
+actual stop, and only one rival's top option fits a hard.
+
 **What the rehearsals say for Phase 6:**
-- **The pipeline runs end to end without future information.** With
-  practice data and leakage-free parameters, both rehearsals put the team's
-  actual call within about a tenth of a place of the best plan, and 94% of
-  finishers inside their simulated 10–90% range.
-- **Practice data is essential when the decision involves a compound not yet
-  raced** (Hungary's hards). Without it the model would favour the unseen
-  compound for the wrong reason.
+- **The pipeline runs end to end without future information.** With the
+  Part C data, Spain puts the team's actual call 0.05 places from the best
+  plan and 94% of finishers inside their simulated range.
+- **Practice data is necessary but not sufficient for a compound not yet
+  raced.**
+  - It fixed Spain's hard, a compound the race later showed.
+  - In Canada it made a 30-lap soft stint look best, on the strength of
+    ~12-lap runs, where no team ran the soft.
+  - For Hungary (Leclerc onto hards), Phase 6 must report how long the
+    practice runs on the decision compound were, against the stint length
+    the verdict relies on.
+  - It must also show the verdict's sensitivity to that compound's
+    degradation (e.g. the pooled value vs practice-informed).
 - **Pit losses can rest on few stops at the cutoff** (Canada: 3). Phase 6
   should report how many stops back each pit-loss estimate.
-- **Early-season SC rates are noisy** (Spain: 2.7% per lap from 4 races).
-  Case-study verdicts should show sensitivity to the SC rate.
+- **Leakage-free parameters move results:**
+  - Early-season SC rates are noisy (Spain: 2.7% per lap from 4 races).
+  - A missing previous running changes pass difficulty (Canada: pooled −2.49
+    vs its own −3.61).
+  - The case studies' previous runnings are 2021 races. 2021 timing data
+    downloads (Spain 2021 here, Monaco 2021 in Phase 2), but Phase 6 must
+    confirm Hungary and Britain 2021 load.
+  - Verdicts should show sensitivity to the SC rate.
 
 ## Is calibration good enough for the case studies?
 
