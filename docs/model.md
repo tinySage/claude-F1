@@ -1,8 +1,8 @@
 # Tyre degradation model (Phase 3)
 
-Status: **final model** (adds the race-wide final-stint shift `final_race[r]`
-to the third fit). Results are in "Results: final fit"; earlier fits are kept
-below it as history. Code: `src/f1strat/deg_model.py`.
+Status: **final model, Phase 3 complete.** Results are in "Results: final
+fit"; earlier fits are kept below it as history. Code:
+`src/f1strat/deg_model.py`. Notebook: `notebooks/03_deg_model.ipynb`.
 
 ## What the model is for
 
@@ -87,7 +87,9 @@ correlated values. Every effect is reported back in seconds and s/lap.
 Pooled terms use a non-centred parametrisation (`value = mean + scale * z`,
 `z ~ Normal(0, 1)`), which samples better when a group has little data. The
 exception is `stint_raw`, which uses the centred form: each stint has ~15 clean
-laps, so the data dominate its prior. A centred `deg` was also tried; it mixed
+laps, so the data dominate its prior. `final_race` is non-centred: in centred
+form, the races with no final-stint data (odd rounds in the `last_stint`
+split) made a funnel with `sigma_final_race` (8 divergences, ESS 382). A centred `deg` was also tried; it mixed
 worse overall than the non-centred form, so `deg` stays non-centred.
 
 ```
@@ -97,7 +99,7 @@ driver_offset[d,r]          = driver_raw[d,r] − mean over drivers in race r
 
 stint_raw[d,r,s]            ~ Normal(0, sigma_stint)                    non-final stints (centred form)
 stint[d,r,s]                = stint_raw[d,r,s] − mean over the driver's non-final stints in race r
-final_race[r]               ~ Normal(0, sigma_final_race)                centred form
+final_race[r]               = sigma_final_race * z[r]                     non-centred
 stint[d,r,final]            ~ Normal(mu_final + final_race[r], sigma_stint_final)   final stint, not centred
 
 compound_offset[medium,r]   = 0
@@ -321,8 +323,10 @@ separately per race.
   `lap`, and drops later rounds. Phase 6 refits through the same function.
   Caveat: cleaning currently uses whole-race information (see ROADMAP Phase 6
   open issues).
-- **Sampler:** nutpie (NUTS), 4 chains, 1,500 tuning and 2,500 draws, with
-  low-rank mass-matrix adaptation. The stint term adds 942 parameters and
+- **Sampler:** nutpie (NUTS), 4 chains, 1,500 tuning and 5,000 draws, with
+  low-rank mass-matrix adaptation and target acceptance 0.95 (default 0.8).
+  The higher target takes smaller steps, which avoids isolated divergences.
+  Same model; sampler settings only. The stint term adds 942 parameters and
   makes the posterior slower to mix. At 1,500 draws, hyperparameters such as
   `mu_deg`, `sigma_driver` and `mu_trend` sat at R-hat 1.01–1.024. Low-rank
   adaptation handles correlated parameters (deg, trend and compound offsets)
@@ -345,7 +349,106 @@ separately per race.
 - **Race-specific team deg:** `team_deg` is season-level, so a team's wear
   relative to the field is assumed stable across tracks.
 
-## Results: fourth fit (with `final_race`; diagnostics fail on the splits)
+## Results: final fit
+
+Non-centred `final_race`, 5,000 draws, 1,500 tuning, low-rank adaptation,
+target acceptance 0.95. Rebuild with `uv run python -m f1strat.deg_model all`.
+
+### Diagnostics: all pass
+
+Every fit has R-hat < 1.01 on every parameter, ESS ≥ 400 and 0 divergences.
+
+| Fit | Laps | Time | Max R-hat (parameter) | Min ESS bulk / tail | Divergences |
+|---|---|---|---|---|---|
+| full | 15,604 | 38.7 min | 1.0083 (`mu_deg[HARD]`) | 606 / 719 | 0 |
+| last_stint | 13,038 | 33.2 min | 1.0089 | 732 / 1,171 | 0 |
+| long_tyre | 10,065 | 26.3 min | 1.0056 | 812 / 1,211 | 0 |
+
+### Held-out comparison
+
+| Split | Model | MAE (s) | RMSE (s) | 80% coverage |
+|---|---|---|---|---|
+| last_stint (odd rounds; common 2,477 laps) | Baseline OLS | 0.874 | 1.129 | |
+| | XGBoost | 1.010 | 1.270 | |
+| | **Bayesian** | **0.598** | **0.842** | **73.8%** (all 2,508 laps: 74.0%) |
+| long_tyre (5,539 laps) | Baseline OLS | 0.524 | 0.742 | |
+| | XGBoost | 0.510 | 0.760 | |
+| | **Bayesian** | **0.505** | **0.725** | 66.8% (stress test; no threshold) |
+
+### Limitation: `last_stint` intervals are slightly narrow
+
+The 80% intervals cover 74.0% of held-out final-stint laps, against the 75–85%
+target.
+- **Widening factor ×1.188:** scaling interval half-widths around the mean by
+  1.188 brings coverage to 80% (`interval_widening_factor`). Phase 4 can apply
+  it to forecasts of a final stint.
+- **Likely cause:** in this split `sigma_final_race` is estimated from the 9
+  even rounds only (0.12 s), against 0.24 s [0.16, 0.32] in the full fit. So
+  the split's intervals carry less race-wide uncertainty than the full model
+  does.
+- Accepted under the Phase 3 rule: diagnostics pass, coverage under 75% is
+  recorded with its widening factor.
+
+### Limitation: `long_tyre` (stress test)
+
+| Tyre age | Laps | MAE baseline | MAE XGBoost | MAE Bayesian | Mean error baseline | Mean error XGBoost | Mean error Bayesian |
+|---|---|---|---|---|---|---|---|
+| 16–20 | 2,433 | 0.468 | 0.429 | 0.443 | −0.024 | −0.179 | −0.032 |
+| 21–30 | 2,291 | 0.523 | 0.507 | 0.524 | −0.036 | −0.226 | +0.026 |
+| 31–40 | 708 | 0.662 | 0.712 | **0.615** | −0.332 | −0.427 | −0.223 |
+| 40+ | 107 | 0.882 | 1.067 | **0.772** | −0.652 | −0.555 | −0.246 |
+
+Mean error is predicted − actual.
+- Past 30 laps the Bayesian model has the lowest error and the smallest bias.
+  XGBoost's error grows fastest beyond its training range.
+- All three predict very old tyres too fast, which is the linear-degradation
+  limitation.
+- Coverage 66.8%. There is no threshold: real uses always include long stints
+  from earlier races.
+
+### Season effects (field-average car, 80% intervals)
+
+| Compound | Deg (s/lap) | Loss after 10 laps (s) | Loss after 20 laps (s) |
+|---|---|---|---|
+| Soft | 0.101 [0.077, 0.125] | 1.01 | 2.02 |
+| Medium | 0.075 [0.061, 0.090] | 0.75 | 1.50 |
+| Hard | 0.055 [0.040, 0.071] | 0.55 | 1.11 |
+
+| Effect | Value |
+|---|---|
+| Trend (fuel + track) | −0.055 s/lap [−0.060, −0.050] |
+| Dirty air | +0.21 s [0.20, 0.23] |
+| Opening laps | +0.35 s [0.32, 0.38] |
+| New soft / hard vs new medium | −0.44 s / +0.41 s |
+| `post_stop` (soft / medium / hard) | +0.06 / −0.06 / −0.10 s |
+| `rain_effect` | −0.15 s [−0.20, −0.09] (Hungary only) |
+| `sigma_stint` / `sigma_stint_final` | 0.27 s / 0.31 s |
+| `mu_final` | −0.03 s [−0.12, 0.06] |
+| `sigma_final_race` | 0.24 s [0.16, 0.32] |
+
+### Hungary: Ferrari hard + Leclerc stint 3 (full fit; Phase 6 reports the sum)
+
+| Term | Mean (s) | 80% interval |
+|---|---|---|
+| **Sum** | **+0.219** | [+0.033, +0.407] |
+| `team_compound[Ferrari, hard, Hungary]` | +0.132 | [−0.012, +0.280] |
+| Leclerc stint 3 effect | +0.087 | [−0.093, +0.267] |
+
+- The two parts have a posterior correlation of −0.36.
+- Ferrari's total hard-vs-medium at Hungary (field + team) is +1.217 s [0.989,
+  1.447].
+- Ferrari's season hard deg vs the field is +0.001 s/lap [−0.001, 0.004].
+
+### Flags (reported, not forced)
+
+- **Field hard deg near or below zero:** Saudi Arabia (−0.001 s/lap, P(<0) =
+  0.56), Australia (−0.003, P = 0.71).
+- **Miami:** soft deg ≈ 0 [−0.029, 0.029], so hard > soft with P = 0.55. A
+  weak flag.
+- **São Paulo:** hard 0.110 vs soft 0.056 s/lap, P(hard > soft) = 0.97.
+- All four are Phase 5 watch items.
+
+## Results: fourth fit (centred `final_race`; superseded)
 
 5,000 draws, 1,500 tuning, low-rank adaptation.
 
@@ -371,7 +474,7 @@ separately per race.
 - `last_stint` (provisional, from the failing fit): MAE 0.601 s, 80% coverage
   73.9%. The intervals would need widening by ×1.17 to reach 80%.
 
-## Results: third fit (final-stint terms, no cliff; provisional)
+## Results: third fit (final-stint terms, no cliff; superseded)
 
 Not final. All three fits miss R-hat < 1.01, and `last_stint` coverage is
 below target (see below).

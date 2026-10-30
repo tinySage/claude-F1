@@ -77,6 +77,19 @@ Case studies (2022):
     so it is a stress test, not the use case.
   - Its error-by-age table and coverage are reported as limitations.
   - `last_stint` keeps the 75–85% coverage target.
+- **Race-wide final-stint shift (Phase 3):** `final_race[r]`, pooled across
+  races (`sigma_final_race`), drawn from its spread for a race with no
+  final-stint data.
+  - Non-centred, because the centred form made a funnel at races with no
+    final-stint data.
+  - Sampler for all fits: 5,000 draws, low-rank adaptation, target acceptance
+    0.95.
+- **`last_stint` coverage accepted below target (Phase 3):** 74.0% against
+  75–85%, accepted under the agreed rule because all fits pass diagnostics.
+  - Widening factor ×1.188 on the 80% interval half-widths reaches 80%.
+    Phase 4 can apply it.
+  - The likely cause is `sigma_final_race` being estimated from the 9 even
+    rounds only in that split (0.12 s vs 0.24 s in the full fit).
 - **Hungary confounding (Phase 3 → Phase 6):** Leclerc's stint 3 is Ferrari's
   only hard stint at Hungary. The data identify the sum of
   `team_compound[Ferrari, hard, Hungary]` and his stint effect, not the split,
@@ -108,17 +121,15 @@ Case studies (2022):
 
 ## Phase 3: Tyre degradation model
 - [x] Linear baseline (per-race OLS; results in `docs/model.md`)
-- [ ] Bayesian hierarchical model in PyMC: car pace offsets, per-compound linear degradation, car-specific tyre terms, stint and final-stint terms, fuel + track trend
+- [x] Bayesian hierarchical model in PyMC: car pace offsets, per-compound linear degradation, car-specific tyre terms, stint and final-stint terms (incl. race-wide `final_race`), fuel + track trend (`docs/model.md`, "Results: final fit")
 - [x] XGBoost fit, used only to show it fails to extrapolate on long stints (`reports/figures/xgb_vs_bayes_long_tyre.png`)
 
-Open issues (awaiting decision; Bayesian item stays unticked):
-- **Diagnostics fail on the split fits** with `final_race` at 5,000 draws:
-  `last_stint` has 8 divergences and ESS 382/397 (`sigma_final_race`, a funnel
-  from centred `final_race` at the 9 races with no final-stint data);
-  `long_tyre` has 1 divergence. The full fit passes (R-hat 1.0092, ESS 648, 0
-  divergences). See `docs/model.md`, "Results: fourth fit".
-- `last_stint` coverage (provisional) 73.9%; widening factor ×1.17 to reach
-  80%.
+Result:
+- All three fits pass diagnostics.
+- The Bayesian model beats the baseline on `last_stint` (MAE 0.598 vs 0.874 s)
+  and matches it on `long_tyre` (0.505 vs 0.524 s).
+- `last_stint` 80% coverage is 74.0%, accepted as a limitation with a widening
+  factor of ×1.188 (see Decisions log).
 
 **Done when:** every PyMC fit has R-hat < 1.01 on every parameter, zero divergences and ESS ≥ 400; the model matches or beats the baseline on both test sets; `last_stint` 80% coverage is in 75–85% (`long_tyre` coverage and error by tyre age are reported as limitations, no threshold); and the XGBoost comparison plot exists.
 
@@ -128,6 +139,13 @@ Open issues (awaiting decision; Bayesian item stays unticked):
 - [ ] Rivals with dirty air and overtake probability
 - [ ] Safety cars
 - [ ] Monte Carlo over the model's posterior
+
+Notes from Phase 3:
+- **Check before reusing `final_race` in the SC layer.** The largest race-wide
+  final-stint shifts (São Paulo −0.41 s, Bahrain −0.34 s) look like late
+  safety-car restarts followed by sprint laps on fresh tyres. If so,
+  `final_race` partly encodes SC timing, and the SC layer must not count it
+  twice.
 
 **Done when:** `src/f1strat/simulator.py` returns a distribution of finishing positions/times per strategy, with tests for each layer.
 
