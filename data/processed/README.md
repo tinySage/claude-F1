@@ -82,6 +82,21 @@ How periods are built:
 - Periods that end before the leader starts lap 1 (e.g. Monaco's pre-start red
   flag) are dropped; the rest are numbered from 1 per kind.
 - Cross-check: counts are compared with race control "SAFETY CAR DEPLOYED",
-  "VIRTUAL SAFETY CAR DEPLOYED" and "RED FLAG" messages in the race window
-  (aligned to the session clock via the chequered flag). Mismatches are logged
-  as warnings, not corrected.
+  "VIRTUAL SAFETY CAR DEPLOYED" and "RED FLAG" messages between the leader
+  starting lap 1 and the chequered flag (aligned to the session clock via the
+  chequered flag). Mismatches are logged as warnings, not corrected.
+
+## Known quirks in the source data (left as-is for Phase 2)
+
+- **Missing compound**: 334 laps have `Compound == "None"` (the string, as
+  FastF1 returns it): Austria stint 3 for 12 drivers, and Monaco stint 5 for
+  STR.
+- **Japan phantom lap**: VER has a lap 29 with no position after the chequered
+  flag (the race was 28 laps), so the Japan race table has a lap 29 row.
+- **Monaco rolling start**: the restart behind the safety car shows as a short
+  SC period on lap 2 in track status, with no "SAFETY CAR DEPLOYED" message,
+  so the cross-check logs 2 SC periods vs 1 message.
+- **São Paulo race control feed** stops at lap 64 with no chequered flag
+  message, so the cross-check is skipped for that race.
+- **Time-limited races**: Monaco (64 of 77 laps), Singapore (59 of 61) and
+  Japan (28 of 53) ran fewer laps than `TotalLaps`.

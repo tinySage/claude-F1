@@ -239,7 +239,8 @@ def _check_against_race_control(
     record of deployments, so a mismatch is worth a look. Messages carry
     wall-clock times, so they are put on the session clock by aligning the
     "CHEQUERED FLAG" message with the session status "Finished", then only
-    messages from the leader's lap 1 start onwards are counted.
+    messages from the leader's lap 1 start up to the chequered flag are
+    counted.
     """
     rcm = session.race_control_messages
     msg = rcm["Message"].fillna("").str.upper()
@@ -254,7 +255,9 @@ def _check_against_race_control(
         )
         return
     offset = chequered.iloc[0] - finished.iloc[0]
-    in_race = (rcm["Time"] - offset) >= race["LapStartTime"].iloc[0]
+    in_race = ((rcm["Time"] - offset) >= race["LapStartTime"].iloc[0]) & (
+        rcm["Time"] <= chequered.iloc[0]
+    )
     msg = msg[in_race]
     from_rcm = {
         "SafetyCar": int(msg.str.fullmatch(r"SAFETY CAR DEPLOYED").sum()),
