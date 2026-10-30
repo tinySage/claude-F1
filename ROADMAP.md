@@ -12,7 +12,7 @@ Case studies (2022):
 
 ## Phase 0: Setup
 - [x] ROADMAP.md and CLAUDE.md written
-- [ ] Python 3.11+ environment with uv; core dependencies installed
+- [x] Python 3.11+ environment with uv; core dependencies installed
 - [ ] Repo layout (`src/f1strat/`, `notebooks/`, `tests/`, `data/`, `cache/`) and `.gitignore`
 - [ ] Smoke test: FastF1 loads 2022 Hungarian GP race; Leclerc's laps have `Compound` and `TyreLife`
 
