@@ -35,9 +35,18 @@ Case studies (2022):
   `mixed_conditions`.
 - **Pit loss stops (Phase 2):** stops whose in lap is lap 1 are not used.
 - **Yellow flags (Phase 2):** not an exclude reason.
-- **Missing tyre age (Phase 3, awaiting approval):** 73 clean Austria laps have
-  a compound but no `TyreLife`. They are left out of model data, not filled in,
-  matching the missing-compound decision.
+- **Missing tyre age (Phase 3):** 73 clean Austria laps have a compound but no
+  `TyreLife`. They are dropped from model data, not filled in, matching the
+  missing-compound decision.
+- **Degradation model spec (Phase 3):** `docs/model.md`, approved with three
+  changes:
+  - car-specific tyre terms (`team_compound[t,c,r]` for soft/hard and
+    `team_deg[t,c]`), so Ferrari's hards can behave differently from the
+    field's;
+  - warm-up only after pit stops, with a separate `opening` term for race laps
+    2–3;
+  - tyre age scaled per 10 laps and race lap centred inside the model, with
+    every effect reported in s and s/lap.
 - **Held-out test sets (Phase 3):** `last_stint` (each driver's final stint per
   race, for drivers with an earlier clean stint) and `long_tyre` (train on
   `TyreLife <= 15`, test on older tyres). Fixed and reused for every model.
@@ -91,6 +100,11 @@ Case studies (2022):
 
 ## Phase 6: Case studies
 Refit using only data up to each decision lap (no future leakage).
+
+Open issues for Phase 6:
+- **Cleaning leaks future information into a cutoff refit.** The 107% outlier
+  median and the pit loss are computed from the whole race. A refit at a
+  decision lap must recompute both from laps up to that lap only.
 - [ ] Hungary
 - [ ] Silverstone
 - [ ] Monaco (wet crossover; state limitations)
