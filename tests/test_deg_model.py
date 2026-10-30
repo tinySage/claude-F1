@@ -39,12 +39,16 @@ def test_post_stop_counts_from_the_stop_not_tyre_age(model_laps: pd.DataFrame) -
 
 
 def test_last_stint_split(model_laps: pd.DataFrame) -> None:
-    """Test = final stints only, for drivers who also have training laps in that race."""
+    """Test = final stints of odd rounds; even rounds keep final stints in training."""
     train, test = split_last_stint(model_laps)
-    assert test["final_stint"].all() and not train["final_stint"].any()
+    assert test["final_stint"].all()
+    assert (test["RoundNumber"].astype(int) % 2 == 1).all()
+    train_finals = train[train["final_stint"]]
+    assert len(train_finals) > 0
+    assert (train_finals["RoundNumber"].astype(int) % 2 == 0).all()
     tested = set(zip(test["RoundNumber"], test["Driver"]))
-    trained = set(zip(train["RoundNumber"], train["Driver"]))
-    assert tested <= trained
+    earlier = train[~train["final_stint"]]
+    assert tested <= set(zip(earlier["RoundNumber"], earlier["Driver"]))
 
 
 def test_long_tyre_split(model_laps: pd.DataFrame) -> None:
@@ -108,6 +112,7 @@ def _synthetic_season(rng: np.random.Generator) -> pd.DataFrame:
     """Five races, six drivers in three teams, three compounds, staggered stops.
 
     True field deg: soft 0.10, medium 0.06, hard 0.03 s/lap; trend −0.05 s/lap.
+    The final (hard) stint is 0.3 s slower on average.
     Includes small team-specific hard offsets and per-stint shifts, as in real
     data (zero-variance groups make the sampler's job artificially hard).
     """
@@ -122,7 +127,7 @@ def _synthetic_season(rng: np.random.Generator) -> pd.DataFrame:
             plan = [("SOFT", 10 + 2 * i), ("MEDIUM", 30 + 2 * i), ("HARD", 51)]
             start = 2
             for stint, (comp, end) in enumerate(plan, start=1):
-                shift = rng.normal(0, 0.15) + (team_hard[team] if comp == "HARD" else 0.0)
+                shift = rng.normal(0, 0.15) + (team_hard[team] + 0.3 if comp == "HARD" else 0.0)
                 for lap in range(start, end):
                     age = lap - start + 1
                     y = (base + pace + offset[comp] + deg[comp] * age - 0.05 * lap
@@ -132,6 +137,7 @@ def _synthetic_season(rng: np.random.Generator) -> pd.DataFrame:
                         "Stint": stint, "TyreLife": age, "race_lap": lap, "LapNumber": lap,
                         "dirty_air": False, "Rainfall": False, "opening_laps": lap in (2, 3),
                         "first_two_flying": stint > 1 and age in (1, 2), "lap_s": y,
+                        "final_stint": stint == len(plan),
                     })
                 start = end + 1
     return pd.DataFrame(rows)

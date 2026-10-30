@@ -47,9 +47,40 @@ Case studies (2022):
     2–3;
   - tyre age scaled per 10 laps and race lap centred inside the model, with
     every effect reported in s and s/lap.
-- **Held-out test sets (Phase 3):** `last_stint` (each driver's final stint per
-  race, for drivers with an earlier clean stint) and `long_tyre` (train on
-  `TyreLife <= 15`, test on older tyres). Fixed and reused for every model.
+- **Held-out test sets (Phase 3):** `last_stint` and `long_tyre` (train on
+  `TyreLife <= 15`, test on older tyres), fixed and reused for every model.
+  - `last_stint` tests final stints of **odd-numbered rounds only**, for
+    drivers with an earlier clean stint. Even rounds keep their final stints in
+    training so the final-stint terms can be estimated. It was originally every
+    driver's final stint; changed with the final-stint terms.
+- **Stint-level terms (Phase 3):** `stint[d,r,s]`, added because held-out
+  intervals under-covered (68–70%) and 37–50% of held-out error was a constant
+  shift per stint.
+  - Non-final stints: spread `sigma_stint`, centred within each driver's race.
+  - Final stints: a pooled mean shift `mu_final` and their own spread
+    `sigma_stint_final`, shared across races, because final stints varied about
+    twice as much as others.
+  - The simulator knows which stint is final from the strategy, so these terms
+    can be used at prediction time.
+- **No cliff term (Phase 3):** degradation is linear in `TyreLife` per compound
+  and race.
+  - Why: the linear baseline was the best model beyond 30 laps; the
+    season-level quadratic was correlated with deg and trend and hurt mixing;
+    and it could not represent track-specific cliffs anyway.
+  - Linear degradation on very long stints is a stated limitation.
+- **`warmup` renamed `post_stop` (Phase 3):** first two flying laps after a
+  stop, net of tyre warm-up and drivers pushing on new tyres. Unconstrained;
+  its negative sign is a finding.
+- **Phase 3 done-when changed:** `long_tyre` has no coverage threshold.
+  - Why: it trains only on `TyreLife <= 15`, but every real use (Phase 4
+    simulations, Phase 6 cutoff fits) includes long stints from earlier races,
+    so it is a stress test, not the use case.
+  - Its error-by-age table and coverage are reported as limitations.
+  - `last_stint` keeps the 75–85% coverage target.
+- **Hungary confounding (Phase 3 → Phase 6):** Leclerc's stint 3 is Ferrari's
+  only hard stint at Hungary. The data identify the sum of
+  `team_compound[Ferrari, hard, Hungary]` and his stint effect, not the split,
+  so Phase 6 reports the sum.
 
 ---
 
@@ -77,20 +108,18 @@ Case studies (2022):
 
 ## Phase 3: Tyre degradation model
 - [x] Linear baseline (per-race OLS; results in `docs/model.md`)
-- [ ] Bayesian hierarchical model in PyMC: car pace offsets, per-compound degradation with a cliff term, fuel effect, track evolution
+- [ ] Bayesian hierarchical model in PyMC: car pace offsets, per-compound linear degradation, car-specific tyre terms, stint and final-stint terms, fuel + track trend
 - [x] XGBoost fit, used only to show it fails to extrapolate on long stints (`reports/figures/xgb_vs_bayes_long_tyre.png`)
 
 Open issues (awaiting decision; Bayesian item stays unticked):
-- **80% coverage below target with the stint term:** `last_stint` 72%,
-  `long_tyre` 66% (target 75–85%). Final stints vary twice as much as typical
-  stints, and on `long_tyre` the quadratic cliff over-extrapolates past 30
-  laps.
-- **Diagnostics:** the full fit (R-hat 1.0104, `sigma_tc_race`) and `long_tyre`
-  (R-hat 1.020, `mu_deg`) miss R-hat < 1.01 at 2,500 draws. Fits take 14–22
-  min.
-- See `docs/model.md`, "Results: second fit".
+- **`last_stint` coverage 72%** with final-stint terms (target 75–85%). About
+  half of the held-out final-stint error is a race-wide shift, which per-driver
+  terms cannot capture. Removing it gives 76%. See `docs/model.md`, "Results:
+  third fit".
+- **R-hat:** all three fits are at 1.017–1.021 on hyperparameters at 2,500
+  draws (14–18 min).
 
-**Done when:** the PyMC model converges (R-hat, ESS checked), beats the linear baseline on held-out stints, and the XGBoost extrapolation failure is shown in a plot.
+**Done when:** every PyMC fit has R-hat < 1.01 on every parameter, zero divergences and ESS ≥ 400; the model matches or beats the baseline on both test sets; `last_stint` 80% coverage is in 75–85% (`long_tyre` coverage and error by tyre age are reported as limitations, no threshold); and the XGBoost comparison plot exists.
 
 ## Phase 4: Race simulator (built in layers)
 - [ ] Single car vs the clock

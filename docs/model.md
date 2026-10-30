@@ -1,8 +1,8 @@
 # Tyre degradation model (Phase 3)
 
-Status: **stint-level term added; held-out intervals still under-cover and
-two fits miss R-hat < 1.01**. Awaiting a decision (see "Results: second fit").
-Code: `src/f1strat/deg_model.py`.
+Status: **third fit** (final-stint terms, no cliff, odd-round `last_stint`
+split). Results are in "Results: final fit" at the end; earlier fits are kept
+below it as history. Code: `src/f1strat/deg_model.py`.
 
 ## What the model is for
 
@@ -43,7 +43,6 @@ mu_i = race_base[r]
      + stint[d,r,s]
      + compound_offset[c,r] + team_compound[t,c,r]
      + (deg[c,r] + team_deg[t,c]) * TyreLife_i
-     + cliff[c] * TyreLife_i^2
      + post_stop[c] * first_two_flying_i
      + opening   * opening_laps_i
      + trend[r]  * race_lap_i
@@ -57,12 +56,11 @@ mu_i = race_base[r]
 |---|---|---|
 | `race_base[r]` | Lap time of the field-average car on a new medium, mid-race, in clean air, in the dry, at race `r`. Sets each track's level. | One free value per race. |
 | `driver_offset[d,r]` | How much faster or slower this car and driver are than the field average at this race, on the medium. Mostly the car. | Partial pooling toward `driver[d]`, the driver's season-average offset. |
-| `stint[d,r,s]` | How much faster or slower this particular stint ran than the driver's average at this race: tyre management, fuel saving, pushing, a set that worked better or worse. | Centred to sum to zero over the driver's stints in that race, so `driver_offset` stays the car's race-average pace. One season-level spread `sigma_stint`. An unseen stint (e.g. a forecast) draws from Normal(0, `sigma_stint`). |
+| `stint[d,r,s]` | How much faster or slower this particular stint ran than the driver's typical pace at this race: tyre management, fuel saving, pushing, a set that worked better or worse. | **Non-final stints:** spread `sigma_stint`, centred to sum to zero over the driver's non-final stints in that race. **Final stints:** a pooled mean shift `mu_final` and their own spread `sigma_stint_final`, shared across races, not centred. So `driver_offset` is the car's pace over its non-final stints, and a final stint is that plus its shift. An unseen stint draws from Normal(`mu_final`, `sigma_stint_final`) if it is the final stint (the simulator knows this from the strategy), else Normal(0, `sigma_stint`). |
 | `compound_offset[c,r]` | How much faster a new soft or hard is than a new medium **for the field average** at this race. | Medium is the reference (0). Soft and hard pool toward a season mean per compound. |
 | `team_compound[t,c,r]` | How much better or worse team `t`'s car gets on soft or hard, relative to the medium, compared with the field at this race. "Ferrari's hards are worse than everyone else's here." | Medium is the reference (0). Zero-sum over teams within each race and compound. Pooled toward `team_compound_season[t,c]`, the team's season tendency, which pools toward 0. |
 | `deg[c,r]` | Seconds lost per extra lap of tyre age, for compound `c`, for the field average at race `r`. Linear degradation. | Partial pooling toward a season deg rate per compound. |
 | `team_deg[t,c]` | How much faster or slower team `t` wears compound `c` than the field, every race. "Ferrari is harder on its tyres." | Season level, all three compounds, zero-sum over teams. |
-| `cliff[c]` | Extra loss that grows with the square of tyre age. Positive means wear accelerates on long stints. | One season-level value per compound. Smooth curvature, not a sudden cliff. |
 | `post_stop[c]` | First two flying laps after a stop, net of tyre warm-up and drivers pushing on new tyres. Can come out either sign: warm-up makes these laps slower, pushing makes them faster. | One value per compound, unconstrained. `first_two_flying` is 1 when laps since the stop is 1 or 2, **only for stints that begin with a pit stop** (not the race start). Counted from the stop, not from `TyreLife`, because a used set starts at `TyreLife` 3+. |
 | `opening` | Extra time on race laps 2 and 3: the field is bunched and DRS is off. Not tyre warm-up. | One season-level value. `opening_laps` is 1 on race laps 2–3. |
 | `trend[r]` | Seconds gained or lost per race lap from everything that changes with race lap: fuel burning off and the track rubbering in. Expected negative. | Partial pooling across races. Fuel and track evolution both move one-for-one with race lap, so they are not split. |
@@ -76,8 +74,7 @@ The sampler sees two transformed inputs, so it is not fighting large,
 correlated values. Every effect is reported back in seconds and s/lap.
 
 - **Tyre age:** `a = TyreLife / 10` (tyre age in units of 10 laps). Inside the
-  model, deg is in s per 10 laps and cliff in s per (10 laps)². Reported as
-  deg_s_per_lap = deg / 10 and cliff_s_per_lap² = cliff / 100. Tyre age is
+  model, deg is in s per 10 laps. Reported as deg_s_per_lap = deg / 10. Tyre age is
   scaled but not centred, so a value of 0 still means a new tyre.
 - **Race lap:** `l = race_lap − L0`, where `L0` is the mean race lap of the
   training data (30.1 for the full data), stored with the fit. `trend` is
@@ -97,8 +94,9 @@ driver_season[d]           ~ ZeroSumNormal(sigma_driver)               over driv
 driver_raw[d,r]             = driver_season[d] + sigma_driver_race * z[d,r]
 driver_offset[d,r]          = driver_raw[d,r] − mean over drivers in race r
 
-stint_raw[d,r,s]            ~ Normal(0, sigma_stint)                    centred form (see below)
-stint[d,r,s]                = stint_raw[d,r,s] − mean over the driver's stints in race r
+stint_raw[d,r,s]            ~ Normal(0, sigma_stint)                    non-final stints (centred form)
+stint[d,r,s]                = stint_raw[d,r,s] − mean over the driver's non-final stints in race r
+stint[d,r,final]            ~ Normal(mu_final, sigma_stint_final)        final stint, not centred
 
 compound_offset[medium,r]   = 0
 compound_offset[c,r]        = mu_compound[c] + tau_compound[c] * z[c,r]      c in {soft, hard}
@@ -131,8 +129,9 @@ flagged, not hidden.
 | `mu_deg[c]` | Normal(0.05, 0.1) s/lap | Normal(0.5, 1.0) s/10 laps | Typical deg is a few hundredths to ~0.1 s/lap. |
 | `tau_deg[c]` | HalfNormal(0.05) s/lap | HalfNormal(0.5) | Track-to-track variation. |
 | `sigma_team_deg` | HalfNormal(0.03) s/lap | HalfNormal(0.3) | Team differences in wear of a few hundredths/lap. |
-| `cliff[c]` | Normal(0, 0.002) s/lap² | Normal(0, 0.2) s/(10 laps)² | ±2 sd gives ±3.6 s extra at 30 laps. |
 | `sigma_stint` | HalfNormal(0.3) s | same | Stint-to-stint shifts of a few tenths. |
+| `mu_final` | Normal(0, 0.5) s | same | No sign assumed for how final stints differ. |
+| `sigma_stint_final` | HalfNormal(0.5) s | same | Final stints were seen to vary about twice as much as others. |
 | `post_stop[c]` | Normal(0, 1) s | same | No sign assumed; the sign is a finding. |
 | `opening` | Normal(0, 1) s | same | |
 | `mu_trend` | Normal(−0.05, 0.05) s/lap | same | Fuel alone is roughly −0.03 to −0.06 s/lap. |
@@ -195,17 +194,27 @@ flagged, not hidden.
      training and blow up on the final stint (MAE 6.9 s).
    - Partial pooling of `deg` and `trend` across races is the fix: a
      poorly-identified race borrows its split from the other 17.
-6. **Linear deg vs cliff.** Both rise with tyre age. `cliff` is season-level,
-   so it is pinned down by all long stints across the season, not a few laps at
-   one race.
+6. **Linear degradation (limitation).** Degradation is linear in `TyreLife`,
+   per compound and race. There is no cliff term.
+   - The earlier season-level quadratic was correlated with `deg` and `trend`,
+     hurt mixing, over-extrapolated past 30 laps, and could not represent a
+     track-specific cliff anyway.
+   - On `long_tyre` the linear OLS baseline was the best model beyond 30 laps.
+   - **Limitation:** on very long stints a real tyre cliff, where lap time
+     rises sharply, is not represented. Predictions past the longest stints
+     seen at a track should be treated with care.
 7. **Post-stop vs degradation vs race start.** `post_stop` counts laps since a
    pit stop, while `deg` uses `TyreLife`, so on a used set the two differ.
    - Stints that start at the race start get no post-stop flag; race laps 2–3
      get `opening` instead.
    - This keeps the bunched, DRS-off opening laps from being read as a tyre
      effect (or as negative degradation on the first stint).
-8. **Stint vs driver vs team compound.** Stint effects sum to zero within each
-   driver's race, so they cannot absorb the driver's race pace.
+8. **Stint vs driver vs team compound.** Non-final stint effects sum to zero
+   within each driver's race, so they cannot absorb the driver's race pace.
+   - The final stint is not centred. Its mean shift `mu_final` is identified
+     from the final stints in training (all races in the full fit, even rounds
+     in the `last_stint` split), compared with the same drivers' earlier
+     stints.
    - A stint effect is a constant over the stint, so it cannot absorb deg
      (which grows with tyre age within the stint).
    - It **can** trade off against `compound_offset` and `team_compound` when
@@ -215,8 +224,10 @@ flagged, not hidden.
      is pinned down by that race's data; pooling (stint toward 0, team
      compound toward the team's season tendency) decides the split.
    - **Hungary 2022:** Leclerc's stint 3 (laps 41–53) is Ferrari's only hard
-     stint. The posterior correlation between the two terms, and how the
-     Ferrari hard effect splits between them, is reported in Results.
+     stint. The data identify the **sum** of `team_compound[Ferrari, hard,
+     Hungary]` and Leclerc's stint 3 effect, not the split between them. The
+     second fit gave a posterior correlation of −0.45 between the two. **Phase
+     6 must report the sum**, not either term alone.
 9. **Fuel vs track evolution.** Not separable (both move with race lap).
    Accepted: `trend` is their sum, and the simulator only needs the sum.
 10. **Rain.** All 285 clean laps with `Rainfall` are from Hungary, in its final
@@ -240,22 +251,28 @@ flagged, not hidden.
   that race, their offset is drawn from the pooled distribution: `driver[d]`
   plus `sigma_driver_race` noise, centred like the others.
 - **Unseen stint:** a stint not in the training data (every `last_stint` test
-  stint) gets one draw from Normal(0, `sigma_stint`) shared by all its laps,
-  so the interval includes stint-to-stint variation.
+  stint) gets one draw shared by all its laps, so the interval includes
+  stint-to-stint variation. A final stint draws from Normal(`mu_final`,
+  `sigma_stint_final`); any other stint from Normal(0, `sigma_stint`).
 - **Unseen compound or team-compound at a race:** the race-level parameter
   exists for every combination, so it falls back to its pooled value with the
   pooled uncertainty. OLS cannot predict these laps.
 
 ## Evaluation (fixed held-out sets, reused for every model)
 
-- **`last_stint`:** each driver's final stint in each race, trained on the
-  earlier stints. Mimics forecasting the end of a race. Only drivers with clean
-  laps from an earlier stint in that race are tested.
+- **`last_stint`:** final stints of **odd-numbered rounds**, trained on
+  everything else. Even rounds keep their final stints in training so that
+  `mu_final` and `sigma_stint_final` can be estimated. Mimics forecasting the
+  end of a race. Only drivers with clean laps from an earlier stint in that
+  race are tested. 2,508 test laps in 151 stints over 9 rounds.
 - **`long_tyre`:** laps with `TyreLife > 15`, trained only on `TyreLife <= 15`.
-  Tests extrapolation to old tyres.
+  A **stress test**, not the use case: every real use (Phase 4 simulations,
+  Phase 6 cutoff fits) includes long stints from earlier races.
 - **Metrics:**
   - MAE and RMSE of the point prediction;
-  - coverage of the 80% prediction interval (should land at about 75–85%).
+  - coverage of the 80% prediction interval. Target 75–85% on `last_stint`.
+    `long_tyre` has no coverage threshold; its coverage and error-by-age
+    table are reported as limitations.
 - **Common subset:** all three models are compared on the laps the baseline
   can predict; the Bayesian model and XGBoost are also scored on every test
   lap.
@@ -288,19 +305,17 @@ separately per race.
   open issues).
 - **Sampler:** nutpie (NUTS), 4 chains, 1,500 tuning and 2,500 draws, with
   low-rank mass-matrix adaptation. The stint term adds 942 parameters and
-  makes the posterior slower to mix; at 1,500 draws, hyperparameters such as
-  `mu_deg`, `sigma_driver` and `mu_trend` sat at R-hat 1.01–1.024. The default diagonal adaptation left the
-  full fit at R-hat 1.012 on `mu_deg[HARD]`, because linear deg, cliff and
-  trend are correlated; low-rank adaptation fixes that without changing the
-  model.
+  makes the posterior slower to mix. At 1,500 draws, hyperparameters such as
+  `mu_deg`, `sigma_driver` and `mu_trend` sat at R-hat 1.01–1.024. Low-rank
+  adaptation handles correlated parameters (deg, trend and compound offsets)
+  without changing the model.
 - **Saved fits:** `models/deg_full_2022.nc` and the two split fits. With the
   stint term each is about 40 MB, over the 25 MB limit for committing, so all
   are gitignored. Rebuild with `uv run python -m f1strat.deg_model all`
   (~35 min), or `full` for the full-data fit only.
-- **Diagnostics required:** R-hat < 1.01, zero divergences, bulk and tail
-  ESS ≥ 400.
-- **Time budget:** ~10 minutes per fit. If it won't fit in that, I report it
-  before simplifying anything.
+- **Diagnostics required:** R-hat < 1.01 on every parameter, zero divergences,
+  bulk and tail ESS ≥ 400. A fit that misses is rerun longer.
+- **Time budget:** up to ~20 minutes per fit, run in the background.
 
 ## Not in this model
 
@@ -311,6 +326,82 @@ separately per race.
   behaviour is carried by `team_compound` and `team_deg`.
 - **Race-specific team deg:** `team_deg` is season-level, so a team's wear
   relative to the field is assumed stable across tracks.
+
+## Results: third fit (final-stint terms, no cliff; provisional)
+
+Not final. All three fits miss R-hat < 1.01, and `last_stint` coverage is
+below target (see below).
+
+### Diagnostics (2,500 draws, 1,500 tuning, low-rank adaptation)
+
+| Fit | Time | Max R-hat | Parameters over 1.01 | Min ESS bulk / tail | Divergences |
+|---|---|---|---|---|---|
+| full | 17.6 min | 1.021 | `mu_deg[HARD]`, `sigma_tc_race`, `sigma_driver`, `mu_trend`, `tau_deg[HARD]` | 226 / 194 | 0 |
+| last_stint | 16.8 min | 1.017 | hyperparameters | 240 / 356 | 0 |
+| long_tyre | 13.5 min | 1.018 | `mu_deg[SOFT]`, `sigma_driver`, `tau_trend` | 247 / 499 | 0 |
+
+Only hyperparameters miss: season means and spreads of deg, trend and team or
+driver terms. Every race-, team-, driver- and stint-level term has R-hat below
+1.01.
+
+### Held-out comparison
+
+| Split | Model | MAE (s) | RMSE (s) | 80% coverage |
+|---|---|---|---|---|
+| last_stint (odd rounds; common 2,477 laps) | Baseline | 0.874 | 1.129 | |
+| | XGBoost | 1.010 | 1.270 | |
+| | Bayesian | **0.598** | **0.841** | **72.3%** |
+| long_tyre (5,539 laps) | Baseline | 0.524 | 0.742 | |
+| | XGBoost | 0.510 | 0.760 | |
+| | Bayesian | **0.505** | **0.726** | 66.6% (stress test; no threshold) |
+
+### `long_tyre` error by tyre age (linear deg)
+
+MAE in seconds, with mean error (predicted − actual) in brackets.
+
+| Tyre age | Laps | Baseline | XGBoost | Bayesian |
+|---|---|---|---|---|
+| 16–20 | 2,433 | 0.468 (−0.024) | 0.429 (−0.179) | 0.443 (−0.032) |
+| 21–30 | 2,291 | 0.523 (−0.036) | 0.507 (−0.226) | 0.524 (+0.025) |
+| 31–40 | 708 | 0.662 (−0.332) | 0.712 (−0.427) | **0.617 (−0.226)** |
+| 40+ | 107 | 0.882 (−0.652) | 1.067 (−0.555) | **0.769 (−0.248)** |
+
+- Without the cliff, the Bayesian model has the lowest error and the smallest
+  bias beyond 30 laps.
+- XGBoost's error grows fastest past its training range.
+- All three under-predict very old tyres (negative mean error). That is the
+  linear-deg limitation.
+
+### Why `last_stint` coverage is still 72%
+
+The final-stint terms are small:
+- `mu_final` +0.03 s;
+- `sigma_stint_final` 0.31 s, against `sigma_stint` 0.27 s.
+
+But held-out final stints shift by 0.60 s (spread of per-stint mean residuals).
+That shift splits roughly in half:
+- **Race-wide:** spread 0.44 s. The whole field's final stints at a race are
+  off together: Bahrain −0.48, Austria −0.56, São Paulo −0.67, Miami +0.46,
+  Zandvoort +0.38 s. A per-driver stint term cannot capture this, and in an
+  odd test round no final stint was seen.
+- **Driver-to-driver:** spread 0.45 s.
+
+Removing the race-wide part lifts coverage to 76.2%. The cause looks like a
+late-race change the linear trend misses (track or temperature evolution,
+field-wide management to the flag). Laps more than 30 into a stint also run
+0.49 s slower than predicted, consistent with the linear-deg limitation.
+
+### Hungary: Ferrari hard + Leclerc stint 3 (full fit)
+
+Report the sum:
+
+| Term | Mean (s) | 80% interval |
+|---|---|---|
+| Sum | **+0.237** | [+0.056, +0.418] |
+| `team_compound` | +0.122 | [−0.028, +0.277] |
+| Stint effect | +0.116 | [−0.061, +0.297] |
+
+The two parts have a posterior correlation of −0.41.
 
 ## Results: first fit (no stint term; `post_stop` was called `warmup`)
 
@@ -400,7 +491,7 @@ All values are relative to medium, 80% intervals.
 | Medium | 0 (reference) | 0 | 0 | +0.007 [0.005, 0.010] |
 | Hard | +0.307 [0.111, 0.510] | +1.111 | +1.418 [1.207, 1.631] | +0.001 [−0.002, 0.004] |
 
-## Results: second fit (stint term; provisional)
+## Results: second fit (stint term, with cliff; superseded)
 
 ### Diagnostics
 

@@ -90,15 +90,18 @@ def prepare(cleaned: pd.DataFrame) -> pd.DataFrame:
 
 
 def split_last_stint(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Hold out each driver's final stint in each race.
+    """Hold out final stints of odd-numbered rounds.
 
-    Mimics forecasting the end of a race. A final stint is only tested if the
-    same driver has clean laps from an earlier stint in that race (otherwise
-    there is nothing to forecast from, e.g. a driver who retired in stint 1).
+    Mimics forecasting the end of a race. Even rounds keep their final stints
+    in training, so the final-stint terms (``mu_final``, ``sigma_stint_final``)
+    can be estimated. A final stint is only tested if the same driver has clean
+    laps from an earlier stint in that race (otherwise there is nothing to
+    forecast from, e.g. a driver who retired in stint 1).
     """
-    train = df[~df["final_stint"]]
-    seen = train[["RoundNumber", "Driver"]].drop_duplicates()
-    test = df[df["final_stint"]].merge(seen, on=["RoundNumber", "Driver"])
+    held = df["final_stint"] & (df["RoundNumber"].astype(int) % 2 == 1)
+    train = df[~held]
+    earlier = train[~train["final_stint"]][["RoundNumber", "Driver"]].drop_duplicates()
+    test = df[held].merge(earlier, on=["RoundNumber", "Driver"])
     return train.reset_index(drop=True), test.reset_index(drop=True)
 
 
@@ -242,9 +245,10 @@ KEEP_VARS: tuple[str, ...] = (
     "race_base", "driver_season", "sigma_driver", "sigma_driver_race", "driver_offset",
     "driver_race_mean", "mu_compound", "tau_compound", "compound_offset",
     "team_compound_season", "sigma_tc_season", "sigma_tc_race", "team_compound",
-    "mu_deg", "tau_deg", "deg", "team_deg", "sigma_team_deg", "cliff", "post_stop",
+    "mu_deg", "tau_deg", "deg", "team_deg", "sigma_team_deg", "post_stop",
     "opening", "mu_trend", "tau_trend", "trend", "dirty_air_penalty",
-    "rain_effect", "sigma", "nu", "sigma_stint", "stint_effect",
+    "rain_effect", "sigma", "nu", "sigma_stint", "stint_effect", "mu_final",
+    "sigma_stint_final",
 )
 
 
@@ -253,7 +257,7 @@ class BayesFit:
     """A fitted hierarchical model: thinned posterior plus index metadata.
 
     ``posterior`` holds draws with dims ``(chain, draw, ...)`` in model units
-    (deg per 10 laps, cliff per (10 laps)^2). Use :func:`effects_table` or
+    (deg per 10 laps). Use :func:`effects_table` or
     the ``*_s_per_lap`` helpers for reporting units.
     """
 
@@ -294,6 +298,9 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
     pairs = sorted(set(zip(laps["RoundNumber"].astype(int), laps["Driver"])))
     stints = sorted(set(zip(laps["RoundNumber"].astype(int), laps["Driver"],
                             laps["Stint"].astype(int))))
+    final_keys = set(zip(*[laps.loc[laps["final_stint"], k] for k in ("RoundNumber", "Driver", "Stint")]))
+    final_keys = {(int(r), d, int(k)) for r, d, k in final_keys}
+    is_final = np.array([key in final_keys for key in stints])
     lap_centre = float(laps["race_lap"].mean())
 
     r = _index(laps["RoundNumber"].astype(int), races)
@@ -303,9 +310,12 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
     st = _index(pd.Series(_stint_keys(laps)), stints)
     pair_lookup = {pair: i for i, pair in enumerate(pairs)}
     stint_pair = np.array([pair_lookup[(rr, dd)] for rr, dd, _ in stints])
-    stint_average = np.zeros((len(pairs), len(stints)))
-    stint_average[stint_pair, np.arange(len(stints))] = 1.0
-    stint_average /= stint_average.sum(axis=1, keepdims=True)
+    # Non-final stints are centred within each driver's race; final stints are not.
+    nonfinal_average = np.zeros((len(pairs), len(stints)))
+    nonfinal_average[stint_pair[~is_final], np.flatnonzero(~is_final)] = 1.0
+    counts = nonfinal_average.sum(axis=1, keepdims=True)
+    nonfinal_average = np.divide(nonfinal_average, counts, out=nonfinal_average,
+                                 where=counts > 0)
     pair_race = np.array([races.index(rr) for rr, _ in pairs])
     pair_driver = np.array([drivers.index(dd) for _, dd in pairs])
     average = np.zeros((len(races), len(pairs)))
@@ -345,11 +355,21 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
         )
 
         sigma_stint = pm.HalfNormal("sigma_stint", 0.3)
+        mu_final = pm.Normal("mu_final", 0.0, 0.5)
+        sigma_stint_final = pm.HalfNormal("sigma_stint_final", 0.5)
         # Centred: each stint has ~15+ laps, so the data dominate the prior and
         # the centred form samples better than the non-centred one here.
-        stint_raw = pm.Normal("stint_raw", 0.0, sigma_stint, dims="stint")
+        stint_raw = pm.Normal(
+            "stint_raw",
+            pt.where(is_final, mu_final, 0.0),
+            pt.where(is_final, sigma_stint_final, sigma_stint),
+            dims="stint",
+        )
+        nonfinal_mean = pt.dot(nonfinal_average, pt.where(is_final, 0.0, stint_raw))
         stint_effect = pm.Deterministic(
-            "stint_effect", stint_raw - pt.dot(stint_average, stint_raw)[stint_pair], dims="stint"
+            "stint_effect",
+            pt.where(is_final, stint_raw, stint_raw - nonfinal_mean[stint_pair]),
+            dims="stint",
         )
 
         mu_comp = pm.Normal("mu_compound", 0.0, 1.0, dims="compound_nonref")
@@ -390,7 +410,6 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
             sigma_team_deg * pm.ZeroSumNormal("z_team_deg", sigma=1.0, dims=("compound", "team")),
             dims=("compound", "team"),
         )
-        cliff = pm.Normal("cliff", 0.0, 0.2, dims="compound")
         post_stop = pm.Normal("post_stop", 0.0, 1.0, dims="compound")
         opening = pm.Normal("opening", 0.0, 1.0)
 
@@ -411,7 +430,6 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
             + compound_offset[c, r]
             + team_compound[c, r, t]
             + (deg[c, r] + team_deg[c, t]) * a
-            + cliff[c] * a**2
             + post_stop[c] * warm
             + opening * opening_x
             + trend[r] * lap
@@ -454,7 +472,7 @@ def fit(
         cutoff: Keep only laps known at this decision point (Phase 6).
         draws, tune, chains, seed: Sampler settings.
         adaptation: nutpie mass-matrix adaptation. ``"low_rank"`` adapts to
-            posterior correlations (e.g. between linear deg, cliff and trend).
+            posterior correlations (e.g. between deg, trend and compound offsets).
 
     Returns:
         A :class:`BayesFit` with diagnostics over every sampled variable.
@@ -526,13 +544,17 @@ def predict(
               * rng.standard_normal((n_s, len(laps))) - g["driver_race_mean"][:, rr])
     offset = np.where(seen, g["driver_offset"][:, np.where(seen, dr, 0)], pooled)
 
-    # Stint effect: fitted where the stint was seen, else Normal(0, sigma_stint).
+    # Stint effect: fitted where the stint was seen. An unseen stint draws once
+    # (shared by its laps) from Normal(mu_final, sigma_stint_final) if it is the
+    # driver's final stint, else Normal(0, sigma_stint).
     keys = _stint_keys(laps)
     st = _index(pd.Series(keys, index=laps.index), fitted.stints)
     codes, uniques = pd.factorize(pd.Series(keys, dtype=object))
-    # One draw per unseen stint, shared by all its laps.
-    new_stint = (g["sigma_stint"][:, None]
-                 * rng.standard_normal((n_s, len(uniques))))[:, codes]
+    z = rng.standard_normal((n_s, len(uniques)))[:, codes]
+    final = laps["final_stint"].to_numpy(bool)
+    new_stint = np.where(final,
+                         g["mu_final"][:, None] + g["sigma_stint_final"][:, None] * z,
+                         g["sigma_stint"][:, None] * z)
     offset = offset + np.where(st >= 0, g["stint_effect"][:, np.where(st >= 0, st, 0)], new_stint)
 
     a = laps["TyreLife"].to_numpy(float) / TYRE_SCALE
@@ -543,7 +565,6 @@ def predict(
         + g["compound_offset"][:, cc, rr]
         + g["team_compound"][:, cc, rr, tt]
         + (g["deg"][:, cc, rr] + g["team_deg"][:, cc, tt]) * a
-        + g["cliff"][:, cc] * a**2
         + g["post_stop"][:, cc] * laps["first_two_flying"].to_numpy(float)
         + g["opening"][:, None] * laps["opening_laps"].to_numpy(float)
         + g["trend"][:, rr] * lap
@@ -577,11 +598,12 @@ def effects_table(fitted: BayesFit, interval: float = 0.8) -> pd.DataFrame:
     """
     post = fitted.posterior
     q = (1 - interval) / 2
-    scale = {"mu_deg": 1 / TYRE_SCALE, "cliff": 1 / TYRE_SCALE**2}
-    units = {"mu_deg": "s/lap", "cliff": "s/lap^2", "mu_trend": "s/lap"}
+    scale = {"mu_deg": 1 / TYRE_SCALE}
+    units = {"mu_deg": "s/lap", "mu_trend": "s/lap"}
     rows = []
-    for name in ("mu_deg", "cliff", "mu_compound", "post_stop", "opening", "mu_trend",
-                 "dirty_air_penalty", "rain_effect", "sigma_stint"):
+    for name in ("mu_deg", "mu_compound", "post_stop", "opening", "mu_trend",
+                 "dirty_air_penalty", "rain_effect", "sigma_stint", "mu_final",
+                 "sigma_stint_final"):
         da = post[name] * scale.get(name, 1.0)
         extra = [d for d in da.dims if d not in ("chain", "draw")]
         stacked = da.stack(sample=("chain", "draw"))
@@ -765,7 +787,7 @@ def deg_curve(
 ) -> pd.DataFrame:
     """Tyre-only lap time change vs a new medium, by tyre age, in seconds.
 
-    ``compound_offset + deg * age + cliff * age^2`` for the field-average car
+    ``compound_offset + deg * age`` for the field-average car
     (or, with ``team``, including that team's compound and deg terms). Fuel
     and track trend are not included, so this is the tyre effect alone.
     Returns ``TyreLife``, ``mean``, ``lo`` and ``hi`` (credible band of the
@@ -775,32 +797,30 @@ def deg_curve(
     a = np.asarray(ages, dtype=float) / TYRE_SCALE
     off = _draws(fitted, "compound_offset").sel(compound=compound, race=round_number).to_numpy()
     deg = _draws(fitted, "deg").sel(compound=compound, race=round_number).to_numpy()
-    cliff = _draws(fitted, "cliff").sel(compound=compound).to_numpy()
     if team is not None:
         off = off + _draws(fitted, "team_compound").sel(
             compound=compound, race=round_number, team=team).to_numpy()
         deg = deg + _draws(fitted, "team_deg").sel(compound=compound, team=team).to_numpy()
-    curve = off[None, :] + deg[None, :] * a[:, None] + cliff[None, :] * a[:, None] ** 2
+    curve = off[None, :] + deg[None, :] * a[:, None]
     return pd.DataFrame({"TyreLife": ages, "mean": curve.mean(axis=1),
                          "lo": np.quantile(curve, q, axis=1),
                          "hi": np.quantile(curve, 1 - q, axis=1)})
 
 
 def season_deg_table(fitted: BayesFit, interval: float = 0.8) -> pd.DataFrame:
-    """Season deg rate (``mu_deg``) and curvature (``cliff``) per compound.
+    """Season deg rate (``mu_deg``) per compound, in s/lap, with intervals.
 
-    Also gives the total extra time after 10 and 20 laps of tyre age for the
-    field-average car (linear + cliff), in seconds.
+    Also gives the extra time after 10 and 20 laps of tyre age for the
+    field-average car (degradation is linear), in seconds.
     """
     q = (1 - interval) / 2
     mu = _draws(fitted, "mu_deg") / TYRE_SCALE
-    cliff = _draws(fitted, "cliff") / TYRE_SCALE**2
     rows = []
     for comp in COMPOUNDS:
-        m, c = mu.sel(compound=comp).to_numpy(), cliff.sel(compound=comp).to_numpy()
+        m = mu.sel(compound=comp).to_numpy()
         row = {"compound": comp}
-        for label, v in (("deg_s_per_lap", m), ("cliff_s_per_lap2", c),
-                         ("loss_10_laps_s", 10 * m + 100 * c), ("loss_20_laps_s", 20 * m + 400 * c)):
+        for label, v in (("deg_s_per_lap", m), ("loss_10_laps_s", 10 * m),
+                         ("loss_20_laps_s", 20 * m)):
             row[label] = float(v.mean())
             row[f"{label}_lo"] = float(np.quantile(v, q))
             row[f"{label}_hi"] = float(np.quantile(v, 1 - q))
@@ -880,25 +900,35 @@ def split_fit_path(split: str) -> Path:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Fit and save models. ``full`` (default): all 2022 data; ``splits``: the
-    training data of each held-out split; ``all``: both."""
-    import sys
+    """Fit and save models.
+
+    Usage: ``python -m f1strat.deg_model [full|splits|all|last_stint|long_tyre]
+    [--draws N] [--tune N]``. ``full`` (default) fits all 2022 data; ``splits``
+    the training data of each held-out split; ``all`` both.
+    """
+    import argparse
     import time
 
     from f1strat.clean import clean_laps
     from f1strat.data import load_season
 
-    target = (argv if argv is not None else sys.argv[1:] or ["full"])[0]
+    parser = argparse.ArgumentParser(prog="python -m f1strat.deg_model")
+    parser.add_argument("target", nargs="?", default="full",
+                        choices=["full", "splits", "all", *SPLITS])
+    parser.add_argument("--draws", type=int, default=2500)
+    parser.add_argument("--tune", type=int, default=1500)
+    args = parser.parse_args(argv)
+    target = args.target
     laps = prepare(clean_laps(load_season(2022)))
     jobs: list[tuple[str, pd.DataFrame, Path]] = []
     if target in ("full", "all"):
         jobs.append(("full", laps, FULL_FIT_PATH))
-    if target in ("splits", "all"):
-        for name, split in SPLITS.items():
+    for name, split in SPLITS.items():
+        if target in ("splits", "all", name):
             jobs.append((name, split(laps)[0], split_fit_path(name)))
     for name, train, path in jobs:
         start = time.time()
-        fitted = fit(train)
+        fitted = fit(train, draws=args.draws, tune=args.tune)
         minutes = (time.time() - start) / 60
         print(f"{name}: {len(train)} laps, {minutes:.1f} min, {fitted.diagnostics}", flush=True)
         print(f"wrote {save_fit(fitted, path)}", flush=True)
