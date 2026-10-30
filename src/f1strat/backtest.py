@@ -38,6 +38,7 @@ import numpy as np
 import pandas as pd
 
 from f1strat.simulator import (
+    DEFAULT_WIDENING,
     GREEN,
     SC,
     VSC,
@@ -188,11 +189,35 @@ def actual_counts(act: Actual, from_lap: int = 1) -> dict[str, float]:
 def neutral_counts(status: np.ndarray, before: int = GREEN) -> tuple[np.ndarray, np.ndarray]:
     """Number of SC and VSC periods started per simulation, from a (n, laps)
     schedule; ``before`` is the status of the lap before it (a period already
-    running is not a new one)."""
+    running is not a new one).
+
+    A period is a run of non-green laps; it is an SC if any lap is SC (a VSC
+    that turns into an SC is one SC period, as in
+    :func:`f1strat.race_events.neutral_runs`).
+    """
     s = np.atleast_2d(status)
-    prev = np.concatenate([np.full((s.shape[0], 1), before), s[:, :-1]], axis=1)
-    starts = (s != prev)
-    return (starts & (s == SC)).sum(axis=1), (starts & (s == VSC)).sum(axis=1)
+    n, L = s.shape
+    sc_n = np.zeros(n, dtype=int)
+    vsc_n = np.zeros(n, dtype=int)
+    for i in range(n):
+        j = 0
+        running = before != GREEN
+        while j < L:
+            if s[i, j] == GREEN:
+                running = False
+                j += 1
+                continue
+            k = j
+            while k < L and s[i, k] != GREEN:
+                k += 1
+            if not running:
+                if (s[i, j:k] == SC).any():
+                    sc_n[i] += 1
+                else:
+                    vsc_n[i] += 1
+            running = False
+            j = k
+    return sc_n, vsc_n
 
 
 # --- One backtest ---------------------------------------------------------------
@@ -212,6 +237,7 @@ class Backtest:
     sc_counts: np.ndarray         # (n_sims,) SC periods started after the state lap
     vsc_counts: np.ndarray
     actual_counts: dict[str, float]
+    lap1_order: list[str] = field(default_factory=list)   # order after lap 1
 
 
 def run_backtest(
@@ -224,6 +250,7 @@ def run_backtest(
     mode: str = "replay",
     n_sims: int = 1000,
     seed: int = 0,
+    widening: float = DEFAULT_WIDENING,
 ) -> Backtest:
     """Simulate one 2022 race from the end of lap 1 with actual plans and retirements.
 
@@ -235,6 +262,7 @@ def run_backtest(
         mode: ``"replay"`` (actual SC/VSC laps forced) or ``"random"`` (drawn).
         n_sims: Simulations.
         seed: Random seed.
+        widening: Final-stint widening factor (Phase 3: 1.188; 1.0 = off).
     """
     if mode not in ("replay", "random"):
         raise ValueError(mode)
@@ -249,6 +277,7 @@ def run_backtest(
     plans: dict[str, Plan] = {d: actual_plan(raw, round_number, d, 1) for d in state.cars}
     fld = build_field(fitted, state, observed_pit_losses(cleaned, round_number), params,
                       n_sims=n_sims, seed=seed, use_fitted_current_stint=False,
+                      widening=widening,
                       final_race_prior=(mode == "random" and late), status=forced,
                       max_stops=max(3, *(len(p.stops) for p in plans.values())))
     retire = {d: act.last_lap[d] for d in fld.drivers if not act.finished[d]}
@@ -271,8 +300,9 @@ def run_backtest(
     positions = np.where(running, ranks, np.nan)
     gaps = np.where(running, final - final.min(axis=1, keepdims=True), np.nan)
     sc_n, vsc_n = neutral_counts(fld.status, before=act.status[1])
+    lap1 = sorted(fld.drivers, key=lambda d: state.cars[d].race_time)
     return Backtest(act, mode, fld.drivers, positions, gaps, passes, close, sc_n, vsc_n,
-                    actual_counts(act))
+                    actual_counts(act), lap1)
 
 
 def _with_time(car, act: Actual, driver: str):
@@ -305,8 +335,9 @@ def position_table(bt: Backtest, seed: int = 0) -> pd.DataFrame:
         pos = bt.positions[:, c]
         a = bt.actual.order.index(d) + 1
         pit = (pos < a).mean() + rng.random() * (pos == a).mean()
+        naive = [x for x in bt.lap1_order if x in bt.actual.order].index(d) + 1
         rows.append({"round": bt.actual.round_number, "driver": d, "actual": a,
-                     "sim_mean": pos.mean(), "lo50": lo50[c], "hi50": hi50[c],
+                     "naive": naive, "sim_mean": pos.mean(), "lo50": lo50[c], "hi50": hi50[c],
                      "lo80": lo80[c], "hi80": hi80[c],
                      "in50": lo50[c] <= a <= hi50[c], "in80": lo80[c] <= a <= hi80[c],
                      "pit": pit})
@@ -336,12 +367,14 @@ def race_summary(bt: Backtest) -> dict[str, float]:
     pos = position_table(bt)
     gap = gap_table(bt)
     act = bt.actual
-    n_sc = int(((act.status[2:] == SC) & (act.status[1:-1] != SC)).sum())
-    n_vsc = int(((act.status[2:] == VSC) & (act.status[1:-1] != VSC)).sum())
+    n_sc, n_vsc = (int(x[0]) for x in neutral_counts(act.status[2:], before=act.status[1]))
     return {
         "round": act.round_number, "mode": bt.mode, "finishers": len(pos),
         "pos_in50": pos["in50"].mean(), "pos_in80": pos["in80"].mean(),
         "spearman": spearmanr(pos["actual"], pos["sim_mean"]).statistic,
+        "spearman_naive": spearmanr(pos["actual"], pos["naive"]).statistic,
+        "mae": (pos["actual"] - pos["sim_mean"]).abs().mean(),
+        "mae_naive": (pos["actual"] - pos["naive"]).abs().mean(),
         "gap_in50": gap["in50"].mean() if len(gap) else np.nan,
         "gap_in80": gap["in80"].mean() if len(gap) else np.nan,
         "passes_actual": bt.actual_counts["passes"],
@@ -401,18 +434,89 @@ def calibrate_shift(fitted, raw, race, cleaned, params, dirty_air_s: float = 0.0
     return (lo + hi) / 2
 
 
+# --- Safety-car closing ---------------------------------------------------------------
+
+
+def sc_gap_observations(raw: pd.DataFrame, race: pd.DataFrame, rounds) -> pd.DataFrame:
+    """Gaps between consecutive cars during 2022 SC periods.
+
+    For every SC period starting after lap 1 (``k`` = SC lap within the period,
+    1 = first), each car and the car directly ahead of it at the end of the lap
+    before the SC: their gap then (``gap0``) and at the end of SC lap ``k``,
+    while both are running and neither has had an in or out lap since the SC
+    began. (Cars rejoining from the pits may slot in between; requiring the
+    pair to stay adjacent would drop most pairs, since most cars pit under SC.)
+    """
+    rows = []
+    for rnd in rounds:
+        act = actual_race(raw, race, rnd)
+        st = act.status
+        for L in range(2, act.total_laps + 1):
+            if st[L] != SC or st[L - 1] == SC:
+                continue
+            t0 = act.times[L - 1]
+            run = [c for c in np.argsort(t0) if np.isfinite(t0[c])]
+            for pos in range(1, len(run)):
+                i, a = run[pos], run[pos - 1]
+                k, lap = 1, L
+                while lap <= act.total_laps and st[lap] == SC:
+                    t = act.times[lap]
+                    if (act.pit_laps[L:lap + 1, [i, a]].any()
+                            or not (np.isfinite(t[i]) and np.isfinite(t[a]))):
+                        break
+                    rows.append({"round": rnd, "sc_lap": L, "k": k,
+                                 "gap0": t0[i] - t0[a], "gap": t[i] - t[a]})
+                    k, lap = k + 1, lap + 1
+    return pd.DataFrame(rows)
+
+
+def predicted_sc_gap(obs: pd.DataFrame, ratio: float, sc_gap_s: float) -> np.ndarray:
+    """Gap the simulator gives: kept on the first SC lap, then × ``ratio`` per lap."""
+    return np.maximum(sc_gap_s, obs["gap0"].to_numpy() * ratio ** (obs["k"].to_numpy() - 1))
+
+
+def fit_sc_close_ratio(obs: pd.DataFrame, sc_gap_s: float, loss: str = "seconds") -> float:
+    """Ratio minimising the squared error of the gaps on SC laps 2 onwards.
+
+    ``loss="seconds"`` (used): error in seconds, so the large gaps that decide
+    pit-under-SC losses and final margins count most. ``"log"``: relative
+    error, which the many sub-2 s pairs dominate (fits 0.64, too slow for big
+    gaps; ``docs/validation.md``).
+    """
+    o = obs[(obs["k"] >= 2) & (obs["gap0"] > 0) & (obs["gap"] > 0)]
+    grid = np.arange(0.20, 1.001, 0.005)
+    if loss == "log":
+        err = [np.mean((np.log(o["gap"]) - np.log(predicted_sc_gap(o, r, sc_gap_s))) ** 2)
+               for r in grid]
+    else:
+        err = [np.mean((o["gap"] - predicted_sc_gap(o, r, sc_gap_s)) ** 2) for r in grid]
+    return float(grid[int(np.argmin(err))])
+
+
+def sc_gap_table(obs: pd.DataFrame, ratio: float | None, sc_gap_s: float) -> pd.DataFrame:
+    """Median observed vs predicted gap by SC lap ``k`` (``ratio=None``: Phase 4,
+    every gap at ``sc_gap_s`` from the first SC lap)."""
+    pred = (np.full(len(obs), sc_gap_s) if ratio is None
+            else predicted_sc_gap(obs, ratio, sc_gap_s))
+    o = obs.assign(pred=pred)
+    return o.groupby("k").agg(pairs=("gap", "size"), gap_before=("gap0", "median"),
+                              observed=("gap", "median"), predicted=("pred", "median"))
+
+
 # --- Running everything -------------------------------------------------------------
 
 FIG_DIR = Path(__file__).resolve().parents[2] / "reports" / "figures"
 
 
 def run_all(fitted, raw, race, cleaned, params, rounds=BACKTEST_ROUNDS,
-            n_sims: int = 1000, seed: int = 0) -> dict[str, pd.DataFrame]:
+            n_sims: int = 1000, seed: int = 0, modes=("replay", "random"),
+            widening: float = DEFAULT_WIDENING) -> dict[str, pd.DataFrame]:
     """Both modes for every round: per-race summary, positions and gaps."""
     out: dict[str, list] = {"summary": [], "positions": [], "gaps": [], "passes": []}
-    for mode in ("replay", "random"):
+    for mode in modes:
         for rnd in rounds:
-            bt = run_backtest(fitted, raw, race, cleaned, params, rnd, mode, n_sims, seed)
+            bt = run_backtest(fitted, raw, race, cleaned, params, rnd, mode, n_sims, seed,
+                              widening)
             out["summary"].append(race_summary(bt))
             out["positions"].append(position_table(bt).assign(mode=mode))
             out["gaps"].append(gap_table(bt).assign(mode=mode))
@@ -441,6 +545,8 @@ def overall(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
             "spearman_pooled": spearmanr(pos["actual"], pos["sim_mean"]).statistic,
             "gaps": len(gap), "gap_in50": gap["in50"].mean(), "gap_in80": gap["in80"].mean(),
             "pos_mean_abs_err": (pos["actual"] - pos["sim_mean"]).abs().mean(),
+            "naive_spearman_mean": s["spearman_naive"].mean(),
+            "naive_mean_abs_err": (pos["actual"] - pos["naive"]).abs().mean(),
             "passes_actual": s["passes_actual"].mean(), "passes_sim": s["passes_sim"].mean(),
             "close_actual": s["close_actual"].mean(), "close_sim": s["close_sim"].mean(),
             "sc_actual": s["sc_actual"].mean(), "sc_sim": s["sc_sim"].mean(),
@@ -560,8 +666,9 @@ def plot_all(tables: dict[str, pd.DataFrame], fig_dir: Path = FIG_DIR) -> list[P
 
 
 def main(argv: list[str] | None = None) -> None:
-    """``calibrate``: fit the pass-intercept shift on even rounds and save it in
-    ``sim_params.json``. ``run``: both backtest modes, tables and plots."""
+    """``calibrate``: fit the SC closing ratio and the pass-intercept shift on
+    even rounds and save them in ``sim_params.json``. ``run``: both backtest
+    modes, tables and plots. ``widening``: replay with widening 1.0."""
     import sys
 
     from f1strat.clean import clean_laps
@@ -576,6 +683,23 @@ def main(argv: list[str] | None = None) -> None:
     cleaned = clean_laps(raw)
     params = SimParams.load()
     if cmd[0] == "calibrate":
+        from dataclasses import replace
+
+        fit_obs = sc_gap_observations(raw, race, FIT_ROUNDS)
+        check_obs = sc_gap_observations(raw, race, CHECK_ROUNDS)
+        ratio = fit_sc_close_ratio(fit_obs, params.sc_gap_s)
+        params = replace(params, neutral=replace(params.neutral, sc_close_ratio=ratio))
+        print(f"SC closing ratio {ratio:.3f} (fit on {fit_obs['sc_lap'].groupby(fit_obs['round']).nunique().sum()} SC periods)")
+        print(f"(log-error fit: {fit_sc_close_ratio(fit_obs, params.sc_gap_s, 'log'):.3f})")
+        tabs = []
+        for name, o in (("fit (even)", fit_obs), ("check (odd)", check_obs)):
+            o = o.assign(size=pd.cut(o["gap0"], [0, 5, 200], labels=["gap0<=5s", "gap0>5s"]))
+            for size, part in o.groupby("size", observed=True):
+                tab = sc_gap_table(part, ratio, params.sc_gap_s)
+                print(name, size)
+                print(tab.round(2).to_string())
+                tabs.append(tab.reset_index().assign(sample=name, size=size))
+        pd.concat(tabs).round(3).to_csv(FIG_DIR / "sc_closing.csv", index=False)
         base = with_passing(params, 0.0)
         shift = calibrate_shift(fitted, raw, race, cleaned, base)
         params = with_passing(params, round(shift, 3))
@@ -584,6 +708,12 @@ def main(argv: list[str] | None = None) -> None:
             sim, act, cs, ca = pass_totals(fitted, raw, race, cleaned, params, rounds)
             print(f"{name}: passes sim {sim:.0f} vs actual {act:.0f}; "
                   f"close share sim {cs:.3f} vs actual {ca:.3f}")
+        return
+    if cmd[0] == "widening":  # sensitivity: replay without the final-stint widening
+        tables = run_all(fitted, raw, race, cleaned, params, modes=("replay",), widening=1.0)
+        ov = overall(tables).assign(widening=1.0)
+        ov.to_csv(FIG_DIR / "backtest_overall_widening1.csv", index=False)
+        print(ov.round(3).T.to_string())
         return
     tables = run_all(fitted, raw, race, cleaned, params)
     for name, df in tables.items():

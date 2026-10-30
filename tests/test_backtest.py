@@ -49,6 +49,22 @@ def test_neutral_counts_ignores_running_period() -> None:
     assert sc[0] == 1 and vsc[0] == 1
 
 
+def test_vsc_turning_into_sc_is_one_sc() -> None:
+    s = np.array([[GREEN, VSC, SC, SC, GREEN, VSC, GREEN]])
+    sc, vsc = neutral_counts(s)
+    assert sc[0] == 1 and vsc[0] == 1
+
+
+def test_neutral_runs_merge_vsc_into_sc(data) -> None:
+    """Saudi Arabia: the lap-16 VSC turned into an SC (one SC period), plus a
+    later VSC."""
+    from f1strat.race_events import neutral_runs
+
+    r = data["race"][data["race"]["RoundNumber"] == SAUDI]
+    kinds = [k for k, first, _ in neutral_runs(r) if first >= 2]
+    assert kinds == ["SafetyCar", "VSC"]
+
+
 def test_actual_race_retirements(data) -> None:
     """Bahrain: Verstappen and Pérez (stopped on the final lap) retired; Leclerc won."""
     act = actual_race(data["raw"], data["race"], BAHRAIN)
