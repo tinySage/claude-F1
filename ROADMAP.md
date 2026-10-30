@@ -35,6 +35,12 @@ Case studies (2022):
   `mixed_conditions`.
 - **Pit loss stops (Phase 2):** stops whose in lap is lap 1 are not used.
 - **Yellow flags (Phase 2):** not an exclude reason.
+- **Missing tyre age (Phase 3, awaiting approval):** 73 clean Austria laps have
+  a compound but no `TyreLife`. They are left out of model data, not filled in,
+  matching the missing-compound decision.
+- **Held-out test sets (Phase 3):** `last_stint` (each driver's final stint per
+  race, for drivers with an earlier clean stint) and `long_tyre` (train on
+  `TyreLife <= 15`, test on older tyres). Fixed and reused for every model.
 
 ---
 
@@ -61,7 +67,7 @@ Case studies (2022):
 **Done when:** `src/f1strat/clean.py` produces a tested clean dataset with a dirty-air flag, and a per-circuit pit loss table exists.
 
 ## Phase 3: Tyre degradation model
-- [ ] Linear baseline
+- [x] Linear baseline (per-race OLS; results in `docs/model.md`)
 - [ ] Bayesian hierarchical model in PyMC: car pace offsets, per-compound degradation with a cliff term, fuel effect, track evolution
 - [ ] XGBoost fit, used only to show it fails to extrapolate on long stints
 
