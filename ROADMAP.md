@@ -237,6 +237,14 @@ Open issues for Phase 6:
   rates in `sim_params.json` come from all of 2022, including each case
   study's own race and later rounds. Phase 6 must re-estimate them from
   races before the decision race, or state the leak and test its effect.
+- **A compound not yet raced at the decision race takes its degradation from
+  the season pool (Phase 5 rehearsal).**
+  - Spain cut at lap 33 had 2 clean hard laps, so Spain's hard degradation
+    came out at 0.039 s/lap, against 0.123 s/lap in the full fit. The search
+    then sent Verstappen and most rivals onto hards, which almost nobody used.
+  - Hungary is the same situation (Leclerc onto hards).
+  - Phase 6 must address it: use practice long runs, or show the verdict's
+    sensitivity to the hard degradation.
 - **Cutoff by lap number:** a lapped car's lap `L` ends a little after the
   leader's lap `L`, so it is a few seconds "in the future" at the cutoff.
   Negligible, but state it.
