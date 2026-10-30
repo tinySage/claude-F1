@@ -11,7 +11,7 @@ For each, the question is: using only what the pit wall knew at the decision lap
 was the call within the range of good options?
 
 ## Current phase
-**Phase 3: Tyre degradation model.** Phases 0–2 are complete. See `ROADMAP.md` for the full plan and checkpoints.
+**Phase 4: Race simulator.** Phases 0–3 are complete. The degradation model is in `docs/model.md`; the full-data posterior is `models/deg_full_2022.nc` (gitignored, rebuild with `uv run python -m f1strat.deg_model full`, ~40 min). See `ROADMAP.md` for the full plan and checkpoints.
 
 ## Repo layout
 ```
@@ -30,7 +30,7 @@ ROADMAP.md          Phase checklist with "done when" criteria
 
 ## Environment
 - Python 3.11+, managed with `uv`. Run things with `uv run ...` (e.g. `uv run pytest`).
-- PyMC and XGBoost are added in Phase 3, not before.
+- Modelling stack (Phase 3): PyMC sampled with nutpie, ArviZ, XGBoost, scikit-learn.
 
 ## Conventions
 - Logic lives in `src/f1strat/`. Notebooks are only for exploration and plots;

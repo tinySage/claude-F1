@@ -35,6 +35,65 @@ Case studies (2022):
   `mixed_conditions`.
 - **Pit loss stops (Phase 2):** stops whose in lap is lap 1 are not used.
 - **Yellow flags (Phase 2):** not an exclude reason.
+- **Missing tyre age (Phase 3):** 73 clean Austria laps have a compound but no
+  `TyreLife`. They are dropped from model data, not filled in, matching the
+  missing-compound decision.
+- **Degradation model spec (Phase 3):** `docs/model.md`, approved with three
+  changes:
+  - car-specific tyre terms (`team_compound[t,c,r]` for soft/hard and
+    `team_deg[t,c]`), so Ferrari's hards can behave differently from the
+    field's;
+  - warm-up only after pit stops, with a separate `opening` term for race laps
+    2–3;
+  - tyre age scaled per 10 laps and race lap centred inside the model, with
+    every effect reported in s and s/lap.
+- **Held-out test sets (Phase 3):** `last_stint` and `long_tyre` (train on
+  `TyreLife <= 15`, test on older tyres), fixed and reused for every model.
+  - `last_stint` tests final stints of **odd-numbered rounds only**, for
+    drivers with an earlier clean stint. Even rounds keep their final stints in
+    training so the final-stint terms can be estimated. It was originally every
+    driver's final stint; changed with the final-stint terms.
+- **Stint-level terms (Phase 3):** `stint[d,r,s]`, added because held-out
+  intervals under-covered (68–70%) and 37–50% of held-out error was a constant
+  shift per stint.
+  - Non-final stints: spread `sigma_stint`, centred within each driver's race.
+  - Final stints: a pooled mean shift `mu_final` and their own spread
+    `sigma_stint_final`, shared across races, because final stints varied about
+    twice as much as others.
+  - The simulator knows which stint is final from the strategy, so these terms
+    can be used at prediction time.
+- **No cliff term (Phase 3):** degradation is linear in `TyreLife` per compound
+  and race.
+  - Why: the linear baseline was the best model beyond 30 laps; the
+    season-level quadratic was correlated with deg and trend and hurt mixing;
+    and it could not represent track-specific cliffs anyway.
+  - Linear degradation on very long stints is a stated limitation.
+- **`warmup` renamed `post_stop` (Phase 3):** first two flying laps after a
+  stop, net of tyre warm-up and drivers pushing on new tyres. Unconstrained;
+  its negative sign is a finding.
+- **Phase 3 done-when changed:** `long_tyre` has no coverage threshold.
+  - Why: it trains only on `TyreLife <= 15`, but every real use (Phase 4
+    simulations, Phase 6 cutoff fits) includes long stints from earlier races,
+    so it is a stress test, not the use case.
+  - Its error-by-age table and coverage are reported as limitations.
+  - `last_stint` keeps the 75–85% coverage target.
+- **Race-wide final-stint shift (Phase 3):** `final_race[r]`, pooled across
+  races (`sigma_final_race`), drawn from its spread for a race with no
+  final-stint data.
+  - Non-centred, because the centred form made a funnel at races with no
+    final-stint data.
+  - Sampler for all fits: 5,000 draws, low-rank adaptation, target acceptance
+    0.95.
+- **`last_stint` coverage accepted below target (Phase 3):** 74.0% against
+  75–85%, accepted under the agreed rule because all fits pass diagnostics.
+  - Widening factor ×1.188 on the 80% interval half-widths reaches 80%.
+    Phase 4 can apply it.
+  - The likely cause is `sigma_final_race` being estimated from the 9 even
+    rounds only in that split (0.12 s vs 0.24 s in the full fit).
+- **Hungary confounding (Phase 3 → Phase 6):** Leclerc's stint 3 is Ferrari's
+  only hard stint at Hungary. The data identify the sum of
+  `team_compound[Ferrari, hard, Hungary]` and his stint effect, not the split,
+  so Phase 6 reports the sum.
 
 ---
 
@@ -61,11 +120,18 @@ Case studies (2022):
 **Done when:** `src/f1strat/clean.py` produces a tested clean dataset with a dirty-air flag, and a per-circuit pit loss table exists.
 
 ## Phase 3: Tyre degradation model
-- [ ] Linear baseline
-- [ ] Bayesian hierarchical model in PyMC: car pace offsets, per-compound degradation with a cliff term, fuel effect, track evolution
-- [ ] XGBoost fit, used only to show it fails to extrapolate on long stints
+- [x] Linear baseline (per-race OLS; results in `docs/model.md`)
+- [x] Bayesian hierarchical model in PyMC: car pace offsets, per-compound linear degradation, car-specific tyre terms, stint and final-stint terms (incl. race-wide `final_race`), fuel + track trend (`docs/model.md`, "Results: final fit")
+- [x] XGBoost fit, used only to show it fails to extrapolate on long stints (`reports/figures/xgb_vs_bayes_long_tyre.png`)
 
-**Done when:** the PyMC model converges (R-hat, ESS checked), beats the linear baseline on held-out stints, and the XGBoost extrapolation failure is shown in a plot.
+Result:
+- All three fits pass diagnostics.
+- The Bayesian model beats the baseline on `last_stint` (MAE 0.598 vs 0.874 s)
+  and matches it on `long_tyre` (0.505 vs 0.524 s).
+- `last_stint` 80% coverage is 74.0%, accepted as a limitation with a widening
+  factor of ×1.188 (see Decisions log).
+
+**Done when:** every PyMC fit has R-hat < 1.01 on every parameter, zero divergences and ESS ≥ 400; the model matches or beats the baseline on both test sets; `last_stint` 80% coverage is in 75–85% (`long_tyre` coverage and error by tyre age are reported as limitations, no threshold); and the XGBoost comparison plot exists.
 
 ## Phase 4: Race simulator (built in layers)
 - [ ] Single car vs the clock
@@ -74,6 +140,13 @@ Case studies (2022):
 - [ ] Safety cars
 - [ ] Monte Carlo over the model's posterior
 
+Notes from Phase 3:
+- **Check before reusing `final_race` in the SC layer.** The largest race-wide
+  final-stint shifts (São Paulo −0.41 s, Bahrain −0.34 s) look like late
+  safety-car restarts followed by sprint laps on fresh tyres. If so,
+  `final_race` partly encodes SC timing, and the SC layer must not count it
+  twice.
+
 **Done when:** `src/f1strat/simulator.py` returns a distribution of finishing positions/times per strategy, with tests for each layer.
 
 ## Phase 5: Validation
@@ -81,10 +154,19 @@ Case studies (2022):
 - [ ] Check interval calibration
 - [ ] Loop back to Phase 3/4 if needed
 
+Watch items from Phase 3 (if these races backtest badly, look here first):
+- Negative field hard degradation: Australia, Saudi Arabia, Miami.
+- Hard degrading faster than soft: São Paulo.
+
 **Done when:** backtest results and calibration plots are documented, and predicted intervals are calibrated well enough to support the case studies (or limitations are stated).
 
 ## Phase 6: Case studies
 Refit using only data up to each decision lap (no future leakage).
+
+Open issues for Phase 6:
+- **Cleaning leaks future information into a cutoff refit.** The 107% outlier
+  median and the pit loss are computed from the whole race. A refit at a
+  decision lap must recompute both from laps up to that lap only.
 - [ ] Hungary
 - [ ] Silverstone
 - [ ] Monaco (wet crossover; state limitations)

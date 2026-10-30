@@ -5,12 +5,19 @@ description = "F1 race strategy simulator re-examining Ferrari's 2022 strategy c
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "arviz>=0.23.4",
     "fastf1>=3.9.0",
+    "h5netcdf>=1.8.2",
+    "h5py>=3.16.0",
     "matplotlib>=3.11.2",
     "numpy>=2.4.6",
+    "nutpie>=0.16.8",
     "pandas>=2.3.3",
     "plotly>=7.1.0",
     "pyarrow>=26.0.0",
+    "pymc>=5.28.5",
+    "scikit-learn>=1.9.1",
+    "xgboost>=3.2.0",
 ]
 
 [build-system]
@@ -29,4 +36,5 @@ dev = [
     "nbconvert>=7.17.2",
     "nbformat>=5.11.1",
     "pytest>=9.2.0",
+    "tabulate>=0.10.0",
 ]

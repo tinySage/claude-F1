@@ -14,3 +14,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+
+# Model posteriors are over 25 MB with the stint term; rebuild all three with
+#   uv run python -m f1strat.deg_model all
+models/*.nc
