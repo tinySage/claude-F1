@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 LONG_TYRE_MAX_TRAIN_AGE = 15
 
 #: Laps since the stop that count as the first two flying laps (the out lap is 0).
-WARMUP_LAPS = (1, 2)
+POST_STOP_LAPS = (1, 2)
 
 #: Race laps that count as opening laps (bunched field, DRS off).
 OPENING_LAPS = (2, 3)
@@ -78,7 +78,7 @@ def prepare(cleaned: pd.DataFrame) -> pd.DataFrame:
     stint_start = df.groupby(key + ["Stint"])["LapNumber"].transform("min")
     df["laps_since_stop"] = (df["LapNumber"] - stint_start).astype("int64")
     after_stop = stint_start > 1
-    df["first_two_flying"] = df["laps_since_stop"].isin(WARMUP_LAPS) & after_stop
+    df["first_two_flying"] = df["laps_since_stop"].isin(POST_STOP_LAPS) & after_stop
     df["opening_laps"] = df["LapNumber"].isin(OPENING_LAPS)
     df["final_stint"] = df["Stint"] == df.groupby(key)["Stint"].transform("max")
     df = df[df["exclude_reason"].isna() & df["TyreLife"].notna()].copy()
@@ -242,9 +242,9 @@ KEEP_VARS: tuple[str, ...] = (
     "race_base", "driver_season", "sigma_driver", "sigma_driver_race", "driver_offset",
     "driver_race_mean", "mu_compound", "tau_compound", "compound_offset",
     "team_compound_season", "sigma_tc_season", "sigma_tc_race", "team_compound",
-    "mu_deg", "tau_deg", "deg", "team_deg", "sigma_team_deg", "cliff", "warmup",
+    "mu_deg", "tau_deg", "deg", "team_deg", "sigma_team_deg", "cliff", "post_stop",
     "opening", "mu_trend", "tau_trend", "trend", "dirty_air_penalty",
-    "rain_effect", "sigma", "nu",
+    "rain_effect", "sigma", "nu", "sigma_stint", "stint_effect",
 )
 
 
@@ -264,12 +264,18 @@ class BayesFit:
     driver_race: list[tuple[int, str]]
     lap_centre: float
     diagnostics: dict[str, float] = field(default_factory=dict)
+    stints: list[tuple[int, str, int]] = field(default_factory=list)
 
 
 def _index(values: pd.Series, levels: list) -> np.ndarray:
     """Position of each value in ``levels`` (-1 if absent)."""
     lookup = {v: i for i, v in enumerate(levels)}
     return values.map(lookup).fillna(-1).astype(int).to_numpy()
+
+
+def _stint_keys(laps: pd.DataFrame) -> list[tuple[int, str, int]]:
+    """(round, driver, stint) for each lap."""
+    return list(zip(laps["RoundNumber"].astype(int), laps["Driver"], laps["Stint"].astype(int)))
 
 
 def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
@@ -286,12 +292,20 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
     drivers = sorted(laps["Driver"].unique())
     teams = sorted(laps["Team"].unique())
     pairs = sorted(set(zip(laps["RoundNumber"].astype(int), laps["Driver"])))
+    stints = sorted(set(zip(laps["RoundNumber"].astype(int), laps["Driver"],
+                            laps["Stint"].astype(int))))
     lap_centre = float(laps["race_lap"].mean())
 
     r = _index(laps["RoundNumber"].astype(int), races)
     t = _index(laps["Team"], teams)
     c = _index(laps["Compound"], list(COMPOUNDS))
     dr = _index(pd.Series(list(zip(laps["RoundNumber"].astype(int), laps["Driver"]))), pairs)
+    st = _index(pd.Series(_stint_keys(laps)), stints)
+    pair_lookup = {pair: i for i, pair in enumerate(pairs)}
+    stint_pair = np.array([pair_lookup[(rr, dd)] for rr, dd, _ in stints])
+    stint_average = np.zeros((len(pairs), len(stints)))
+    stint_average[stint_pair, np.arange(len(stints))] = 1.0
+    stint_average /= stint_average.sum(axis=1, keepdims=True)
     pair_race = np.array([races.index(rr) for rr, _ in pairs])
     pair_driver = np.array([drivers.index(dd) for _, dd in pairs])
     average = np.zeros((len(races), len(pairs)))
@@ -310,6 +324,7 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
     coords = {
         "race": races, "driver": drivers, "team": teams, "compound": list(COMPOUNDS),
         "compound_nonref": list(NONREF_COMPOUNDS), "driver_race": np.arange(len(pairs)),
+        "stint": np.arange(len(stints)),
     }
     n_race, n_team = len(races), len(teams)
     with pm.Model(coords=coords) as model:
@@ -327,6 +342,14 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
         race_mean = pm.Deterministic("driver_race_mean", pt.dot(average, driver_raw), dims="race")
         driver_offset = pm.Deterministic(
             "driver_offset", driver_raw - race_mean[pair_race], dims="driver_race"
+        )
+
+        sigma_stint = pm.HalfNormal("sigma_stint", 0.3)
+        # Centred: each stint has ~15+ laps, so the data dominate the prior and
+        # the centred form samples better than the non-centred one here.
+        stint_raw = pm.Normal("stint_raw", 0.0, sigma_stint, dims="stint")
+        stint_effect = pm.Deterministic(
+            "stint_effect", stint_raw - pt.dot(stint_average, stint_raw)[stint_pair], dims="stint"
         )
 
         mu_comp = pm.Normal("mu_compound", 0.0, 1.0, dims="compound_nonref")
@@ -368,7 +391,7 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
             dims=("compound", "team"),
         )
         cliff = pm.Normal("cliff", 0.0, 0.2, dims="compound")
-        warmup = pm.Normal("warmup", 0.0, 1.0, dims="compound")
+        post_stop = pm.Normal("post_stop", 0.0, 1.0, dims="compound")
         opening = pm.Normal("opening", 0.0, 1.0)
 
         mu_trend = pm.Normal("mu_trend", -0.05, 0.05)
@@ -384,11 +407,12 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
         mu = (
             race_base[r]
             + driver_offset[dr]
+            + stint_effect[st]
             + compound_offset[c, r]
             + team_compound[c, r, t]
             + (deg[c, r] + team_deg[c, t]) * a
             + cliff[c] * a**2
-            + warmup[c] * warm
+            + post_stop[c] * warm
             + opening * opening_x
             + trend[r] * lap
             + dirty_air_penalty * dirty
@@ -397,7 +421,7 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
         pm.StudentT("lap_time", nu=nu, mu=mu, sigma=sigma[r], observed=y)
 
     meta = {"races": races, "drivers": drivers, "teams": teams,
-            "driver_race": pairs, "lap_centre": lap_centre}
+            "driver_race": pairs, "lap_centre": lap_centre, "stints": stints}
     return model, meta
 
 
@@ -417,8 +441,8 @@ def diagnose(idata: "xr.DataTree", var_names: list[str] | None = None) -> dict[s
 def fit(
     laps: pd.DataFrame,
     cutoff: Cutoff | None = None,
-    draws: int = 1500,
-    tune: int = 1000,
+    draws: int = 2500,
+    tune: int = 1500,
     chains: int = 4,
     seed: int = 0,
     adaptation: str = "low_rank",
@@ -447,7 +471,8 @@ def fit(
     posterior = idata.posterior.to_dataset()[list(KEEP_VARS)].astype("float32")
     return BayesFit(posterior=posterior, diagnostics=diag, races=meta["races"],
                     drivers=meta["drivers"], teams=meta["teams"],
-                    driver_race=meta["driver_race"], lap_centre=meta["lap_centre"])
+                    driver_race=meta["driver_race"], lap_centre=meta["lap_centre"],
+                    stints=meta["stints"])
 
 
 def _flat(post: "xr.Dataset", name: str, idx: np.ndarray) -> np.ndarray:
@@ -501,6 +526,15 @@ def predict(
               * rng.standard_normal((n_s, len(laps))) - g["driver_race_mean"][:, rr])
     offset = np.where(seen, g["driver_offset"][:, np.where(seen, dr, 0)], pooled)
 
+    # Stint effect: fitted where the stint was seen, else Normal(0, sigma_stint).
+    keys = _stint_keys(laps)
+    st = _index(pd.Series(keys, index=laps.index), fitted.stints)
+    codes, uniques = pd.factorize(pd.Series(keys, dtype=object))
+    # One draw per unseen stint, shared by all its laps.
+    new_stint = (g["sigma_stint"][:, None]
+                 * rng.standard_normal((n_s, len(uniques))))[:, codes]
+    offset = offset + np.where(st >= 0, g["stint_effect"][:, np.where(st >= 0, st, 0)], new_stint)
+
     a = laps["TyreLife"].to_numpy(float) / TYRE_SCALE
     lap = laps["race_lap"].to_numpy(float) - fitted.lap_centre
     mu = (
@@ -510,7 +544,7 @@ def predict(
         + g["team_compound"][:, cc, rr, tt]
         + (g["deg"][:, cc, rr] + g["team_deg"][:, cc, tt]) * a
         + g["cliff"][:, cc] * a**2
-        + g["warmup"][:, cc] * laps["first_two_flying"].to_numpy(float)
+        + g["post_stop"][:, cc] * laps["first_two_flying"].to_numpy(float)
         + g["opening"][:, None] * laps["opening_laps"].to_numpy(float)
         + g["trend"][:, rr] * lap
         + g["dirty_air_penalty"][:, None] * laps["dirty_air"].to_numpy(float)
@@ -546,8 +580,8 @@ def effects_table(fitted: BayesFit, interval: float = 0.8) -> pd.DataFrame:
     scale = {"mu_deg": 1 / TYRE_SCALE, "cliff": 1 / TYRE_SCALE**2}
     units = {"mu_deg": "s/lap", "cliff": "s/lap^2", "mu_trend": "s/lap"}
     rows = []
-    for name in ("mu_deg", "cliff", "mu_compound", "warmup", "opening", "mu_trend",
-                 "dirty_air_penalty", "rain_effect"):
+    for name in ("mu_deg", "cliff", "mu_compound", "post_stop", "opening", "mu_trend",
+                 "dirty_air_penalty", "rain_effect", "sigma_stint"):
         da = post[name] * scale.get(name, 1.0)
         extra = [d for d in da.dims if d not in ("chain", "draw")]
         stacked = da.stack(sample=("chain", "draw"))
@@ -634,6 +668,60 @@ def comparison_table(laps: pd.DataFrame, bayes_fits: dict[str, BayesFit]) -> pd.
                     row["coverage_80"] = coverage(test.loc[mask, "lap_s"], sub)
                 rows.append(row)
     return pd.DataFrame(rows)
+
+
+#: Tyre-age buckets for the long_tyre error table (inclusive bounds).
+TYRE_AGE_BUCKETS: tuple[tuple[str, int, int], ...] = (
+    ("16-20", 16, 20), ("21-30", 21, 30), ("31-40", 31, 40), ("40+", 41, 10**6),
+)
+
+
+def error_by_tyre_age(laps: pd.DataFrame, bayes_fit: BayesFit) -> pd.DataFrame:
+    """MAE and mean signed error per model and tyre-age bucket on ``long_tyre``.
+
+    Signed error is predicted minus actual: positive means the model predicts
+    the lap too slow. This is where an extrapolation failure shows, because
+    aggregate MAE averages it away.
+
+    Args:
+        laps: Output of :func:`prepare`.
+        bayes_fit: Bayesian fit on the long_tyre training data.
+    """
+    train, test = split_long_tyre(laps)
+    preds = {
+        "baseline": predict_baseline(fit_baseline(train), test),
+        "xgboost": predict_xgboost(fit_xgboost(train), test),
+        "bayes": predict(bayes_fit, test).mean,
+    }
+    rows = []
+    for label, lo, hi in TYRE_AGE_BUCKETS:
+        mask = test["TyreLife"].between(lo, hi)
+        for model, pred in preds.items():
+            err = (pred - test["lap_s"])[mask]
+            rows.append({"bucket": label, "model": model, "n": int(mask.sum()),
+                         "mae_s": float(err.abs().mean()), "mean_error_s": float(err.mean())})
+    return pd.DataFrame(rows)
+
+
+def stint_team_confounding(
+    fitted: BayesFit, round_number: int, driver: str, stint: int, team: str, compound: str
+) -> dict[str, float]:
+    """How a team-compound term and one stint's effect share the same laps.
+
+    Returns the posterior means and 80% intervals of ``team_compound[team,
+    compound, race]`` and of the stint's effect, their sum, and the posterior
+    correlation between the two.
+    """
+    tc = _draws(fitted, "team_compound").sel(
+        team=team, compound=compound, race=round_number).to_numpy()
+    k = fitted.stints.index((round_number, driver, stint))
+    se = _draws(fitted, "stint_effect").isel(stint=k).to_numpy()
+    out: dict[str, float] = {"correlation": float(np.corrcoef(tc, se)[0, 1])}
+    for name, v in (("team_compound", tc), ("stint_effect", se), ("sum", tc + se)):
+        out[f"{name}_mean"] = float(v.mean())
+        out[f"{name}_lo"] = float(np.quantile(v, 0.1))
+        out[f"{name}_hi"] = float(np.quantile(v, 0.9))
+    return out
 
 
 def _draws(fitted: BayesFit, name: str) -> "xr.DataArray":
@@ -761,6 +849,7 @@ def save_fit(fitted: BayesFit, path: Path) -> Path:
         "teams": json.dumps(fitted.teams),
         "driver_race": json.dumps([[r, d] for r, d in fitted.driver_race]),
         "lap_centre": fitted.lap_centre, "diagnostics": json.dumps(fitted.diagnostics),
+        "stints": json.dumps([[r, d, k] for r, d, k in fitted.stints]),
     }
     ds.to_netcdf(path, engine="h5netcdf",
                  encoding={v: {"zlib": True, "complevel": 5} for v in ds.data_vars})
@@ -778,6 +867,7 @@ def load_fit(path: Path) -> BayesFit:
         teams=json.loads(a["teams"]),
         driver_race=[(int(r), d) for r, d in json.loads(a["driver_race"])],
         lap_centre=float(a["lap_centre"]), diagnostics=json.loads(a["diagnostics"]),
+        stints=[(int(r), d, int(k)) for r, d, k in json.loads(a.get("stints", "[]"))],
     )
 
 

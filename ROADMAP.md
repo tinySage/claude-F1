@@ -80,10 +80,15 @@ Case studies (2022):
 - [ ] Bayesian hierarchical model in PyMC: car pace offsets, per-compound degradation with a cliff term, fuel effect, track evolution
 - [x] XGBoost fit, used only to show it fails to extrapolate on long stints (`reports/figures/xgb_vs_bayes_long_tyre.png`)
 
-Open issue (awaiting decision): the Bayesian 80% intervals cover 68–70% on the
-held-out sets (target 75–85%). The cause is stint-level shifts the model has no
-term for (see `docs/model.md`, Results). The Bayesian item stays unticked until
-that is resolved.
+Open issues (awaiting decision; Bayesian item stays unticked):
+- **80% coverage below target with the stint term:** `last_stint` 72%,
+  `long_tyre` 66% (target 75–85%). Final stints vary twice as much as typical
+  stints, and on `long_tyre` the quadratic cliff over-extrapolates past 30
+  laps.
+- **Diagnostics:** the full fit (R-hat 1.0104, `sigma_tc_race`) and `long_tyre`
+  (R-hat 1.020, `mu_deg`) miss R-hat < 1.01 at 2,500 draws. Fits take 14–22
+  min.
+- See `docs/model.md`, "Results: second fit".
 
 **Done when:** the PyMC model converges (R-hat, ESS checked), beats the linear baseline on held-out stints, and the XGBoost extrapolation failure is shown in a plot.
 
@@ -100,6 +105,10 @@ that is resolved.
 - [ ] Backtest on 2022 races outside the case studies (excluding Austria; see Decisions log)
 - [ ] Check interval calibration
 - [ ] Loop back to Phase 3/4 if needed
+
+Watch items from Phase 3 (if these races backtest badly, look here first):
+- Negative field hard degradation: Australia, Saudi Arabia, Miami.
+- Hard degrading faster than soft: São Paulo.
 
 **Done when:** backtest results and calibration plots are documented, and predicted intervals are calibrated well enough to support the case studies (or limitations are stated).
 
