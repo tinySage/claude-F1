@@ -224,9 +224,22 @@ Watch items from Phase 3 (if these races backtest badly, look here first):
 Refit using only data up to each decision lap (no future leakage).
 
 Open issues for Phase 6:
-- **Cleaning leaks future information into a cutoff refit.** The 107% outlier
-  median and the pit loss are computed from the whole race. A refit at a
-  decision lap must recompute both from laps up to that lap only.
+- **Cleaning leaks future information into a cutoff refit. Resolved in
+  Phase 5:** `deg_model.cutoff_inputs` recomputes cleaning from the laps
+  known at the cutoff.
+  - The 107% outlier median and the pit stops (and so the pit losses) come
+    from laps up to the cutoff only.
+  - No stint of the decision race is labelled final (on truncated data every
+    current stint would be).
+  - Tested by changing every later lap and checking nothing moves.
+- **Still from the whole season: passing and SC/VSC parameters.** The pass
+  intercepts, the Phase 5 pass shift, the SC closing ratio and the SC/VSC
+  rates in `sim_params.json` come from all of 2022, including each case
+  study's own race and later rounds. Phase 6 must re-estimate them from
+  races before the decision race, or state the leak and test its effect.
+- **Cutoff by lap number:** a lapped car's lap `L` ends a little after the
+  leader's lap `L`, so it is a few seconds "in the future" at the cutoff.
+  Negligible, but state it.
 - **Monaco has no pass-difficulty estimate.** It currently gets the season
   average (pooled) intercept, which is wrong for Monaco, where passing is
   nearly impossible. Phase 6 must set it, e.g. from Monaco 2021

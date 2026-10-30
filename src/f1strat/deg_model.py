@@ -57,6 +57,38 @@ def apply_cutoff(laps: pd.DataFrame, cutoff: Cutoff | None) -> pd.DataFrame:
     return laps[earlier | same_race]
 
 
+def cutoff_inputs(raw: pd.DataFrame, cutoff: Cutoff) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Leakage-free cleaned laps and model laps for a cutoff refit (Phase 6).
+
+    Cleaning is recomputed from the laps known at ``cutoff`` only:
+
+    - the 107% outlier rule uses each driver's median clean lap **up to the
+      cutoff** in the decision race (not the whole race);
+    - pit stops, and so the pit losses the simulator resamples
+      (:func:`f1strat.simulator.observed_pit_losses`), come from stops whose in
+      and out laps are both at or before the cutoff, against those medians.
+
+    No stint of the decision race is labelled final: which stint is a car's
+    last is not known at the cutoff. (On truncated data :func:`lap_features`
+    would label every car's current stint final.) The decision race's
+    ``final_race`` therefore keeps its prior, as Phase 3 intended.
+
+    Args:
+        raw: ``load_season()`` laps (uncleaned).
+        cutoff: Decision race and last completed lap.
+
+    Returns:
+        ``(cleaned, laps)``: :func:`f1strat.clean.clean_laps` output on the
+        known laps, and :func:`prepare` output for :func:`fit`.
+    """
+    from f1strat.clean import clean_laps
+
+    cleaned = clean_laps(apply_cutoff(raw, cutoff))
+    laps = prepare(cleaned)
+    laps.loc[laps["RoundNumber"] == cutoff.round_number, "final_stint"] = False
+    return cleaned, laps
+
+
 def lap_features(cleaned: pd.DataFrame) -> pd.DataFrame:
     """Model features for every lap with a stint and tyre age, clean or not.
 

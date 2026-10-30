@@ -172,3 +172,29 @@ def test_unseen_stint_widens_interval() -> None:
     seen = predict(fitted, df[(df["RoundNumber"] == 1) & (df["Driver"] == "AAA") & (df["Stint"] == 2)])
     unseen = predict(fitted, df[held])
     assert (unseen.hi - unseen.lo).mean() > (seen.hi - seen.lo).mean()
+
+
+def test_cutoff_inputs_use_no_future_laps() -> None:
+    """Phase 6: cleaning for a cutoff refit must not change when laps after the
+    cutoff change, and no stint of the decision race is labelled final."""
+    from f1strat.clean import pit_stops
+    from f1strat.data import load_season
+    from f1strat.deg_model import Cutoff, cutoff_inputs
+
+    raw = load_season(2022)
+    raw = raw[raw["RoundNumber"].isin([5, 6])]
+    cut = Cutoff(6, 30)
+    cleaned, laps = cutoff_inputs(raw, cut)
+    # Make every later Spain lap absurdly slow: nothing known at lap 30 moves.
+    later = (raw["RoundNumber"] == 6) & (raw["LapNumber"] > 30)
+    raw2 = raw.copy()
+    raw2.loc[later, "LapTime"] = raw2.loc[later, "LapTime"] * 3
+    cleaned2, laps2 = cutoff_inputs(raw2, cut)
+    assert cleaned["LapNumber"][cleaned["RoundNumber"] == 6].max() == 30
+    assert cleaned["exclude_reason"].astype(str).equals(cleaned2["exclude_reason"].astype(str))
+    s1, s2 = pit_stops(cleaned), pit_stops(cleaned2)
+    assert np.allclose(s1["loss_s"].fillna(0), s2["loss_s"].fillna(0))
+    assert (s1.loc[s1["RoundNumber"] == 6, "InLap"] < 30).all()
+    assert not laps.loc[laps["RoundNumber"] == 6, "final_stint"].any()
+    assert laps.loc[laps["RoundNumber"] == 5, "final_stint"].any()
+    assert len(laps) == len(laps2)
