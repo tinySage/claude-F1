@@ -11,7 +11,11 @@ Decisions log).
   Logistic regression with a pooled pace slope and per-circuit intercepts,
   shrunk toward the pooled intercept by an L2 penalty.
 - **Following gap** (:func:`fit_pass_model`): the median gap at the line when
-  a car within 1 s did not pass.
+  a car within 1 s did not pass, and the quantiles of those gaps (Phase 5: a
+  held car's gap is drawn from them).
+- **Passing calibration** (Phase 5, :mod:`f1strat.backtest`): a shift on every
+  circuit intercept, fitted so that replayed even-round races have the actual
+  number of on-track passes; ``main`` keeps the saved shift.
 - **Safety cars** (:func:`fit_neutralisations`):
   - per-lap probability that an SC or VSC starts on a green race lap after
     lap 1;
@@ -36,6 +40,7 @@ from f1strat.data import PROCESSED_DIR
 
 PARAMS_PATH = PROCESSED_DIR / "2022" / "sim_params.json"
 NEUTRAL = "4567"
+HELD_GAP_QUANTILES = 41
 
 
 @dataclass
@@ -48,9 +53,17 @@ class PassModel:
     follow_gap_s: float           # gap when held up
     n_events: int = 0
     n_passes: int = 0
+    #: Phase 5 calibration (:mod:`f1strat.backtest`): shift on every circuit
+    #: intercept, and the lap-time loss of a car that starts a green lap within
+    #: 1 s of the car directly ahead.
+    shift: float = 0.0
+    dirty_air_s: float = 0.0
+    #: Quantiles (0, 1/k, ..., 1) of the real next-lap gap of cars within 1 s
+    #: that did not pass. Empty: every held car sits at ``follow_gap_s``.
+    held_gaps: list[float] = field(default_factory=list)
 
     def p_pass(self, round_number: int, pace_gap: np.ndarray) -> np.ndarray:
-        a = self.circuit.get(round_number, self.intercept)
+        a = self.circuit.get(round_number, self.intercept) + self.shift
         return 1.0 / (1.0 + np.exp(-(a + self.slope * pace_gap)))
 
 
@@ -150,9 +163,11 @@ def fit_pass_model(events: pd.DataFrame, penalty: float = 1.0) -> PassModel:
     dev = _penalised_offsets(x.to_numpy(), ev["passed"].to_numpy(float), offset, penalty)
     circuit = {int(r): a0 + float(d) for r, d in zip(x.columns, dev)}
     held = ev[~ev["passed"] & ev["gap_next_s"].notna()]
+    quantiles = np.quantile(held["gap_next_s"], np.linspace(0, 1, HELD_GAP_QUANTILES))
     return PassModel(slope=b, intercept=a0, circuit=circuit,
                      follow_gap_s=float(held["gap_next_s"].median()),
-                     n_events=len(ev), n_passes=int(ev["passed"].sum()))
+                     n_events=len(ev), n_passes=int(ev["passed"].sum()),
+                     held_gaps=[round(float(q), 3) for q in quantiles])
 
 
 def _penalised_offsets(x: np.ndarray, y: np.ndarray, offset: np.ndarray,
@@ -262,6 +277,9 @@ def main() -> None:
 
     raw = load_season(2022)
     params = estimate(load_fit(THIN_FIT_PATH), clean_laps(raw), load_season(2022, table="race"))
+    if PARAMS_PATH.exists():  # keep the Phase 5 calibration
+        old = SimParams.load().passing
+        params.passing.shift, params.passing.dirty_air_s = old.shift, old.dirty_air_s
     print(json.dumps(asdict(params), indent=1)[:3000])
     print(f"wrote {params.save()}")
 

@@ -202,7 +202,7 @@ def _no_passing(params: SimParams) -> SimParams:
 def test_no_passing_keeps_order_and_gap(fitted, spain_state, params, losses) -> None:
     """With passing impossible and no stops or SC, nobody passes through anybody:
     the order at the flag is the order at the start, and every car is at least
-    the following gap behind the car ahead."""
+    the smallest held gap behind the car ahead."""
     prm = _no_passing(_no_neutral(params))
     field = build_field(fitted, spain_state, losses, prm, n_sims=50, seed=3)
     res = simulate_field(field, {d: Plan() for d in field.drivers})
@@ -210,7 +210,7 @@ def test_no_passing_keeps_order_and_gap(fitted, spain_state, params, losses) -> 
     for i in range(field.n_sims):
         assert list(np.argsort(res.times[i])) == list(start)
         gaps = np.diff(np.sort(res.times[i]))
-        assert (gaps >= prm.passing.follow_gap_s - 1e-9).all()
+        assert (gaps >= min(prm.passing.held_gaps or [prm.passing.follow_gap_s]) - 1e-9).all()
     assert res.passes == 0
 
 

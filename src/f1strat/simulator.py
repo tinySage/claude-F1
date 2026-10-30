@@ -830,11 +830,14 @@ def build_field(
     widening: float = DEFAULT_WIDENING,
     use_fitted_current_stint: bool = True,
     final_race_prior: bool = False,
+    status: np.ndarray | None = None,
 ) -> Field:
     """Draw everything plan-independent for every car (common random numbers).
 
     All cars in simulation ``i`` share one posterior draw. ``final_race_prior``
     draws the race's ``final_race`` from its prior (see :func:`car_model`).
+    ``status`` (GREEN / SC / VSC per remaining lap) forces the SC/VSC schedule
+    in every simulation instead of drawing it (Phase 5 replay backtests).
     """
     rng = np.random.default_rng(seed)
     total = fitted.posterior.sizes["chain"] * fitted.posterior.sizes["draw"]
@@ -848,7 +851,10 @@ def build_field(
         models[d] = car_model(fitted, state.round_number, d, car.team, idx, rng,
                               current_stint=stint, widening=widening, final_race_z=fr_z)
         draws[d] = make_draws(models[d], state.laps_remaining, pit_losses, max_stops, rng)
-    status = neutral_schedule(state, params.neutral, n_sims, rng)
+    drawn = neutral_schedule(state, params.neutral, n_sims, rng)
+    if status is not None:
+        drawn = np.broadcast_to(np.asarray(status, np.int8), drawn.shape).copy()
+    status = drawn
     pass_u = rng.random((n_sims, state.laps_remaining, len(drivers)))
     choice_u = rng.random((n_sims, len(drivers)))
     return Field(state, drivers, models, draws, status, pass_u, choice_u, params,
@@ -899,9 +905,16 @@ class FieldResult:
     holds: int = 0
     attempts: int = 0
     attempt_pace: np.ndarray | None = None   # pace gaps of all pass attempts
+    #: With ``record=True``: race time at the end of every simulated lap,
+    #: (n_sims, laps_remaining, n_cars), +inf once a car has retired.
+    history: np.ndarray | None = None
+    #: With ``record=True``: car on an in or out lap, same shape.
+    pit_laps: np.ndarray | None = None
 
 
-def simulate_field(field: Field, plans: dict[str, PlanOptions]) -> FieldResult:
+def simulate_field(field: Field, plans: dict[str, PlanOptions],
+                   retire: dict[str, int] | None = None,
+                   record: bool = False) -> FieldResult:
     """Simulate the rest of the race for every car.
 
     Args:
@@ -909,6 +922,11 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions]) -> FieldResult:
         plans: Per driver, a fixed :class:`Plan` or weighted options
             ``[(plan, weight), ...]`` (one picked per simulation, the same
             pick for every call on this field). Every car needs an entry.
+        retire: Per driver, the last lap it completes (Phase 5 backtests:
+            actual retirements). A retired car leaves the track (race time
+            +inf) and is classified behind every running car.
+        record: Keep each lap's race times and in/out-lap flags
+            (``FieldResult.history``, ``FieldResult.pit_laps``).
     """
     st, prm = field.state, field.params
     n, L, C = field.n_sims, st.laps_remaining, len(field.drivers)
@@ -918,13 +936,18 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions]) -> FieldResult:
     for c, d in enumerate(field.drivers):
         free[:, :, c], pit[:, :, c] = _select(field, c, plans[d])
         noise[:, :, c] = field.draws[d].noise
-    a_circ = prm.passing.circuit.get(st.round_number, prm.passing.intercept)
+    a_circ = prm.passing.circuit.get(st.round_number, prm.passing.intercept) + prm.passing.shift
     b, gap = prm.passing.slope, prm.passing.follow_gap_s
+    dirty = prm.passing.dirty_air_s
+    held_q = np.asarray(prm.passing.held_gaps, float)  # quantiles of real held gaps
     neu = prm.neutral
     T = np.array([st.cars[d].race_time for d in field.drivers], float)[None, :].repeat(n, 0)
     rows = np.arange(n)
     passes = holds = attempts = 0
     attempt_pace = []
+    last = np.array([(retire or {}).get(d, st.total_laps) for d in field.drivers])
+    history = np.empty((n, L, C)) if record else None
+    pit_laps = np.zeros((n, L, C), dtype=bool) if record else None
     for j in range(L):
         F, P, s = free[:, j, :], pit[:, j, :], field.status[:, j]
         pace_mean = F - noise[:, j, :]
@@ -938,6 +961,7 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions]) -> FieldResult:
         if j == 0:
             out_lap = np.array([st.cars[d].laps_since_stop == 0 and st.cars[d].stint > 1
                                 for d in field.drivers])[None, :].repeat(n, 0)
+        gone = np.isinf(T)
         # --- green: battles in order of position ---------------------------------
         tail = np.full(n, -np.inf)
         tail_car = np.zeros(n, dtype=int)
@@ -945,8 +969,11 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions]) -> FieldResult:
         for r in range(C):
             car = order[:, r]
             a_r = A[rows, car]
-            active = green & ~pitting[rows, car] & ~out_lap[rows, car]
+            active = green & ~pitting[rows, car] & ~out_lap[rows, car] & ~gone[rows, car]
             if r > 0:
+                # Dirty air: started the lap within 1 s of the car directly ahead.
+                behind = (T[rows, car] - T[rows, order[:, r - 1]]) < 1.0
+                a_r = a_r + dirty * (active & behind)
                 cond = active & (a_r < tail + gap) & np.isfinite(tail)
                 close = (T[rows, car] - T[rows, tail_car]) < 1.0
                 pace = pace_mean[rows, tail_car] - pace_mean[rows, car]
@@ -955,7 +982,16 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions]) -> FieldResult:
                 held = cond & ~ok
                 attempts += int((cond & close).sum())
                 attempt_pace.append(pace[cond & close])
-                a_r = np.where(held, tail + gap, a_r)
+                if held_q.size:
+                    # Held at a gap drawn from the real gaps of cars that did
+                    # not pass; the coin-flip's leftover is uniform given held.
+                    u = field.pass_u[rows, j, car]
+                    u = np.where(close, (u - p) / np.maximum(1 - p, 1e-9), u).clip(0, 1)
+                    g_held = np.interp(u, np.linspace(0, 1, held_q.size), held_q)
+                    held = cond & ~ok & (a_r < tail + g_held)
+                    a_r = np.where(held, tail + g_held, a_r)
+                else:
+                    a_r = np.where(held, tail + gap, a_r)
                 a_r = np.where(ok, np.maximum(a_r, second + gap), a_r)
                 passes += int(ok.sum())
                 holds += int(held.sum())
@@ -985,10 +1021,15 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions]) -> FieldResult:
                 q = np.maximum(own, prev + 0.05)
                 prev = np.where(pitting[rows, car], prev, q)
                 A[rows, car] = np.where(vsc, q + neu.vsc_pit_ratio * P[rows, car], A[rows, car])
+        A[:, st.lap + 1 + j > last] = np.inf
         T = A
+        if record:
+            history[:, j, :] = T
+            pit_laps[:, j, :] = pitting | out_lap
     positions = np.argsort(np.argsort(T, axis=1), axis=1) + 1
     return FieldResult(field.drivers, T, positions, passes, holds, attempts,
-                       np.concatenate(attempt_pace) if attempt_pace else None)
+                       np.concatenate(attempt_pace) if attempt_pace else None,
+                       history, pit_laps)
 
 
 @dataclass
