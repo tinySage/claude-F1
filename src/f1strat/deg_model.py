@@ -248,7 +248,7 @@ KEEP_VARS: tuple[str, ...] = (
     "mu_deg", "tau_deg", "deg", "team_deg", "sigma_team_deg", "post_stop",
     "opening", "mu_trend", "tau_trend", "trend", "dirty_air_penalty",
     "rain_effect", "sigma", "nu", "sigma_stint", "stint_effect", "mu_final",
-    "sigma_stint_final",
+    "sigma_stint_final", "final_race", "sigma_final_race",
 )
 
 
@@ -301,6 +301,7 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
     final_keys = set(zip(*[laps.loc[laps["final_stint"], k] for k in ("RoundNumber", "Driver", "Stint")]))
     final_keys = {(int(r), d, int(k)) for r, d, k in final_keys}
     is_final = np.array([key in final_keys for key in stints])
+    stint_race = np.array([races.index(rr) for rr, _, _ in stints])
     lap_centre = float(laps["race_lap"].mean())
 
     r = _index(laps["RoundNumber"].astype(int), races)
@@ -357,11 +358,16 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
         sigma_stint = pm.HalfNormal("sigma_stint", 0.3)
         mu_final = pm.Normal("mu_final", 0.0, 0.5)
         sigma_stint_final = pm.HalfNormal("sigma_stint_final", 0.5)
+        # Race-wide shift of final stints. Centred: a race has ~20 final stints.
+        # A race with no final-stint data keeps its prior, so it is drawn from
+        # Normal(0, sigma_final_race) at prediction time.
+        sigma_final_race = pm.HalfNormal("sigma_final_race", 0.5)
+        final_race = pm.Normal("final_race", 0.0, sigma_final_race, dims="race")
         # Centred: each stint has ~15+ laps, so the data dominate the prior and
         # the centred form samples better than the non-centred one here.
         stint_raw = pm.Normal(
             "stint_raw",
-            pt.where(is_final, mu_final, 0.0),
+            pt.where(is_final, mu_final + final_race[stint_race], 0.0),
             pt.where(is_final, sigma_stint_final, sigma_stint),
             dims="stint",
         )
@@ -459,7 +465,7 @@ def diagnose(idata: "xr.DataTree", var_names: list[str] | None = None) -> dict[s
 def fit(
     laps: pd.DataFrame,
     cutoff: Cutoff | None = None,
-    draws: int = 2500,
+    draws: int = 5000,
     tune: int = 1500,
     chains: int = 4,
     seed: int = 0,
@@ -545,15 +551,18 @@ def predict(
     offset = np.where(seen, g["driver_offset"][:, np.where(seen, dr, 0)], pooled)
 
     # Stint effect: fitted where the stint was seen. An unseen stint draws once
-    # (shared by its laps) from Normal(mu_final, sigma_stint_final) if it is the
-    # driver's final stint, else Normal(0, sigma_stint).
+    # (shared by its laps) from Normal(mu_final + final_race[r],
+    # sigma_stint_final) if it is the driver's final stint, else
+    # Normal(0, sigma_stint). final_race[r] is the posterior for that race,
+    # which is its prior spread if the race had no final-stint data.
     keys = _stint_keys(laps)
     st = _index(pd.Series(keys, index=laps.index), fitted.stints)
     codes, uniques = pd.factorize(pd.Series(keys, dtype=object))
     z = rng.standard_normal((n_s, len(uniques)))[:, codes]
     final = laps["final_stint"].to_numpy(bool)
     new_stint = np.where(final,
-                         g["mu_final"][:, None] + g["sigma_stint_final"][:, None] * z,
+                         g["mu_final"][:, None] + g["final_race"][:, rr]
+                         + g["sigma_stint_final"][:, None] * z,
                          g["sigma_stint"][:, None] * z)
     offset = offset + np.where(st >= 0, g["stint_effect"][:, np.where(st >= 0, st, 0)], new_stint)
 
@@ -590,6 +599,30 @@ def coverage(actual: pd.Series, pred: Prediction) -> float:
     return float(inside.mean())
 
 
+def interval_widening_factor(
+    actual: pd.Series, pred: Prediction, target: float = 0.8
+) -> float:
+    """Factor by which to scale interval half-widths (around the mean) so that
+    ``target`` of ``actual`` falls inside. Found by bisection; 1.0 means the
+    intervals are already wide enough."""
+    ok = pred.mean.notna()
+    y, m = actual[ok].to_numpy(), pred.mean[ok].to_numpy()
+    below, above = (m - pred.lo[ok]).to_numpy(), (pred.hi[ok] - m).to_numpy()
+
+    def cov(k: float) -> float:
+        return float(((y >= m - k * below) & (y <= m + k * above)).mean())
+
+    if cov(1.0) >= target:
+        return 1.0
+    lo, hi = 1.0, 2.0
+    while cov(hi) < target:
+        hi *= 2
+    for _ in range(50):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if cov(mid) < target else (lo, mid)
+    return hi
+
+
 def effects_table(fitted: BayesFit, interval: float = 0.8) -> pd.DataFrame:
     """Season-level effects in reporting units (s, s/lap, s/lap^2).
 
@@ -603,7 +636,7 @@ def effects_table(fitted: BayesFit, interval: float = 0.8) -> pd.DataFrame:
     rows = []
     for name in ("mu_deg", "mu_compound", "post_stop", "opening", "mu_trend",
                  "dirty_air_penalty", "rain_effect", "sigma_stint", "mu_final",
-                 "sigma_stint_final"):
+                 "sigma_stint_final", "sigma_final_race"):
         da = post[name] * scale.get(name, 1.0)
         extra = [d for d in da.dims if d not in ("chain", "draw")]
         stacked = da.stack(sample=("chain", "draw"))
@@ -915,7 +948,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m f1strat.deg_model")
     parser.add_argument("target", nargs="?", default="full",
                         choices=["full", "splits", "all", *SPLITS])
-    parser.add_argument("--draws", type=int, default=2500)
+    parser.add_argument("--draws", type=int, default=5000)
     parser.add_argument("--tune", type=int, default=1500)
     args = parser.parse_args(argv)
     target = args.target

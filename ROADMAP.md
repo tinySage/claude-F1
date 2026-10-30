@@ -112,12 +112,13 @@ Case studies (2022):
 - [x] XGBoost fit, used only to show it fails to extrapolate on long stints (`reports/figures/xgb_vs_bayes_long_tyre.png`)
 
 Open issues (awaiting decision; Bayesian item stays unticked):
-- **`last_stint` coverage 72%** with final-stint terms (target 75–85%). About
-  half of the held-out final-stint error is a race-wide shift, which per-driver
-  terms cannot capture. Removing it gives 76%. See `docs/model.md`, "Results:
-  third fit".
-- **R-hat:** all three fits are at 1.017–1.021 on hyperparameters at 2,500
-  draws (14–18 min).
+- **Diagnostics fail on the split fits** with `final_race` at 5,000 draws:
+  `last_stint` has 8 divergences and ESS 382/397 (`sigma_final_race`, a funnel
+  from centred `final_race` at the 9 races with no final-stint data);
+  `long_tyre` has 1 divergence. The full fit passes (R-hat 1.0092, ESS 648, 0
+  divergences). See `docs/model.md`, "Results: fourth fit".
+- `last_stint` coverage (provisional) 73.9%; widening factor ×1.17 to reach
+  80%.
 
 **Done when:** every PyMC fit has R-hat < 1.01 on every parameter, zero divergences and ESS ≥ 400; the model matches or beats the baseline on both test sets; `last_stint` 80% coverage is in 75–85% (`long_tyre` coverage and error by tyre age are reported as limitations, no threshold); and the XGBoost comparison plot exists.
 

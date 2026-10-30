@@ -1,7 +1,7 @@
 # Tyre degradation model (Phase 3)
 
-Status: **third fit** (final-stint terms, no cliff, odd-round `last_stint`
-split). Results are in "Results: final fit" at the end; earlier fits are kept
+Status: **final model** (adds the race-wide final-stint shift `final_race[r]`
+to the third fit). Results are in "Results: final fit"; earlier fits are kept
 below it as history. Code: `src/f1strat/deg_model.py`.
 
 ## What the model is for
@@ -56,7 +56,8 @@ mu_i = race_base[r]
 |---|---|---|
 | `race_base[r]` | Lap time of the field-average car on a new medium, mid-race, in clean air, in the dry, at race `r`. Sets each track's level. | One free value per race. |
 | `driver_offset[d,r]` | How much faster or slower this car and driver are than the field average at this race, on the medium. Mostly the car. | Partial pooling toward `driver[d]`, the driver's season-average offset. |
-| `stint[d,r,s]` | How much faster or slower this particular stint ran than the driver's typical pace at this race: tyre management, fuel saving, pushing, a set that worked better or worse. | **Non-final stints:** spread `sigma_stint`, centred to sum to zero over the driver's non-final stints in that race. **Final stints:** a pooled mean shift `mu_final` and their own spread `sigma_stint_final`, shared across races, not centred. So `driver_offset` is the car's pace over its non-final stints, and a final stint is that plus its shift. An unseen stint draws from Normal(`mu_final`, `sigma_stint_final`) if it is the final stint (the simulator knows this from the strategy), else Normal(0, `sigma_stint`). |
+| `stint[d,r,s]` | How much faster or slower this particular stint ran than the driver's typical pace at this race: tyre management, fuel saving, pushing, a set that worked better or worse. | **Non-final stints:** spread `sigma_stint`, centred to sum to zero over the driver's non-final stints in that race. **Final stints:** not centred. Each varies with spread `sigma_stint_final` around `mu_final + final_race[r]`: a season mean shift plus a race-wide shift shared by every final stint at that race. So `driver_offset` is the car's pace over its non-final stints, and a final stint is that plus its shift. An unseen stint draws from Normal(`mu_final + final_race[r]`, `sigma_stint_final`) if it is the final stint (the simulator knows this from the strategy), else Normal(0, `sigma_stint`). |
+| `final_race[r]` | How much the whole field's final stints at race `r` run faster or slower than usual: late-race track or temperature change, the field managing to the flag. | Pooled across races with spread `sigma_final_race`. A race with no final-stint data (an odd round in the `last_stint` split, or the decision race in a Phase 6 cutoff fit) keeps its prior, so it is drawn from Normal(0, `sigma_final_race`). |
 | `compound_offset[c,r]` | How much faster a new soft or hard is than a new medium **for the field average** at this race. | Medium is the reference (0). Soft and hard pool toward a season mean per compound. |
 | `team_compound[t,c,r]` | How much better or worse team `t`'s car gets on soft or hard, relative to the medium, compared with the field at this race. "Ferrari's hards are worse than everyone else's here." | Medium is the reference (0). Zero-sum over teams within each race and compound. Pooled toward `team_compound_season[t,c]`, the team's season tendency, which pools toward 0. |
 | `deg[c,r]` | Seconds lost per extra lap of tyre age, for compound `c`, for the field average at race `r`. Linear degradation. | Partial pooling toward a season deg rate per compound. |
@@ -96,7 +97,8 @@ driver_offset[d,r]          = driver_raw[d,r] − mean over drivers in race r
 
 stint_raw[d,r,s]            ~ Normal(0, sigma_stint)                    non-final stints (centred form)
 stint[d,r,s]                = stint_raw[d,r,s] − mean over the driver's non-final stints in race r
-stint[d,r,final]            ~ Normal(mu_final, sigma_stint_final)        final stint, not centred
+final_race[r]               ~ Normal(0, sigma_final_race)                centred form
+stint[d,r,final]            ~ Normal(mu_final + final_race[r], sigma_stint_final)   final stint, not centred
 
 compound_offset[medium,r]   = 0
 compound_offset[c,r]        = mu_compound[c] + tau_compound[c] * z[c,r]      c in {soft, hard}
@@ -132,6 +134,7 @@ flagged, not hidden.
 | `sigma_stint` | HalfNormal(0.3) s | same | Stint-to-stint shifts of a few tenths. |
 | `mu_final` | Normal(0, 0.5) s | same | No sign assumed for how final stints differ. |
 | `sigma_stint_final` | HalfNormal(0.5) s | same | Final stints were seen to vary about twice as much as others. |
+| `sigma_final_race` | HalfNormal(0.5) s | same | Race-wide final-stint shifts of up to ~0.7 s were seen. |
 | `post_stop[c]` | Normal(0, 1) s | same | No sign assumed; the sign is a finding. |
 | `opening` | Normal(0, 1) s | same | |
 | `mu_trend` | Normal(−0.05, 0.05) s/lap | same | Fuel alone is roughly −0.03 to −0.06 s/lap. |
@@ -211,10 +214,22 @@ flagged, not hidden.
      effect (or as negative degradation on the first stint).
 8. **Stint vs driver vs team compound.** Non-final stint effects sum to zero
    within each driver's race, so they cannot absorb the driver's race pace.
-   - The final stint is not centred. Its mean shift `mu_final` is identified
-     from the final stints in training (all races in the full fit, even rounds
-     in the `last_stint` split), compared with the same drivers' earlier
-     stints.
+   - **Centring choice:** only non-final stints are centred within each
+     driver's race. So `driver_offset` is the car's pace over its non-final
+     stints, and the final stint's shift is measured against that.
+     - If the final stint were centred too, its shift would be partly
+       subtracted from the driver's other stints, and `mu_final` would lose its
+       meaning.
+     - With this choice `mu_final + final_race[r]` is directly "how much
+       slower or faster final stints run than the same drivers' earlier
+       stints".
+   - `mu_final` is identified from the final stints in training (all races in
+     the full fit, even rounds in the `last_stint` split). `final_race[r]` is
+     identified only at races with final-stint data; elsewhere it stays at its
+     prior.
+   - `final_race[r]` cannot absorb `race_base[r]` or `trend[r]`, which are
+     pinned by the non-final stints. It only shifts the final stints relative
+     to them.
    - A stint effect is a constant over the stint, so it cannot absorb deg
      (which grows with tyre age within the stint).
    - It **can** trade off against `compound_offset` and `team_compound` when
@@ -252,8 +267,11 @@ flagged, not hidden.
   plus `sigma_driver_race` noise, centred like the others.
 - **Unseen stint:** a stint not in the training data (every `last_stint` test
   stint) gets one draw shared by all its laps, so the interval includes
-  stint-to-stint variation. A final stint draws from Normal(`mu_final`,
-  `sigma_stint_final`); any other stint from Normal(0, `sigma_stint`).
+  stint-to-stint variation.
+  - A final stint draws from Normal(`mu_final + final_race[r]`,
+    `sigma_stint_final`), with `final_race[r]` taken from the posterior. That
+    is its prior spread if race `r` had no final-stint data.
+  - Any other stint draws from Normal(0, `sigma_stint`).
 - **Unseen compound or team-compound at a race:** the race-level parameter
   exists for every combination, so it falls back to its pooled value with the
   pooled uncertainty. OLS cannot predict these laps.
@@ -326,6 +344,32 @@ separately per race.
   behaviour is carried by `team_compound` and `team_deg`.
 - **Race-specific team deg:** `team_deg` is season-level, so a team's wear
   relative to the field is assumed stable across tracks.
+
+## Results: fourth fit (with `final_race`; diagnostics fail on the splits)
+
+5,000 draws, 1,500 tuning, low-rank adaptation.
+
+| Fit | Time | Max R-hat | Min ESS bulk / tail | Divergences | Status |
+|---|---|---|---|---|---|
+| full | 25.1 min | 1.0092 (`trend[20]`) | 648 / 916 | 0 | **pass** |
+| last_stint | 21.3 min | 1.0092 | **382 / 397** (`sigma_final_race`) | **8** | fail |
+| long_tyre | 16.8 min | 1.0068 | 542 / 933 | **1** | fail |
+
+**Likely cause in `last_stint`: a funnel in the centred `final_race`.**
+- In this split the 9 odd rounds have no final-stint data, so their
+  `final_race[r]` sit on the prior.
+- In centred form that creates a funnel with `sigma_final_race`:
+  - its posterior reaches ~0 (1st percentile 0.006 s; median 0.11 s);
+  - its log correlates at 0.53 with the size of the no-data races' values;
+  - it has the lowest ESS.
+- The full fit has final-stint data at every race and is clean.
+- The proposed fix is a non-centred `final_race` (same model).
+
+**Results so far:**
+- Full fit: `sigma_final_race` 0.24 s [0.16, 0.32]. The largest race shifts
+  are São Paulo −0.41 s and Bahrain −0.34 s.
+- `last_stint` (provisional, from the failing fit): MAE 0.601 s, 80% coverage
+  73.9%. The intervals would need widening by ×1.17 to reach 80%.
 
 ## Results: third fit (final-stint terms, no cliff; provisional)
 
