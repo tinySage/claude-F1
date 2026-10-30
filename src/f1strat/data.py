@@ -318,6 +318,7 @@ def build_season(year: int = 2022, out_dir: Path = PROCESSED_DIR) -> list[int]:
     Returns:
         Round numbers that failed to load.
     """
+    configure_cache()
     schedule = fastf1.get_event_schedule(year, include_testing=False)
     year_dir = out_dir / str(year)
     year_dir.mkdir(parents=True, exist_ok=True)

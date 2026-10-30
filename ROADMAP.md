@@ -8,6 +8,34 @@ Case studies (2022):
 - **Silverstone**: Leclerc left out under the late safety car
 - **Monaco**: the double-stack
 
+## Decisions log
+- **Missing compounds (Phase 2):** laps with no recorded compound (334 laps:
+  Austria stint 3 for 12 drivers, Monaco stint 5 for STR) are not filled in.
+  They are excluded from modelling (`exclude_reason = missing_compound`), and
+  **Austria is dropped from all backtests** (Phase 5).
+- **Mixed-conditions races (Phase 2):** Imola, Monaco, Singapore and Japan
+  2022 get the race-level reason `mixed_conditions` (after `wet_compound`), so
+  none of their laps feed the dry degradation fit. Monaco's case study gets
+  its own handling in Phase 6.
+- **Pit loss for mixed-conditions circuits (Phase 2):** recorded per circuit in
+  `pit_loss.parquet` via `source_year` and `pit_loss_status`.
+  - **Monaco: 2021** (`reference`). Green-flag, dry-to-dry stops from the most
+    recent dry Monaco GP that can be downloaded. No F1 account credentials are
+    used, and 2023–2026 timing data needs sign-in (live timing returns 401; the
+    FastF1 mirror has no copy), so 2021 is the most recent available. Pit lane
+    length barely changes between years. Only needed for the Phase 6 case
+    study.
+  - **Imola, Singapore, Suzuka: not needed** (`not_needed`, value null). All
+    three are mixed-conditions races, so they are out of the dry fit and the
+    Phase 5 backtests, and none is a case study.
+- **Rainfall (Phase 2):** not an exclude reason. `Rainfall` stays as a boolean
+  column for Phase 3 to test as a covariate. Hungary's cool, damp final third
+  (drizzle, everyone on slicks) is part of why the hard tyre struggled, so
+  those laps are evidence. Real wet running is caught by `wet_compound` and
+  `mixed_conditions`.
+- **Pit loss stops (Phase 2):** stops whose in lap is lap 1 are not used.
+- **Yellow flags (Phase 2):** not an exclude reason.
+
 ---
 
 ## Phase 0: Setup
@@ -25,10 +53,10 @@ Case studies (2022):
 **Done when:** every 2022 race's laps are in parquet with a documented schema and a loader in `src/f1strat/data.py`.
 
 ## Phase 2: Cleaning + EDA
-- [ ] Remove lap 1, in/out laps, SC/VSC/yellow-flag laps and deleted laps
-- [ ] Flag dirty-air laps (keep them, with a flag)
-- [ ] Estimate pit lane loss per circuit
-- [ ] EDA notebook with plots
+- [x] Label laps unusable for the deg model with one `exclude_reason` (lap 1, after chequered, in/out laps, red flag, SC, VSC, restart lap, deleted, inaccurate, missing/wet compound, mixed conditions, >107% outlier)
+- [x] Flag dirty-air laps (`gap_ahead_s < 1.0`; keep them, flag only)
+- [x] Estimate green-flag pit lane loss per circuit (`data/processed/2022/pit_loss.parquet`): 18 circuits from their own 2022 stops, Monaco from 2021, and Imola, Singapore and Suzuka marked not needed (see Decisions log)
+- [x] EDA notebook with plots (`notebooks/02_eda.ipynb`, figures in `reports/figures/`)
 
 **Done when:** `src/f1strat/clean.py` produces a tested clean dataset with a dirty-air flag, and a per-circuit pit loss table exists.
 
@@ -49,7 +77,7 @@ Case studies (2022):
 **Done when:** `src/f1strat/simulator.py` returns a distribution of finishing positions/times per strategy, with tests for each layer.
 
 ## Phase 5: Validation
-- [ ] Backtest on 2022 races outside the case studies
+- [ ] Backtest on 2022 races outside the case studies (excluding Austria; see Decisions log)
 - [ ] Check interval calibration
 - [ ] Loop back to Phase 3/4 if needed
 
