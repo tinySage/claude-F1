@@ -269,6 +269,9 @@ class BayesFit:
     lap_centre: float
     diagnostics: dict[str, float] = field(default_factory=dict)
     stints: list[tuple[int, str, int]] = field(default_factory=list)
+    #: Rounds with final-stint data in the fit (their ``final_race`` is
+    #: estimated). ``None`` means every race in the fit.
+    final_stint_races: list[int] | None = None
 
 
 def _index(values: pd.Series, levels: list) -> np.ndarray:
@@ -446,8 +449,10 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
         )
         pm.StudentT("lap_time", nu=nu, mu=mu, sigma=sigma[r], observed=y)
 
+    final_rounds = sorted({int(r) for r in laps.loc[laps["final_stint"], "RoundNumber"]})
     meta = {"races": races, "drivers": drivers, "teams": teams,
-            "driver_race": pairs, "lap_centre": lap_centre, "stints": stints}
+            "driver_race": pairs, "lap_centre": lap_centre, "stints": stints,
+            "final_stint_races": final_rounds}
     return model, meta
 
 
@@ -504,7 +509,7 @@ def fit(
     return BayesFit(posterior=posterior, diagnostics=diag, races=meta["races"],
                     drivers=meta["drivers"], teams=meta["teams"],
                     driver_race=meta["driver_race"], lap_centre=meta["lap_centre"],
-                    stints=meta["stints"])
+                    stints=meta["stints"], final_stint_races=meta["final_stint_races"])
 
 
 def _flat(post: "xr.Dataset", name: str, idx: np.ndarray) -> np.ndarray:
@@ -911,6 +916,7 @@ def save_fit(fitted: BayesFit, path: Path) -> Path:
         "driver_race": json.dumps([[r, d] for r, d in fitted.driver_race]),
         "lap_centre": fitted.lap_centre, "diagnostics": json.dumps(fitted.diagnostics),
         "stints": json.dumps([[r, d, k] for r, d, k in fitted.stints]),
+        "final_stint_races": json.dumps(fitted.final_stint_races),
     }
     ds.to_netcdf(path, engine="h5netcdf",
                  encoding={v: {"zlib": True, "complevel": 5} for v in ds.data_vars})
@@ -929,6 +935,7 @@ def load_fit(path: Path) -> BayesFit:
         driver_race=[(int(r), d) for r, d in json.loads(a["driver_race"])],
         lap_centre=float(a["lap_centre"]), diagnostics=json.loads(a["diagnostics"]),
         stints=[(int(r), d, int(k)) for r, d, k in json.loads(a.get("stints", "[]"))],
+        final_stint_races=json.loads(a.get("final_stint_races", "null")),
     )
 
 
@@ -950,7 +957,7 @@ def thin_fit(fitted: BayesFit, n_draws: int = 1000) -> BayesFit:
     return BayesFit(posterior=thinned, races=fitted.races, drivers=fitted.drivers,
                     teams=fitted.teams, driver_race=fitted.driver_race,
                     lap_centre=fitted.lap_centre, diagnostics=fitted.diagnostics,
-                    stints=fitted.stints)
+                    stints=fitted.stints, final_stint_races=fitted.final_stint_races)
 
 
 def split_fit_path(split: str) -> Path:
