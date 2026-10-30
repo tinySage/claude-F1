@@ -11,7 +11,7 @@ For each, the question is: using only what the pit wall knew at the decision lap
 was the call within the range of good options?
 
 ## Current phase
-**Phase 0: Setup.** See `ROADMAP.md` for the full plan and checkpoints.
+**Phase 1: Data.** Phase 0 (setup) is complete. See `ROADMAP.md` for the full plan and checkpoints.
 
 ## Repo layout
 ```
