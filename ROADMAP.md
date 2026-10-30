@@ -8,6 +8,12 @@ Case studies (2022):
 - **Silverstone**: Leclerc left out under the late safety car
 - **Monaco**: the double-stack
 
+## Decisions log
+- **Missing compounds (Phase 2):** laps with no recorded compound (334 laps:
+  Austria stint 3 for 12 drivers, Monaco stint 5 for STR) are not filled in.
+  They are excluded from modelling (`exclude_reason = missing_compound`), and
+  **Austria is dropped from all backtests** (Phase 5).
+
 ---
 
 ## Phase 0: Setup
@@ -49,7 +55,7 @@ Case studies (2022):
 **Done when:** `src/f1strat/simulator.py` returns a distribution of finishing positions/times per strategy, with tests for each layer.
 
 ## Phase 5: Validation
-- [ ] Backtest on 2022 races outside the case studies
+- [ ] Backtest on 2022 races outside the case studies (excluding Austria; see Decisions log)
 - [ ] Check interval calibration
 - [ ] Loop back to Phase 3/4 if needed
 
