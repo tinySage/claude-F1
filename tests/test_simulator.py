@@ -107,10 +107,25 @@ def test_closed_form_matches_lap_by_lap(spain_state, setup) -> None:
 def test_search_mean_is_exact(spain_state, setup) -> None:
     """The search's expected-time ranking uses the same means as the Monte Carlo."""
     model, draws = setup
-    result = search(model, spain_state, "VER", draws, max_stops=2, min_stint=8, shortlist=10)
+    result = search(model, spain_state, "VER", draws, max_stops=2, min_stint=8, per_stratum=2)
     means = result.totals.mean(axis=1)
-    assert np.all(np.diff(means[:10]) >= -1e-6)                          # ranked by mean
+    assert np.all(np.diff(means) >= -1e-6)                               # ranked by mean
     assert result.n_legal > 10
+    # Stratified: every stop count / compound sequence that is legal appears.
+    strata = {(len(p.stops), tuple(s.compound for s in p.stops)) for p in result.plans}
+    assert {k for k, _ in strata} == {0, 1, 2}
+
+
+def test_inventory_limits_sets(spain_state, setup) -> None:
+    """With a known inventory, each set is fitted at most once."""
+    model, draws = setup
+    state = spain_state.with_sets({"VER": [("HARD", 1), ("SOFT", 4)]})
+    result = search(model, state, "VER", draws, max_stops=3, min_stint=5, per_stratum=2)
+    for plan in result.plans:
+        fitted = [(s.compound, s.tyre_life) for s in plan.stops]
+        assert sorted(fitted) == sorted(set(fitted))
+        assert set(fitted) <= {("HARD", 1), ("SOFT", 4)}
+    assert max(len(p.stops) for p in result.plans) <= 2
 
 
 def test_common_random_numbers(spain_state, setup) -> None:

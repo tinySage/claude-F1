@@ -43,6 +43,7 @@ tests check the two agree.
 from __future__ import annotations
 
 import itertools
+from collections import Counter
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field, replace
 
@@ -106,6 +107,11 @@ class RaceState:
     total_laps: int
     cars: dict[str, CarState]
     track_status: str = "green"
+    #: Dry sets still available per car, as (compound, out-lap TyreLife); the
+    #: set on the car is not included. ``None``: unknown (unlimited in search).
+    sets: dict[str, tuple[tuple[str, int], ...]] | None = None
+    #: Laps already run under the current SC/VSC (0 if green).
+    neutral_laps: int = 0
 
     @property
     def laps_remaining(self) -> int:
@@ -144,10 +150,23 @@ class RaceState:
                     str(c) for c in mine["Compound"].dropna() if str(c) in DRY_COMPOUNDS
                 ),
             )
-        status = str(now["TrackStatus"].iloc[0]) if len(now) else "1"
-        track = "sc" if "4" in status else "vsc" if ("6" in status or "7" in status) else "green"
+        def kind(code: str) -> str:
+            return "sc" if "4" in code else "vsc" if ("6" in code or "7" in code) else "green"
+
+        leader = race[race["Position"] == 1].set_index("LapNumber")["TrackStatus"].astype(str)
+        track = kind(str(now["TrackStatus"].iloc[0]) if len(now) else "1")
+        neutral = 0
+        if track != "green":
+            for lp in range(lap, 0, -1):
+                if kind(str(leader.get(lp, "1"))) != track:
+                    break
+                neutral += 1
         return cls(round_number=round_number, lap=lap, total_laps=total_laps,
-                   cars=cars, track_status=track)
+                   cars=cars, track_status=track, neutral_laps=neutral)
+
+    def with_sets(self, sets: dict[str, Sequence[tuple[str, int]]]) -> "RaceState":
+        """Copy of the state with each car's available sets."""
+        return replace(self, sets={d: tuple(v) for d, v in sets.items()})
 
 
 @dataclass(frozen=True)
@@ -540,6 +559,20 @@ class SearchResult:
         return df.sort_values("mean_s").reset_index(drop=True)
 
 
+def _set_sequences(counts: Counter, k: int) -> Iterator[tuple]:
+    """Ordered sequences of ``k`` sets drawn without replacement from ``counts``
+    (identical sets are interchangeable, so each sequence appears once)."""
+    if k == 0:
+        yield ()
+        return
+    for item in sorted(counts):
+        if counts[item] > 0:
+            counts[item] -= 1
+            for rest in _set_sequences(counts, k - 1):
+                yield (item, *rest)
+            counts[item] += 1
+
+
 def _effect_means(model: CarModel, draws: Draws, max_stops: int) -> dict[str, float]:
     """Sample means (over simulations) of each kind of stint effect."""
     final = model.final_mean + model.sigma_stint_final * draws.z_final
@@ -579,24 +612,25 @@ def search(
     compounds: Sequence[str] = DRY_COMPOUNDS,
     used_life: int | None = DEFAULT_USED_LIFE,
     min_stint: int = 1,
-    shortlist: int = 50,
+    per_stratum: int = 3,
     include: Sequence[Plan] = (),
     allowed_sets: Sequence[tuple[str, int]] | None = None,
 ) -> SearchResult:
-    """Score every legal plan on expected race time, then Monte Carlo the best.
+    """Score every legal plan on expected race time, then Monte Carlo a
+    stratified shortlist.
 
-    All legal plans (0..``max_stops`` more stops, any pit lap, any dry
-    compound, new or used sets, two-compound rule) are scored on their exact
-    mean race time over the same simulations, vectorised by stint. The
-    ``shortlist`` plans with the lowest mean, plus any ``include`` plans (e.g.
-    what the team actually did), then get full distributions under common
-    random numbers.
-
-    ``allowed_sets`` restricts the sets that can be fitted at a stop to the
-    given (compound, out-lap TyreLife) pairs, e.g. ``[("MEDIUM", 1), ("HARD",
-    1), ("SOFT", 4)]`` for new mediums and hards plus used softs. The tyre
-    allocation (how many sets of each remain) is not known from the data, so by
-    default every compound is available new and used, without limit.
+    - **Legal plans:** 0..``max_stops`` more stops, any pit lap, two-compound
+      rule. Sets come from ``state.sets[driver]`` when known: each set can be
+      fitted once. Otherwise they come from ``allowed_sets`` (unlimited
+      (compound, out-lap TyreLife) pairs), else every compound new or used
+      without limit.
+    - **Scoring:** each plan's exact mean race time over the same simulations,
+      vectorised by stint.
+    - **Stratified shortlist:** the best ``per_stratum`` plans for every stop
+      count and compound sequence, so that once traffic is modelled the
+      no-traffic ranking cannot crowd out whole strategy families.
+    - The shortlist, plus any ``include`` plans (e.g. what the team actually
+      did), gets full distributions under common random numbers.
     """
     if max_stops > draws.z_stint.shape[1]:
         raise ValueError("draws were made for fewer stops than max_stops")
@@ -607,6 +641,7 @@ def search(
     ps = model.post_stop.mean(axis=0)
     pit_mean = draws.pit_loss.mean(axis=0)
     lives = (1,) if used_life is None else (1, used_life)
+    inventory = state.sets.get(driver) if state.sets is not None else None
     sets = ([(COMPOUNDS.index(c), life) for c, life in allowed_sets] if allowed_sets is not None
             else [(COMPOUNDS.index(c), life) for c in compounds for life in lives])
     stint_start = state.lap - car.laps_since_stop
@@ -614,7 +649,7 @@ def search(
     cur_c = COMPOUNDS.index(car.compound)
     used_before = set(car.compounds_used) | {car.compound}
 
-    candidates: list[tuple[float, tuple]] = []
+    strata: dict[tuple, list[tuple[float, tuple]]] = {}
     n_legal = 0
     for k in range(max_stops + 1):
         combos = (np.array(list(itertools.combinations(laps, k)), dtype=int)
@@ -633,7 +668,9 @@ def search(
                                float(car.stint_started_with_stop), car.tyre_life + 1,
                                a[cur_c], b[cur_c], ps[cur_c], e[cur_kind])
         base = cur + pit_mean[:k].sum()
-        for seq in itertools.product(sets, repeat=k):
+        sequences = (_set_sequences(Counter((COMPOUNDS.index(c), life) for c, life in inventory), k)
+                     if inventory is not None else itertools.product(sets, repeat=k))
+        for seq in sequences:
             names = {COMPOUNDS[c] for c, _ in seq}
             if len((used_before | names) & set(DRY_COMPOUNDS)) < 2:
                 continue
@@ -643,12 +680,17 @@ def search(
                 total += _stint_mean_cost(n_laps[:, j + 1], 0, 1.0, life,
                                           a[c], b[c], ps[c], e[kind])
             n_legal += len(total)
-            best = np.argsort(total)[:shortlist]
-            candidates += [(float(total[i]), (tuple(combos[i]), seq)) for i in best]
+            best = np.argsort(total)[:per_stratum]
+            key = (k, tuple(COMPOUNDS[c] for c, _ in seq))
+            strata.setdefault(key, []).extend(
+                (float(total[i]), (tuple(combos[i]), seq)) for i in best)
 
+    candidates = []
+    for items in strata.values():
+        candidates += sorted(items, key=lambda x: x[0])[:per_stratum]
     candidates.sort(key=lambda x: x[0])
     chosen = [Plan(tuple(Stop(int(lap), COMPOUNDS[c], life) for lap, (c, life) in zip(lps, seq)))
-              for _, (lps, seq) in candidates[:shortlist]]
+              for _, (lps, seq) in candidates]
     chosen += [p for p in include if p not in chosen]
     totals = plan_totals(model, state, driver, chosen, draws)
     return SearchResult(chosen, totals, n_legal, [p.label(car.compound) for p in chosen])
