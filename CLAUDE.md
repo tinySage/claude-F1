@@ -30,7 +30,7 @@ ROADMAP.md          Phase checklist with "done when" criteria
 
 ## Environment
 - Python 3.11+, managed with `uv`. Run things with `uv run ...` (e.g. `uv run pytest`).
-- PyMC and XGBoost are added in Phase 3, not before.
+- Modelling stack (Phase 3): PyMC sampled with nutpie, ArviZ, XGBoost, scikit-learn.
 
 ## Conventions
 - Logic lives in `src/f1strat/`. Notebooks are only for exploration and plots;
