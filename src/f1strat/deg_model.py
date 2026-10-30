@@ -358,11 +358,13 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
         sigma_stint = pm.HalfNormal("sigma_stint", 0.3)
         mu_final = pm.Normal("mu_final", 0.0, 0.5)
         sigma_stint_final = pm.HalfNormal("sigma_stint_final", 0.5)
-        # Race-wide shift of final stints. Centred: a race has ~20 final stints.
-        # A race with no final-stint data keeps its prior, so it is drawn from
-        # Normal(0, sigma_final_race) at prediction time.
+        # Race-wide shift of final stints. Non-centred: a race with no
+        # final-stint data (e.g. odd rounds in the last_stint split) keeps its
+        # prior, and in centred form that made a funnel with sigma_final_race.
         sigma_final_race = pm.HalfNormal("sigma_final_race", 0.5)
-        final_race = pm.Normal("final_race", 0.0, sigma_final_race, dims="race")
+        z_final_race = pm.Normal("z_final_race", 0.0, 1.0, dims="race")
+        final_race = pm.Deterministic("final_race", sigma_final_race * z_final_race,
+                                      dims="race")
         # Centred: each stint has ~15+ laps, so the data dominate the prior and
         # the centred form samples better than the non-centred one here.
         stint_raw = pm.Normal(
@@ -470,6 +472,7 @@ def fit(
     chains: int = 4,
     seed: int = 0,
     adaptation: str = "low_rank",
+    target_accept: float = 0.95,
 ) -> BayesFit:
     """Fit the Bayesian hierarchical model with nutpie.
 
@@ -477,6 +480,8 @@ def fit(
         laps: Output of :func:`prepare` (or a training split of it).
         cutoff: Keep only laps known at this decision point (Phase 6).
         draws, tune, chains, seed: Sampler settings.
+        target_accept: NUTS target acceptance; 0.95 (above the 0.8 default)
+            takes smaller steps, which avoids divergences in tight regions.
         adaptation: nutpie mass-matrix adaptation. ``"low_rank"`` adapts to
             posterior correlations (e.g. between deg, trend and compound offsets).
 
@@ -489,10 +494,13 @@ def fit(
     model, meta = build_model(laps)
     compiled = nutpie.compile_pymc_model(model)
     idata = nutpie.sample(compiled, draws=draws, tune=tune, chains=chains,
-                          seed=seed, progress_bar=False, adaptation=adaptation)
+                          seed=seed, progress_bar=False, adaptation=adaptation,
+                          target_accept=target_accept)
     sampled = [v.name for v in model.free_RVs]
     diag = diagnose(idata, sampled)
     posterior = idata.posterior.to_dataset()[list(KEEP_VARS)].astype("float32")
+    # Keep each draw's divergence flag, to check where divergences sit.
+    posterior["diverging"] = idata.sample_stats["diverging"].astype("int8")
     return BayesFit(posterior=posterior, diagnostics=diag, races=meta["races"],
                     drivers=meta["drivers"], teams=meta["teams"],
                     driver_race=meta["driver_race"], lap_centre=meta["lap_centre"],
