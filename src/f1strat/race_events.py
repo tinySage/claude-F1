@@ -126,6 +126,12 @@ def pass_events(cleaned: pd.DataFrame, fitted) -> pd.DataFrame:
     feats["dirty_air"] = False
     feats = feats[feats["RoundNumber"].isin(fitted.races)]
     feats["pace"] = predict(fitted, feats, n_draws=300).mean
+    return pair_events(feats)
+
+
+def pair_events(feats: pd.DataFrame) -> pd.DataFrame:
+    """The pass events of :func:`pass_events`, from laps with a ``pace`` column
+    (free-air lap time estimate) and ``gap_ahead_s``."""
     key = ["RoundNumber", "Driver", "LapNumber"]
     lap = feats.set_index(key)
     neutral = lap["TrackStatus"].fillna("").str.contains(f"[{NEUTRAL}]")
@@ -154,6 +160,63 @@ def pass_events(cleaned: pd.DataFrame, fitted) -> pd.DataFrame:
                      "passed": bool(pa < pd_),
                      "gap_next_s": lap.at[a_next, "gap_ahead_s"]})
     return pd.DataFrame(rows)
+
+
+def stint_line_pace(cleaned: pd.DataFrame) -> pd.Series:
+    """Free-air pace proxy without a lap model (e.g. a previous season's race).
+
+    Per driver stint, a straight line through its clean laps' times against
+    lap number (tyre age and fuel move together within a stint), evaluated on
+    every lap of the stint. Stints with fewer than 3 clean laps get NaN.
+    """
+    out = pd.Series(np.nan, index=cleaned.index)
+    lap_s = cleaned["LapTime"].dt.total_seconds()
+    clean = cleaned["exclude_reason"].isna() & lap_s.notna()
+    for _, g in cleaned.groupby(["RoundNumber", "Driver", "Stint"]):
+        c = g[clean.loc[g.index]]
+        if len(c) < 3:
+            continue
+        b, a = np.polyfit(c["LapNumber"].astype(float), lap_s.loc[c.index], 1)
+        out.loc[g.index] = a + b * g["LapNumber"].astype(float)
+    return out
+
+
+def circuit_intercept_from(events: pd.DataFrame, slope: float, intercept: float,
+                           penalty: float = 1.0) -> float:
+    """One circuit's pass intercept from its own events, with the slope fixed
+    and the deviation shrunk toward ``intercept`` (as in :func:`fit_pass_model`)."""
+    ev = events.dropna(subset=["pace_gap_s"])
+    if ev.empty:
+        return intercept
+    x = np.ones((len(ev), 1))
+    offset = intercept + slope * ev["pace_gap_s"].to_numpy()
+    dev = _penalised_offsets(x, ev["passed"].to_numpy(float), offset, penalty)
+    return intercept + float(dev[0])
+
+
+def previous_race(year: int, event_name: str, back: int = 4) -> tuple[int, pd.DataFrame]:
+    """The most recent earlier running of a Grand Prix, as cleaned laps.
+
+    Looks back up to ``back`` seasons for an event with exactly this name
+    (e.g. the 2022 Canadian GP's previous running is 2019: 2020 and 2021 were
+    cancelled). FastF1 fuzzy-matches event names, so the schedule is checked
+    for an exact match first.
+    """
+    import fastf1
+
+    from f1strat.clean import clean_laps
+    from f1strat.data import configure_cache, laps_table
+
+    configure_cache()
+    for y in range(year - 1, year - 1 - back, -1):
+        schedule = fastf1.get_event_schedule(y, include_testing=False)
+        hit = schedule[schedule["EventName"] == event_name]
+        if hit.empty:
+            continue
+        session = fastf1.get_session(y, int(hit["RoundNumber"].iloc[0]), "R")
+        session.load(laps=True, telemetry=False, weather=True, messages=False)
+        return y, clean_laps(laps_table(session), mixed_conditions=())
+    raise ValueError(f"no earlier {event_name} in the last {back} seasons")
 
 
 def fit_pass_model(events: pd.DataFrame, penalty: float = 1.0) -> PassModel:

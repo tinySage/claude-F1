@@ -16,8 +16,18 @@ For a race cut at a decision lap:
    stops. SC/VSC are drawn (the future is unknown).
 5. **Compare** the picks and the simulated outcomes with what happened.
 
-Still from the whole 2022 season (not cut): the passing and SC/VSC parameters
-in ``sim_params.json``. See ``docs/validation.md``.
+Two data modes:
+
+- **Part B** (``mode="season"``): race laps only; passing and SC/VSC
+  parameters from ``sim_params.json`` (the whole 2022 season, a known leak).
+- **Part C** (``mode="cutoff"``): adds the decision race's FP1–FP3 long runs
+  to the refit (:mod:`f1strat.practice`), and estimates passing and SC/VSC
+  parameters from the rounds before the decision race only, with the
+  circuit's pass difficulty from its previous running
+  (:func:`leakage_free_params`).
+
+Fits used for results must have 0 divergences: :func:`clean_fit` reruns with
+a new seed, then a higher target acceptance. See ``docs/validation.md``.
 """
 
 from __future__ import annotations
@@ -42,23 +52,102 @@ REHEARSALS: dict[str, tuple[int, int, str]] = {
 }
 
 
-def fit_path(round_number: int, lap: int) -> Path:
+def fit_path(round_number: int, lap: int, mode: str = "season") -> Path:
     """Where a rehearsal's cutoff fit is saved (gitignored)."""
-    return MODELS_DIR / f"rehearsal_{round_number:02d}_lap{lap}.nc"
+    tag = "" if mode == "season" else "_practice"
+    return MODELS_DIR / f"rehearsal_{round_number:02d}_lap{lap}{tag}.nc"
 
 
-def refit(raw: pd.DataFrame, round_number: int, lap: int, **fit_kwargs) -> BayesFit:
-    """Fit the degradation model on the laps known at the cutoff and save it."""
+def refit(raw: pd.DataFrame, round_number: int, lap: int, mode: str = "season",
+          **fit_kwargs) -> BayesFit:
+    """Fit the degradation model on the laps known at the cutoff and save it.
+
+    ``mode="cutoff"`` adds the decision race's practice long runs."""
     from f1strat.deg_model import fit, save_fit
+    from f1strat.practice import long_runs
 
     cut = Cutoff(round_number, lap)
     _, laps = cutoff_inputs(raw, cut)
+    practice = long_runs(raw, round_number) if mode == "cutoff" else None
     start = time.time()
-    fitted = fit(laps, cutoff=cut, **fit_kwargs)
-    print(f"fit on {len(laps):,} laps ({laps['RoundNumber'].nunique()} races) "
-          f"in {(time.time() - start) / 60:.1f} min; diagnostics {fitted.diagnostics}")
-    save_fit(fitted, fit_path(round_number, lap))
+    fitted = fit(laps, cutoff=cut, practice=practice, **fit_kwargs)
+    print(f"fit ({mode}) on {len(laps):,} race laps ({laps['RoundNumber'].nunique()} races)"
+          f"{'' if practice is None else f' + {len(practice)} practice laps'} in "
+          f"{(time.time() - start) / 60:.1f} min; {fit_kwargs}; diagnostics {fitted.diagnostics}",
+          flush=True)
+    save_fit(fitted, fit_path(round_number, lap, mode))
     return fitted
+
+
+#: (seed, target_accept) tried in turn until a fit has no divergences.
+CLEAN_FIT_ATTEMPTS: tuple[tuple[int, float], ...] = ((0, 0.95), (1, 0.95), (2, 0.99), (3, 0.99))
+
+
+def clean_fit(raw: pd.DataFrame, round_number: int, lap: int, mode: str) -> BayesFit:
+    """A cutoff fit with 0 divergences (rule for fits used in results)."""
+    for seed, ta in CLEAN_FIT_ATTEMPTS:
+        fitted = refit(raw, round_number, lap, mode, seed=seed, target_accept=ta)
+        if fitted.diagnostics.get("divergences", 0) == 0:
+            return fitted
+    raise RuntimeError(f"no divergence-free fit for round {round_number} lap {lap}")
+
+
+def leakage_free_params(fitted: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
+                        cleaned: pd.DataFrame, round_number: int, n_sims: int = 200):
+    """Passing and SC/VSC parameters known before the decision race.
+
+    - Pass model (slope, pooled intercept, held gaps) from the pass events of
+      the dry rounds before it, with the cutoff fit's pace.
+    - The decision circuit's intercept from its previous running (e.g. Spain
+      2021, Canada 2019), with a stint-line pace proxy, shrunk toward the
+      pooled intercept.
+    - SC/VSC rates, lengths and ratios from the rounds before it.
+    - SC closing ratio and pass shift fitted on the earlier backtest-eligible
+      rounds (replay), as in :mod:`f1strat.backtest`.
+
+    Returns:
+        ``(params, info)``: the :class:`SimParams` and a dict for the report.
+    """
+    from dataclasses import replace
+
+    from f1strat.backtest import (BACKTEST_ROUNDS, calibrate_shift, fit_sc_close_ratio,
+                                  sc_gap_observations, with_passing)
+    from f1strat.clean import MIXED_CONDITIONS_2022
+    from f1strat.deg_model import lap_features
+    from f1strat.race_events import (SimParams, circuit_intercept_from, fit_neutralisations,
+                                     fit_pass_model, pair_events, pass_events, previous_race,
+                                     stint_line_pace)
+
+    before = cleaned[cleaned["RoundNumber"] < round_number]
+    race_before = race[race["RoundNumber"] < round_number]
+    passing = fit_pass_model(pass_events(before, fitted))
+    event = str(race.loc[race["RoundNumber"] == round_number, "EventName"].iloc[0])
+    year, prev = previous_race(2022, event)
+    feats = lap_features(prev[~prev["EventName"].isin(list(MIXED_CONDITIONS_2022))])
+    feats = feats[feats["Compound"].isin(["SOFT", "MEDIUM", "HARD"])].copy()
+    feats["pace"] = stint_line_pace(prev).loc[feats.index]
+    prev_events = pair_events(feats)
+    passing.circuit[round_number] = circuit_intercept_from(prev_events, passing.slope,
+                                                           passing.intercept)
+    neutral = fit_neutralisations(before, race_before)
+    params = SimParams(passing, neutral)
+    replay_rounds = [r for r in BACKTEST_ROUNDS if r < round_number]
+    ratio = fit_sc_close_ratio(sc_gap_observations(raw, race, replay_rounds), params.sc_gap_s)
+    params = replace(params, neutral=replace(params.neutral, sc_close_ratio=ratio))
+    shift = calibrate_shift(fitted, raw, race, cleaned, params, rounds=replay_rounds,
+                            n_sims=n_sims)
+    params = with_passing(params, round(shift, 3))
+    dry_before = race_before[~race_before["EventName"].isin(list(MIXED_CONDITIONS_2022))]
+    info = {"dry_rounds_before": sorted(int(r) for r in dry_before["RoundNumber"].unique()),
+            "replay_rounds": replay_rounds, "previous_running": year,
+            "previous_events": len(prev_events),
+            "previous_passes": int(prev_events["passed"].sum()) if len(prev_events) else 0,
+            "circuit_intercept": round(passing.circuit[round_number], 3),
+            "pooled_intercept": round(passing.intercept, 3), "slope": round(passing.slope, 3),
+            "pass_events_before": passing.n_events, "shift": round(shift, 3),
+            "sc_close_ratio": ratio, "p_sc_per_lap": round(neutral.p_sc_per_lap, 4),
+            "p_vsc_per_lap": round(neutral.p_vsc_per_lap, 4)}
+    return params, info
 
 
 @dataclass
@@ -83,12 +172,16 @@ def rehearse(
     fitted: BayesFit,
     raw: pd.DataFrame,
     race: pd.DataFrame,
+    params=None,
+    mode: str = "season",
     n_sims: int = 1000,
     seed: int = 0,
     widening: float = 1.0,
     sensitivity_widening: float = 1.188,
 ) -> Rehearsal:
-    """Run one rehearsal from a cutoff fit (see the module docstring)."""
+    """Run one rehearsal from a cutoff fit (see the module docstring).
+
+    ``params`` defaults to ``sim_params.json`` (whole season)."""
     from f1strat.backtest import actual_race
     from f1strat.race_events import SimParams
     from f1strat.simulator import (
@@ -109,7 +202,7 @@ def rehearse(
     invs = reconstruct_inventories(2022, rnd)
     state = state.with_sets({d: sets_left(invs[d], raw, rnd, lap) for d in state.cars if d in invs})
     losses = observed_pit_losses(cleaned, rnd)
-    params = SimParams.load()
+    params = params if params is not None else SimParams.load()
     notes = [f"{len(losses)} green-flag stops known at lap {lap} (pit loss median "
              f"{np.median(losses):.1f} s)",
              f"{focal} sets left: {state.sets.get(focal)}"]
@@ -168,7 +261,8 @@ def rehearse(
     _, _, res_w = run(sensitivity_widening, plans=top)
     sens = res_w.table(reference=actual)
 
-    return Rehearsal(name, rnd, lap, focal, table, field_tab, riv,
+    return Rehearsal(name if mode == "season" else f"{name}_cutoff", rnd, lap, focal,
+                     table, field_tab, riv,
                      actual.label(car.compound), finish.get(focal), sens, notes)
 
 
@@ -201,8 +295,13 @@ def report(r: Rehearsal) -> str:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """``python -m f1strat.rehearsal <name> [--refit]``: run one rehearsal,
-    refitting the cutoff model if it is not saved yet (or with ``--refit``)."""
+    """``python -m f1strat.rehearsal <name> [--cutoff-data] [--refit]``.
+
+    Without ``--cutoff-data``: Part B (race laps only, season parameters).
+    With it: Part C (practice long runs, leakage-free parameters, and a
+    divergence-free fit). Refits if the fit is not saved yet or ``--refit``.
+    """
+    import json
     import logging
 
     from f1strat.data import load_season
@@ -211,13 +310,27 @@ def main(argv: list[str] | None = None) -> None:
     logging.disable(logging.WARNING)
     args = argv if argv is not None else sys.argv[1:]
     name = args[0]
+    mode = "cutoff" if "--cutoff-data" in args else "season"
     rnd, lap, _ = REHEARSALS[name]
     raw = load_season(2022)
     race = load_season(2022, table="race")
-    path = fit_path(rnd, lap)
-    fitted = refit(raw, rnd, lap) if ("--refit" in args or not path.exists()) else load_fit(path)
-    print("diagnostics:", fitted.diagnostics)
-    r = rehearse(name, thin_fit(fitted), raw, race)
+    path = fit_path(rnd, lap, mode)
+    if "--refit" in args or not path.exists():
+        fitted = clean_fit(raw, rnd, lap, mode) if mode == "cutoff" else refit(raw, rnd, lap)
+    else:
+        fitted = load_fit(path)
+    print("diagnostics:", fitted.diagnostics, flush=True)
+    if mode == "cutoff" and fitted.diagnostics.get("divergences", 0) > 0:
+        raise RuntimeError("cutoff fit has divergences; rerun with --refit")
+    thin = thin_fit(fitted)
+    params = None
+    if mode == "cutoff":
+        cleaned, _ = cutoff_inputs(raw, Cutoff(rnd, lap))
+        params, info = leakage_free_params(thin, raw, race, cleaned, rnd)
+        info["fit_diagnostics"] = {k: float(v) for k, v in fitted.diagnostics.items()}
+        (FIG_DIR / f"rehearsal_{name}_cutoff_params.json").write_text(json.dumps(info, indent=1))
+        print(json.dumps(info, indent=1), flush=True)
+    r = rehearse(name, thin, raw, race, params=params, mode=mode)
     print(report(r))
 
 
