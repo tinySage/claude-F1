@@ -162,3 +162,122 @@ def test_widening_scales_final_stint_spread(fitted, spain_state) -> None:
                     widening=1.0)
     np.testing.assert_allclose(on.sigma_stint_final, 1.188 * off.sigma_stint_final)
     np.testing.assert_allclose(on.final_mean, off.final_mean)            # Spain has final data
+
+
+# --- Part B: the whole field ---------------------------------------------------
+
+import dataclasses  # noqa: E402
+
+from f1strat.race_events import SimParams  # noqa: E402
+from f1strat.simulator import (  # noqa: E402
+    SC,
+    build_field,
+    field_search,
+    neutral_schedule,
+    rival_plan_options,
+    simulate_field,
+)
+
+
+@pytest.fixture(scope="module")
+def params() -> SimParams:
+    return SimParams.load()
+
+
+@pytest.fixture(scope="module")
+def losses(raw):
+    return observed_pit_losses(clean_laps(raw), SPAIN)
+
+
+def _no_neutral(params: SimParams) -> SimParams:
+    return dataclasses.replace(params, neutral=dataclasses.replace(
+        params.neutral, p_sc_per_lap=0.0, p_vsc_per_lap=0.0))
+
+
+def _no_passing(params: SimParams) -> SimParams:
+    return dataclasses.replace(params, passing=dataclasses.replace(
+        params.passing, intercept=-50.0, circuit={}, slope=0.0))
+
+
+def test_no_passing_keeps_order_and_gap(fitted, spain_state, params, losses) -> None:
+    """With passing impossible and no stops or SC, nobody passes through anybody:
+    the order at the flag is the order at the start, and every car is at least
+    the following gap behind the car ahead."""
+    prm = _no_passing(_no_neutral(params))
+    field = build_field(fitted, spain_state, losses, prm, n_sims=50, seed=3)
+    res = simulate_field(field, {d: Plan() for d in field.drivers})
+    start = np.argsort([spain_state.cars[d].race_time for d in field.drivers])
+    for i in range(field.n_sims):
+        assert list(np.argsort(res.times[i])) == list(start)
+        gaps = np.diff(np.sort(res.times[i]))
+        assert (gaps >= prm.passing.follow_gap_s - 1e-9).all()
+    assert res.passes == 0
+
+
+def test_passing_happens_when_allowed(fitted, spain_state, params, losses) -> None:
+    field = build_field(fitted, spain_state, losses, _no_neutral(params), n_sims=50, seed=3)
+    res = simulate_field(field, {d: Plan() for d in field.drivers})
+    assert res.passes > 0
+
+
+def test_safety_car_bunches_the_field(fitted, raw, params, losses) -> None:
+    """Five SC laps from lap 20: the field closes up to the queue gap."""
+    state = RaceState.from_laps(raw, SPAIN, lap=20, total_laps=66)
+    prm = dataclasses.replace(params, neutral=dataclasses.replace(
+        params.neutral, sc_lengths=[5], p_sc_per_lap=0.0, p_vsc_per_lap=0.0))
+    state_sc = dataclasses.replace(state, track_status="sc", neutral_laps=0)
+    field = build_field(fitted, state_sc, losses, prm, n_sims=20, seed=4)
+    assert (field.status[:, :5] == SC).all() and (field.status[:, 5:] != SC).all()
+    # Stop the race right after the SC so the bunching is visible.
+    short = dataclasses.replace(state_sc, total_laps=state.lap + 5)
+    field_short = build_field(fitted, short, losses, prm, n_sims=20, seed=4)
+    res = simulate_field(field_short, {d: Plan() for d in field_short.drivers})
+    gaps = np.diff(np.sort(res.times, axis=1), axis=1)
+    before = np.diff(np.sort([c.race_time for c in state.cars.values()]))
+    assert np.median(gaps) <= prm.sc_gap_s + 1e-6
+    assert gaps.max() < before.max()
+
+
+def test_start_mid_race_under_sc(fitted, raw, params) -> None:
+    """Britain 2022 from lap 40 (under SC): the SC continues, then racing resumes."""
+    state = RaceState.from_laps(raw, 10, lap=40, total_laps=52)
+    assert state.track_status == "sc" and state.neutral_laps >= 1
+    losses_gb = observed_pit_losses(clean_laps(raw), 10)
+    field = build_field(fitted, state, losses_gb, params, n_sims=30, seed=5)
+    assert (field.status[:, 0] == SC).all()
+    res = simulate_field(field, {d: Plan() for d in field.drivers})
+    assert np.isfinite(res.times).all()
+    assert sorted(res.positions[0]) == list(range(1, len(field.drivers) + 1))
+
+
+def test_neutral_schedule_continues_current_sc(raw, params) -> None:
+    state = RaceState.from_laps(raw, 10, lap=40, total_laps=52)
+    status = neutral_schedule(state, params.neutral, 200, np.random.default_rng(0))
+    longer = [n for n in params.neutral.sc_lengths if n > state.neutral_laps]
+    remaining = (status == SC).argmin(axis=1)
+    assert remaining.min() >= 1
+    assert remaining.max() <= max(longer) - state.neutral_laps
+
+
+def test_field_common_random_numbers(fitted, spain_state, params, losses) -> None:
+    """The same focal plan twice gives identical results; rival luck is shared."""
+    field = build_field(fitted, spain_state, losses, params, n_sims=40, seed=6)
+    rivals = {d: Plan() for d in field.drivers if d != "VER"}
+    plans = [Plan(), Plan((Stop(30, "SOFT", 4),))]
+    res = field_search(field, "VER", [plans[0], plans[0], plans[1]], rivals)
+    np.testing.assert_array_equal(res.times[0], res.times[1])
+    assert not np.array_equal(res.times[0], res.times[2])
+    # The plan-independent draws are fixed per field.
+    np.testing.assert_array_equal(field.status, field.status.copy())
+
+
+def test_rival_options_sampled_by_weight(fitted, spain_state, params, losses) -> None:
+    field = build_field(fitted, spain_state, losses, params, n_sims=2000, seed=7)
+    opts = [(Plan(), 3.0), (Plan((Stop(40, "HARD"),)), 1.0)]
+    from f1strat.simulator import _select
+    c = field.drivers.index("PER")
+    _, pit = _select(field, c, opts)
+    share_stop = (pit.sum(axis=1) > 0).mean()
+    assert share_stop == pytest.approx(0.25, abs=0.04)
+    options = rival_plan_options(field, "PER", top=3)
+    assert 1 <= len(options) <= 3 and options[0][1] == pytest.approx(1.0)
