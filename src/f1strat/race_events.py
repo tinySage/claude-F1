@@ -19,7 +19,8 @@ Decisions log).
 - **Safety cars** (:func:`fit_neutralisations`):
   - per-lap probability that an SC or VSC starts on a green race lap after
     lap 1;
-  - each period's length in race laps;
+  - each period's length in race laps (a run of neutralised laps with no
+    green lap between is one period; it is an SC if any lap is under SC);
   - lap-time ratio under each (laps run entirely under SC or VSC, against the
     driver's median clean lap);
   - pit loss under each, relative to cars that stayed out on the same laps,
@@ -83,6 +84,11 @@ class Neutralisations:
     n_sc: int = 0
     n_vsc: int = 0
     green_laps: int = 0
+    #: Phase 5: on SC laps after the first, each gap to the car ahead shrinks
+    #: by this ratio per lap (down to ``sc_gap_s``); the first SC lap keeps the
+    #: gaps. ``None``: Phase 4 behaviour (the field bunches in one lap at
+    #: ``sc_catchup_ratio``).
+    sc_close_ratio: float | None = None
 
 
 @dataclass
@@ -187,6 +193,30 @@ def _penalised_offsets(x: np.ndarray, y: np.ndarray, offset: np.ndarray,
     return w
 
 
+def neutral_runs(race_one: pd.DataFrame) -> list[tuple[str, int, int]]:
+    """Neutralised periods of one race as ``(kind, first lap, laps)``.
+
+    A period is a run of consecutive SC / VSC / red-flag laps with no green lap
+    in between. Its kind is ``"SafetyCar"`` if any lap of it is under SC (or
+    red flag), else ``"VSC"``. So a VSC that turns into an SC is one SC period,
+    not a VSC plus an SC (Phase 5 fix: the race table numbers them as two), and
+    SC periods split by a status blip with no green lap are one.
+    """
+    r = race_one.sort_values("LapNumber")
+    out: list[tuple[str, int, int]] = []
+    run: list[tuple[int, bool]] = []
+    for lap, sc, vsc, red in zip(r["LapNumber"], r["SafetyCar"], r["VSC"], r["RedFlag"]):
+        if sc or vsc or red:
+            run.append((int(lap), bool(sc or red)))
+            continue
+        if run:
+            out.append(("SafetyCar" if any(s for _, s in run) else "VSC", run[0][0], len(run)))
+            run = []
+    if run:
+        out.append(("SafetyCar" if any(s for _, s in run) else "VSC", run[0][0], len(run)))
+    return out
+
+
 def fit_neutralisations(cleaned: pd.DataFrame, race: pd.DataFrame) -> Neutralisations:
     """SC/VSC hazard, lengths, lap-time ratios and pit-loss ratios (dry races)."""
     race = _dry(race)
@@ -197,13 +227,10 @@ def fit_neutralisations(cleaned: pd.DataFrame, race: pd.DataFrame) -> Neutralisa
         r = r.sort_values("LapNumber")
         green += int(((~r["SafetyCar"]) & (~r["VSC"]) & (~r["RedFlag"])
                       & (r["LapNumber"] >= 2)).sum())
-        for kind in starts:
-            col = f"{kind}Period"
-            periods = r[r[col].notna()].groupby(col)["LapNumber"]
-            for _, laps in periods:
-                if laps.min() >= 2:
-                    starts[kind] += 1
-                    lengths[kind].append(int(laps.max() - laps.min() + 1))
+        for kind, first, n in neutral_runs(r):
+            if first >= 2:
+                starts[kind] += 1
+                lengths[kind].append(n)
 
     laps = _dry(cleaned)
     lap_s = laps["LapTime"].dt.total_seconds()
@@ -280,6 +307,7 @@ def main() -> None:
     if PARAMS_PATH.exists():  # keep the Phase 5 calibration
         old = SimParams.load().passing
         params.passing.shift, params.passing.dirty_air_s = old.shift, old.dirty_air_s
+        params.neutral.sc_close_ratio = SimParams.load().neutral.sc_close_ratio
     print(json.dumps(asdict(params), indent=1)[:3000])
     print(f"wrote {params.save()}")
 

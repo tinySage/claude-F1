@@ -723,8 +723,10 @@ def search(
 #   whole pit loss sits on the in lap, so an out lap would otherwise be run at
 #   full fresh-tyre pace through the field).
 # - SC lap: no passing; the queue leader laps at ``sc_lap_ratio`` × the
-#   field's free-air lap, and each car behind laps at ``sc_catchup_ratio`` ×
-#   its own until it is ``sc_gap_s`` behind the car ahead (the field bunches).
+#   field's free-air lap. Behind it, gaps are kept on the first SC lap and then
+#   shrink by ``sc_close_ratio`` per lap, down to ``sc_gap_s`` (Phase 5; with
+#   ``sc_close_ratio=None`` each car laps at ``sc_catchup_ratio`` × its own
+#   until it is ``sc_gap_s`` behind, so the field bunches in one lap).
 #   Pit loss is scaled by ``sc_pit_ratio``.
 # - VSC lap: no passing; every car laps at ``vsc_lap_ratio`` × its free-air
 #   lap (gaps are kept, not closed); pit loss is scaled by ``vsc_pit_ratio``.
@@ -946,6 +948,12 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions],
     passes = holds = attempts = 0
     attempt_pace = []
     last = np.array([(retire or {}).get(d, st.total_laps) for d in field.drivers])
+    # SC lap number within its period (1 = first SC lap), per simulation and lap.
+    sc_lap = np.zeros((n, L), dtype=int)
+    run = np.full(n, st.neutral_laps if st.track_status == "sc" else 0)
+    for j in range(L):
+        run = np.where(field.status[:, j] == SC, run + 1, 0)
+        sc_lap[:, j] = run
     history = np.empty((n, L, C)) if record else None
     pit_laps = np.zeros((n, L, C), dtype=bool) if record else None
     for j in range(L):
@@ -972,7 +980,8 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions],
             active = green & ~pitting[rows, car] & ~out_lap[rows, car] & ~gone[rows, car]
             if r > 0:
                 # Dirty air: started the lap within 1 s of the car directly ahead.
-                behind = (T[rows, car] - T[rows, order[:, r - 1]]) < 1.0
+                with np.errstate(invalid="ignore"):  # retired cars: inf - inf
+                    behind = (T[rows, car] - T[rows, order[:, r - 1]]) < 1.0
                 a_r = a_r + dirty * (active & behind)
                 cond = active & (a_r < tail + gap) & np.isfinite(tail)
                 close = (T[rows, car] - T[rows, tail_car]) < 1.0
@@ -1005,11 +1014,21 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions],
         if sc.any():
             ref = np.median(F, axis=1)
             prev = np.full(n, -np.inf)
+            # Gradual closing (Phase 5): gaps kept on the first SC lap, then
+            # multiplied by sc_close_ratio per lap, never below sc_gap.
+            ratio = (None if neu.sc_close_ratio is None
+                     else np.where(sc_lap[:, j] <= 1, 1.0, neu.sc_close_ratio))
             for r in range(C):
                 car = order[:, r]
-                own = T[rows, car] + (neu.sc_lap_ratio * ref if r == 0
-                                      else neu.sc_catchup_ratio * F[rows, car])
-                q = np.maximum(own, prev + prm.sc_gap_s) if r > 0 else own
+                if r == 0:
+                    q = T[rows, car] + neu.sc_lap_ratio * ref
+                elif ratio is None:
+                    own = T[rows, car] + neu.sc_catchup_ratio * F[rows, car]
+                    q = np.maximum(own, prev + prm.sc_gap_s)
+                else:
+                    with np.errstate(invalid="ignore"):  # retired cars sort last
+                        gap_now = T[rows, car] - T[rows, order[:, r - 1]]
+                    q = prev + np.maximum(prm.sc_gap_s, ratio * gap_now)
                 prev = q
                 A[rows, car] = np.where(sc, q + neu.sc_pit_ratio * P[rows, car], A[rows, car])
         # --- VSC: everyone slows by the same ratio, no passing -------------------
