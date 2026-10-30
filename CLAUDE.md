@@ -22,7 +22,7 @@ src/f1strat/        Package code. All logic lives here.
   simulator.py      Layered race simulator and strategy search
 notebooks/          Exploration and plots only. Imports from f1strat.
 tests/              pytest tests
-data/               Generated datasets (parquet). Gitignored.
+data/processed/     Processed parquet per race (committed). Schema: data/processed/README.md
 cache/              FastF1 HTTP cache. Gitignored.
 ROADMAP.md          Phase checklist with "done when" criteria
 ```
