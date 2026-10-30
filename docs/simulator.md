@@ -149,7 +149,7 @@ every car lap by lap, vectorised over simulations.
     fixed median, `follow_gap_s` (0.68 s).
   - **Pass attempt:** only if it started the lap within 1 s of that car, with
     P = `sigmoid(a[circuit] + shift + b · pace gap)`, where `shift`
-    (+0.674) is the Phase 5 calibration (`docs/validation.md`).
+    (+0.986) is the Phase 5 calibration (`docs/validation.md`).
     - The pace gap is the free-air lap-time difference without this lap's
       noise, as in the fitted events.
     - A pass gains at most one place per lap.
@@ -157,16 +157,24 @@ every car lap by lap, vectorised over simulations.
 - **Safety car.**
   - No passing.
   - The queue leader laps at `sc_lap_ratio` (1.49) × the field's free-air
-    lap. Each car behind laps at `sc_catchup_ratio` (1.09) × its own until it
-    is `sc_gap_s` (0.8 s) behind the car ahead, so the field bunches.
+    lap.
+  - Behind it, gaps to the car ahead are kept on the first SC lap and then
+    multiplied by `sc_close_ratio` (0.58) per SC lap, down to `sc_gap_s`
+    (0.8 s). Fitted on 2022 SC periods (Phase 5, `docs/validation.md`).
+  - Phase 4 instead bunched the field in one lap (each car at
+    `sc_catchup_ratio`, 1.09, × its own lap); `sc_close_ratio = None`
+    restores that.
   - Pit loss × `sc_pit_ratio` (0.72).
 - **Virtual safety car.** No passing; every car laps at `vsc_lap_ratio` (1.33)
   × its free-air lap, so gaps are kept, not closed. Pit loss × `vsc_pit_ratio`
   (0.60).
 - **SC/VSC schedule** (per simulation, plan-independent):
-  - On green laps after lap 1, an SC starts with P = 1.46% per lap and a VSC
-    with 1.87% (14 SCs and 18 VSCs over 961 green race laps in the 18 dry
+  - On green laps after lap 1, an SC starts with P = 1.35% per lap and a VSC
+    with 1.35% (13 SCs and 13 VSCs over 961 green race laps in the 18 dry
     races).
+  - A run of neutralised laps with no green lap between is one period, an SC
+    if any lap is under SC (`neutral_runs`). Phase 4 counted a VSC that
+    turned into an SC as both, which gave 14 SCs and 18 VSCs.
   - Lengths are drawn from the observed ones (SC 3–6 laps, VSC 1–4).
   - The lap after a period is green (the restart).
   - A state already under SC/VSC continues it for a remaining length drawn
@@ -205,10 +213,11 @@ slope (2.86 per s) and per-circuit intercepts shrunk toward the pooled one
 actual plans and SC/VSC, the simulator was 2–8% short of the real number of
 on-track passes. It also had 1.5× too much close following. Two changes:
 - held gaps are drawn from 2022 (no free parameter);
-- one intercept `shift` (+0.674), fitted on even rounds.
+- one intercept `shift` (+0.986), fitted on even rounds after the SC queue
+  fix.
 
-Odd-round check: 303 simulated passes vs 318 real; close following is still
-1.2× real.
+Odd-round check: 311 simulated passes vs 318 real; close following is still
+1.15–1.25× real.
 
 ### Late SC restarts and `final_race` (ROADMAP note)
 
@@ -257,12 +266,14 @@ plans): 82 plans × 1,000 simulations in 43 s (0.52 s per plan).
 
 - **Passing (Phase 5).** The Phase 4 figure of ~2.5× too many passes was
   mostly a counting mismatch (`docs/validation.md`). After calibration, pass
-  counts match 2022, but cars still spend about 1.2× as many laps within 1 s
+  counts match 2022, but cars still spend 1.15–1.25× as many laps within 1 s
   of the car ahead as in 2022.
-- **SC bunching is instant (Phase 5 finding).** The first SC lap closes every
-  gap to `sc_gap_s`. In 2022, gaps closed over 3–5 laps. This makes stopping
-  under the SC look worse than it was (`docs/validation.md`). A fix is
-  proposed, pending approval.
+- **SC closing (Phase 5).** Large gaps close at the 2022 rate. Gaps under
+  ~5 s close to 0.8 s from the second SC lap, while in 2022 they stayed
+  around 1.6 s for three laps. The ratio is fitted on 3 SC periods.
+- **Final-stint widening.** The Phase 4 default is ×1.188. The Phase 5
+  backtests are better calibrated with 1.0, so Phase 6 uses 1.0 and reports
+  ×1.188 as a sensitivity check.
 - **Stint order does not matter on its own.** The lap model has no fuel ×
   compound interaction, so a plan's tyre cost depends only on each stint's
   compound, set and length, not on when in the race the stint is run.

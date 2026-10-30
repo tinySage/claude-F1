@@ -1,12 +1,16 @@
 # Validation (Phase 5)
 
-Status: **Part A done** (passing diagnosis and calibration, backtests).
-Part B (Phase 6 dress rehearsal) follows after review. Code:
-`src/f1strat/backtest.py`. Rebuild everything with:
+Status: **done.** Part A: passing diagnosis and calibration, SC queue and VSC
+fixes, backtests. Part B: Phase 6 dress rehearsal. Code:
+`src/f1strat/backtest.py`, `src/f1strat/rehearsal.py`. Rebuild everything with:
 
 ```
-uv run python -m f1strat.backtest calibrate   # pass-intercept shift -> sim_params.json
+uv run python -m f1strat.race_events          # SC/VSC rates, pass model (keeps the calibration)
+uv run python -m f1strat.backtest calibrate   # SC closing ratio, pass shift -> sim_params.json
 uv run python -m f1strat.backtest run         # backtests, tables and plots
+uv run python -m f1strat.backtest widening    # replay with widening 1.0 (sensitivity)
+uv run python -m f1strat.rehearsal spain      # Part B rehearsals (each refits the model)
+uv run python -m f1strat.rehearsal france
 ```
 
 Tables: `reports/figures/backtest_*.csv`. Plots: `reports/figures/backtest_*.png`.
@@ -128,28 +132,35 @@ parameter.
      random numbers still hold.
 2. **One shift on every circuit's pass intercept** (`passing.shift`), fitted
    by bisection so that replayed **even-round** races have the actual number
-   of on-track passes. Result: **+0.674**.
-   - Equal-pace pass probability rises from 6% to 11% per lap; an attacker
-     1 s/lap faster passes with 62% instead of 46%.
+   of on-track passes. Result: **+0.986**. The shift is fitted after the SC
+   queue fix below, because SC bunching changes how many passes follow a
+   restart. It was +0.674 with the Phase 4 SC queue.
+   - Pooled curve: equal-pace pass probability rises from 6% to 15% per lap;
+     an attacker 1 s/lap faster passes with 75% instead of 46%.
    - What it absorbs: real passes the simulator has no mechanism for, such as
      a car with a problem lap passed from more than 1 s back, or a two-car
      pass.
 
-Checked on the **odd rounds** (not used in the fit):
+Checked on the **odd rounds** (not used in the fit). The first three rows use
+the Phase 4 SC queue:
 
 | Passing | Even rounds (fit): passes, sim / 2022 | close share, sim / 2022 | Odd rounds (check): passes | close share |
 |---|---|---|---|---|
 | Phase 4 (gap fixed at 0.68 s, no shift) | 316 / 322 | 0.342 / 0.216 | 294 / 318 | 0.393 / 0.267 |
 | Dirty-air loss 0.21 s/lap only (the Phase 3 `dirty_air_penalty`) | 292 / 322 | 0.328 / 0.216 | 269 / 318 | 0.376 / 0.267 |
 | Held gaps drawn, no shift | 278 / 322 | 0.288 / 0.216 | 252 / 318 | 0.332 / 0.267 |
-| **Held gaps drawn + shift 0.674 (final)** | **322 / 322** | **0.279 / 0.216** | **303 / 318** | **0.323 / 0.267** |
+| **Held gaps drawn + SC closing + shift 0.986 (final)** | **322 / 322** | **0.266 / 0.216** | **311 / 318** | **0.308 / 0.267** |
 
-- **Passes:** on the odd rounds the calibrated simulator is 5% low
-  (303 vs 318).
-- **Close following:** improved from 1.5× to 1.2–1.3× of 2022, but still
-  high. No pass setting fixes it. With the slope scaled ×0.5 to ×3 and the
-  shift refitted each time, the close share stayed between 0.31 and 0.34. So
-  the rest is in how cars follow, not in how they pass.
+- **Passes:** on the odd rounds the calibrated simulator is 2% low
+  (311 vs 318).
+- **Close following (limitation):** still **1.15–1.25× 2022** (0.266 vs
+  0.216 even, 0.308 vs 0.267 odd; 0.285 vs 0.240 over all 15 races).
+  - No pass setting fixes it. With the slope scaled ×0.5 to ×3 and the shift
+    refitted each time, the close share stayed between 0.31 and 0.34. So the
+    rest is in how cars follow, not in how they pass.
+  - **Effect:** simulated cars spend slightly too many laps in traffic, so the
+    time lost behind slower cars (and the value of an undercut that clears
+    traffic) may be slightly overstated.
 - **Dirty air:** applying the Phase 3 `dirty_air_penalty` (0.21 s/lap) to
   following cars barely helped, because a held car is pinned to the car ahead
   anyway. It is left out (`dirty_air_s = 0`; the option stays in the code).
@@ -158,97 +169,208 @@ Checked on the **odd rounds** (not used in the fit):
 
 ![close following](../reports/figures/backtest_close.png)
 
+## SC queue: gradual closing (approved fix)
+
+**Problem (found in the first backtest run).** In Phase 4, the first SC lap
+compressed the whole field to 0.8 s gaps.
+- **Cause:** the leader lapped at 1.49× and everyone behind at 1.09× their own
+  pace, which closes about 38 s per lap.
+- **Effect:** a car that pitted under the SC dropped behind cars it really
+  stayed ahead of. That is Pérez in Saudi Arabia (below), and the Silverstone
+  case study turns on exactly this.
+
+**Fix.** Gaps are kept on the first SC lap. On each later SC lap, every gap to
+the car ahead is multiplied by a fixed ratio, down to `sc_gap_s` (0.8 s):
+`neutral.sc_close_ratio`.
+- **Fitted on even rounds, checked on odd rounds**
+  (`backtest.sc_gap_observations`). For each SC period, each car and the car
+  directly ahead of it before the SC are followed while neither pits; most
+  cars pit under SC, so requiring the pair to stay adjacent would leave too
+  few pairs.
+- **Result:** **0.58 per lap**, fitted on the squared error in seconds.
+  - A log-error fit gives 0.64. That fit is dominated by the many sub-2 s
+    pairs, and it closes 15–25 s gaps far too slowly.
+  - Seconds is what matters here: pit-under-SC losses and final margins come
+    from the large gaps.
+- **Thin fit data.** The even backtest rounds have only 3 SC periods (Saudi
+  Arabia, Belgium, Italy); the odd rounds have 8.
+
+Median gap (s) at the end of SC lap `k`, odd rounds (check;
+`reports/figures/sc_closing.csv`):
+
+| SC lap `k` | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| gap before > 5 s (median 12.8 s), observed | 12.6 | 7.0 | 4.3 | 1.9 | 1.5 | 0.7 |
+| simulated, ratio 0.58 | 12.8 | 7.4 | 4.3 | 2.5 | 1.9 | 1.0 |
+| simulated, Phase 4 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 |
+| gap before ≤ 5 s (median 1.1 s), observed | 1.7 | 1.6 | 1.6 | 0.6 | 0.9 | 0.3 |
+| simulated, ratio 0.58 | 1.1 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 |
+
+- Large gaps now close at the real rate.
+- **Small gaps** (limitation): in 2022 they open up a little on the first
+  three SC laps (cars weaving and warming tyres); the simulator holds them at
+  0.8 s from lap 2.
+
+**Saudi Arabia, replay, before and after:**
+
+| | Phase 4 SC queue: mean position (80% interval) | Gradual closing | Actual |
+|---|---|---|---|
+| Pérez (pitted lap 15; SC lap 16) | 1.35 (1–2) | **2.25 (1–4)** | 4 |
+| Hamilton (hard start, stayed out, pitted lap 40) | 6.43 (5–8) | 6.90 (6–8) | 10 |
+| Verstappen | 3.00 (2–4) | 2.61 (1–4) | 1 |
+| Saudi Arabia: positions inside 80% / 50% | 0.69 / 0.54 | **0.85 / 0.62** | |
+
+- **Pérez:** now inside his 80% interval. Leclerc, Verstappen and Sainz
+  stopping under the SC no longer drop behind him.
+- **Hamilton:** not explained by the SC queue. A likely candidate is the
+  Phase 3 watch item: Saudi's hard degradation is about zero, so his 40-lap
+  first stint on hards (full fuel) loses no time to wear in the simulator.
+  The model has no fuel × compound interaction to correct it.
+
+## VSC counting (fixed)
+
+`fit_neutralisations` used the race table's period numbering, where a VSC that
+turns into an SC is a VSC period followed by an SC period. So it counted both.
+- **2022:** 5 of the 18 VSCs did this (Bahrain, Saudi Arabia, Australia,
+  Miami, São Paulo). Austin's safety car was also split into two back-to-back
+  SC periods.
+- **Fix** (`race_events.neutral_runs`): a run of neutralised laps with no
+  green lap in between is one period. It is an SC if any lap of it is under
+  SC.
+- **Result:** 13 SCs and 13 VSCs over 961 green laps, both 1.35% per lap
+  (were 14 and 18). Simulated VSCs per race (random mode) fall from 0.96 to
+  0.69, against 0.67 in 2022 counted the same way. The backtests count actual
+  and simulated periods with the same rule (`neutral_counts`).
+
 ## 3–4. Backtest results
 
 ### Overall (249 finishers, 186 lead-lap gaps, 15 races)
 
-| Metric | Target | replay | random |
-|---|---|---|---|
-| Positions inside 50% interval (inclusive) | ≥ 0.50 | 0.82 | 0.80 |
-| Positions inside 80% interval (inclusive) | ≥ 0.80 | 0.95 | 0.98 |
-| PIT in [0.25, 0.75] (fair 50% coverage) | 0.50 | **0.59** | **0.59** |
-| PIT in [0.1, 0.9] (fair 80% coverage) | 0.80 | **0.86** | **0.90** |
-| Spearman, mean over races | | 0.956 | 0.942 |
-| Mean abs. error, actual vs mean simulated position | | 1.03 | 1.23 |
-| Gap to winner inside 50% interval | 0.50 | 0.59 | 0.62 |
-| Gap to winner inside 80% interval | 0.80 | 0.88 | 0.97 |
-| On-track passes per race, 2022 / sim | | 42.7 / 41.7 | 42.7 / 44.2 |
-| Close share, 2022 / sim | | 0.24 / 0.30 | 0.24 / 0.29 |
-| SC periods per race, 2022 / sim | | | 0.80 / 0.77 |
-| VSC periods per race, 2022 / sim | | | 0.73 / 0.96 |
+Final settings: held gaps drawn, pass shift +0.986, SC closing 0.58,
+corrected VSC rate, final-stint widening ×1.188 (the Phase 4 default). The
+last column repeats replay with widening 1.0 (next section).
+
+| Metric | Target | replay | random | replay, widening 1.0 |
+|---|---|---|---|---|
+| Positions inside 50% interval (inclusive) | ≥ 0.50 | 0.82 | 0.81 | 0.80 |
+| Positions inside 80% interval (inclusive) | ≥ 0.80 | 0.96 | 0.97 | 0.95 |
+| PIT in [0.25, 0.75] (fair 50% coverage) | 0.50 | 0.60 | 0.59 | **0.57** |
+| PIT in [0.1, 0.9] (fair 80% coverage) | 0.80 | 0.87 | 0.87 | **0.85** |
+| Spearman, mean over races | | 0.962 | 0.945 | 0.961 |
+| Mean abs. error, actual vs mean simulated position | | 0.97 | 1.16 | 0.96 |
+| **Naive baseline** (order after lap 1): Spearman / mean abs. error | | 0.763 / 2.33 | | |
+| Gap to winner inside 50% interval | 0.50 | 0.55 | 0.52 | **0.54** |
+| Gap to winner inside 80% interval | 0.80 | 0.84 | 0.89 | **0.82** |
+| On-track passes per race, 2022 / sim | | 42.7 / 42.2 | 42.7 / 44.9 | 42.7 / 41.5 |
+| Close share, 2022 / sim | | 0.24 / 0.29 | 0.24 / 0.28 | 0.24 / 0.29 |
+| SC periods per race, 2022 / sim | | | 0.80 / 0.72 | |
+| VSC periods per race, 2022 / sim | | | 0.67 / 0.69 | |
+
+**Naive baseline.** Taking the order after lap 1 as the finishing order gives
+a mean Spearman of 0.763 and a mean position error of 2.33 places. The
+simulator, from the same starting point with the actual stops, gives 0.962
+and 0.97 places. In every race it beats the baseline on both (per-race table
+below), so the simulator adds a lot beyond "the order after lap 1 holds".
+
+### Final-stint widening: ×1.188 or 1.0
+
+Positions were over-covered (fair 80% coverage 0.87). The Phase 3 widening
+factor (×1.188 on the drawn final-stint spread) was a candidate cause, so the
+replay was rerun with widening 1.0:
+
+| Replay | Positions, fair 50% / 80% | Gaps, 50% / 80% | Spearman | MAE |
+|---|---|---|---|---|
+| widening ×1.188 | 0.60 / 0.87 | 0.55 / 0.84 | 0.962 | 0.97 |
+| widening 1.0 | 0.57 / 0.85 | 0.54 / 0.82 | 0.961 | 0.96 |
+
+- **1.0 is better calibrated on all four coverage numbers.** Point accuracy
+  is unchanged.
+- **Phase 6 uses widening 1.0** and reports ×1.188 as a sensitivity check.
+- **The widening is not the main cause.** Positions are still over-covered
+  with 1.0 (0.85 vs 0.80). Intervals stay slightly wide, so verdicts are
+  conservative.
+- Phase 3's ×1.188 came from lap-time intervals on held-out final stints.
+  Here the drawn final-stint shift is one of several sources of spread in
+  race positions (pit-loss draws, SC/VSC, passing coin-flips), so the race
+  level needs less of it.
 
 ![PIT histograms](../reports/figures/backtest_pit.png)
 
 **Reading the PIT histograms:**
-- **Positions, replay:** close to flat, with a mild hump in the middle and thin
-  tails. The intervals are slightly **too wide** (fair 80% coverage 0.86).
-- **Gaps, replay:** roughly flat; a thin top tail (actual gaps seldom exceed
-  the simulated 80th percentile), so slightly wide at the top.
-- **Gaps, random:** clearly skewed to low PITs. Real gaps are smaller than
-  most simulated ones and the 80% interval covers 97%. Two reasons:
-  - drawn SC/VSC widen the spread;
-  - 44% of simulated races have no SC, against 27% of these 15 races, and an
-    SC compresses the gaps (Italy finished under SC: real gaps of a few
-    seconds, 50% coverage 0).
-- **Positions, random:** flat enough, wider than replay (fair 80% coverage
-  0.90).
+- **Positions:** close to flat in both modes, with a mild hump in the middle
+  and thin tails. Intervals are slightly too wide.
+- **Gaps, replay:** skewed toward low PITs (median PIT 0.37). Real gaps to the
+  winner are smaller than the simulated median for most cars; the median
+  simulated gap is 1.11× the actual one.
+  - This appeared with the SC fix: the Phase 4 queue over-bunched the field
+    at every SC, and that happened to offset it.
+  - Likely causes: gaps under ~5 s that do not quite close, and close
+    following (a car held at a drawn gap is never closer than the real one).
+  - Coverage is still near nominal (0.55 / 0.84).
+- **Gaps, random:** more skewed (median PIT 0.28; median simulated gap 1.76×
+  actual). Drawn SC/VSC timing spreads the field more than the 2022 races'
+  actual SCs did. In 12 of these 15 races there was an SC or VSC, and
+  several came late, which compressed the final gaps (Italy finished under
+  SC: real gaps of a few seconds, 80% coverage 0.18).
 
 ### Per race: replay (actual SC/VSC)
 
-| Round | Race | Finishers | Pos in 50% | Pos in 80% | Spearman | Gap in 50% | Gap in 80% | Passes 2022 | Passes sim (10–90%) | Close 2022 | Close sim |
-|--:|:--|--:|--:|--:|--:|--:|--:|--:|:--|--:|--:|
-| 1 | Bahrain | 17 | 0.88 | 0.88 | 0.95 | 0.31 | 0.56 | 57 | 56 (49–64) | 0.18 | 0.30 |
-| 2 | Saudi Arabia | 13 | 0.54 | **0.69** | 0.89 | 0.09 | 0.64 | 34 | 42 (34–51) | 0.26 | 0.34 |
-| 3 | Australia | 17 | 0.76 | 0.94 | 0.92 | 0.55 | 0.91 | 32 | 26 (19–34) | 0.38 | 0.36 |
-| 5 | Miami | 16 | 0.81 | 0.88 | 0.97 | 0.80 | 0.87 | 47 | 36 (28–44) | 0.25 | 0.31 |
-| 6 | Spain | 18 | 0.89 | 1.00 | 0.99 | 0.57 | 1.00 | 52 | 51 (44–59) | 0.12 | 0.21 |
-| 8 | Azerbaijan | 15 | 0.80 | 0.93 | 0.96 | 0.44 | 1.00 | 33 | 27 (20–34) | 0.14 | 0.25 |
-| 9 | Canada | 17 | 0.82 | 1.00 | 0.97 | 0.94 | 1.00 | 31 | 41 (34–50) | 0.32 | 0.33 |
-| 12 | France | 15 | 0.93 | 1.00 | 0.98 | 0.86 | 1.00 | 29 | 36 (28–45) | 0.30 | 0.34 |
-| 14 | Belgium | 18 | 0.89 | 1.00 | 0.98 | 0.79 | 1.00 | 49 | 39 (32–47) | 0.29 | 0.30 |
-| 15 | Netherlands | 18 | 0.67 | 1.00 | 0.95 | 0.38 | 0.94 | 23 | 32 (24–40) | 0.23 | 0.29 |
-| 16 | Italy | 16 | 0.94 | 1.00 | 0.96 | 0.55 | 0.82 | 48 | 45 (37–53) | 0.33 | 0.33 |
-| 19 | United States | 17 | 0.82 | 1.00 | 0.96 | 0.50 | 0.88 | 60 | 58 (49–67) | 0.30 | 0.37 |
-| 20 | Mexico | 18 | 0.83 | 0.94 | 0.96 | 1.00 | 1.00 | 22 | 32 (24–40) | 0.12 | 0.22 |
-| 21 | São Paulo | 17 | 0.71 | 0.88 | 0.93 | 0.80 | 0.93 | 68 | 55 (47–63) | 0.21 | 0.32 |
-| 22 | Abu Dhabi | 17 | 0.88 | 1.00 | 0.98 | 0.20 | 0.70 | 55 | 49 (40–57) | 0.16 | 0.25 |
+Spearman and MAE (mean absolute position error) with the naive baseline (order
+after lap 1) in brackets.
+
+| Round | Race | Finishers | Pos in 50% | Pos in 80% | Spearman (naive) | MAE (naive) | Gap in 50% | Gap in 80% | Passes 2022 | Passes sim (10–90%) | Close 2022 | Close sim |
+|--:|:--|--:|--:|--:|:--|:--|--:|--:|--:|:--|--:|--:|
+| 1 | Bahrain | 17 | 0.82 | 0.88 | 0.95 (0.83) | 0.85 (2.12) | 0.12 | 0.38 | 57 | 57 (49–64) | 0.18 | 0.28 |
+| 2 | Saudi Arabia | 13 | 0.62 | 0.85 | 0.92 (0.90) | 1.13 (1.38) | 0.36 | 0.55 | 34 | 31 (24–38) | 0.26 | 0.30 |
+| 3 | Australia | 17 | 0.82 | 1.00 | 0.93 (0.78) | 1.10 (2.12) | 0.45 | 1.00 | 32 | 25 (18–32) | 0.38 | 0.33 |
+| 5 | Miami | 16 | 0.81 | 0.88 | 0.98 (0.70) | 0.80 (2.75) | 0.73 | 0.87 | 47 | 39 (31–46) | 0.25 | 0.30 |
+| 6 | Spain | 18 | 0.89 | 1.00 | 0.99 (0.69) | 0.68 (2.44) | 0.57 | 1.00 | 52 | 53 (46–62) | 0.12 | 0.21 |
+| 8 | Azerbaijan | 15 | 0.80 | 0.93 | 0.96 (0.91) | 0.75 (1.20) | 0.44 | 1.00 | 33 | 29 (22–36) | 0.14 | 0.24 |
+| 9 | Canada | 17 | 0.82 | 1.00 | 0.97 (0.56) | 0.84 (3.06) | 0.88 | 0.94 | 31 | 45 (37–53) | 0.32 | 0.32 |
+| 12 | France | 15 | 0.93 | 1.00 | 0.98 (0.77) | 0.77 (1.73) | 0.64 | 0.93 | 29 | 34 (26–42) | 0.30 | 0.29 |
+| 14 | Belgium | 18 | 0.83 | 1.00 | 0.98 (0.60) | 0.91 (3.78) | 0.64 | 1.00 | 49 | 40 (33–47) | 0.29 | 0.29 |
+| 15 | Netherlands | 18 | 0.72 | 1.00 | 0.96 (0.88) | 0.97 (1.89) | 0.31 | 0.62 | 23 | 36 (28–44) | 0.23 | 0.28 |
+| 16 | Italy | 16 | 0.88 | 1.00 | 0.97 (0.51) | 1.03 (3.62) | 0.73 | 0.91 | 48 | 48 (40–56) | 0.33 | 0.32 |
+| 19 | United States | 17 | 0.88 | 0.94 | 0.95 (0.72) | 1.44 (3.06) | 0.56 | 0.94 | 60 | 55 (46–64) | 0.30 | 0.35 |
+| 20 | Mexico | 18 | 0.83 | 1.00 | 0.97 (0.92) | 1.00 (1.33) | 1.00 | 1.00 | 22 | 34 (27–42) | 0.12 | 0.22 |
+| 21 | São Paulo | 17 | 0.65 | 0.88 | 0.94 (0.76) | 1.47 (2.47) | 0.80 | 0.93 | 68 | 57 (49–66) | 0.21 | 0.31 |
+| 22 | Abu Dhabi | 17 | 0.88 | 1.00 | 0.98 (0.91) | 0.84 (1.65) | 0.20 | 0.80 | 55 | 52 (43–61) | 0.16 | 0.25 |
 
 ### Per race: random (SC/VSC drawn)
 
 | Round | Race | Pos in 50% | Pos in 80% | Spearman | Gap in 80% | Passes 2022 | Passes sim (10–90%) | SC 2022 / sim | VSC 2022 / sim |
 |--:|:--|--:|--:|--:|--:|--:|:--|:--|:--|
-| 1 | Bahrain | 0.88 | 0.94 | 0.96 | 1.00 | 57 | 58 (44–78) | 1 / 0.75 | 0 / 0.92 |
-| 2 | Saudi Arabia | 0.62 | 1.00 | 0.88 | 1.00 | 34 | 29 (20–43) | 1 / 0.64 | 1 / 0.78 |
-| 3 | Australia | 0.82 | 0.94 | 0.92 | 1.00 | 32 | 21 (12–35) | 2 / 0.74 | 1 / 0.95 |
-| 5 | Miami | 0.62 | 1.00 | 0.93 | 1.00 | 47 | 38 (26–56) | 1 / 0.75 | 0 / 0.92 |
-| 6 | Spain | 0.89 | 1.00 | 0.96 | 1.00 | 52 | 67 (46–98) | 0 / 0.85 | 0 / 1.15 |
-| 8 | Azerbaijan | 0.80 | 0.93 | 0.91 | 1.00 | 33 | 36 (24–55) | 0 / 0.65 | 2 / 0.82 |
-| 9 | Canada | 0.71 | 1.00 | 0.94 | 1.00 | 31 | 47 (33–65) | 1 / 0.92 | 2 / 1.14 |
-| 12 | France | 0.93 | 1.00 | 0.98 | 1.00 | 29 | 29 (20–38) | 1 / 0.74 | 1 / 0.85 |
-| 14 | Belgium | 0.94 | 1.00 | 0.98 | 1.00 | 49 | 42 (32–54) | 1 / 0.58 | 0 / 0.68 |
-| 15 | Netherlands | 0.67 | 0.94 | 0.95 | 1.00 | 23 | 38 (22–58) | 1 / 0.94 | 1 / 1.21 |
-| 16 | Italy | 0.94 | 1.00 | 0.95 | 0.64 | 48 | 58 (45–74) | 1 / 0.74 | 1 / 0.85 |
-| 19 | United States | 0.71 | 1.00 | 0.91 | 1.00 | 60 | 45 (30–67) | 1 / 0.71 | 0 / 0.93 |
-| 20 | Mexico | 0.89 | 1.00 | 0.96 | 1.00 | 22 | 41 (26–62) | 0 / 0.91 | 1 / 1.18 |
-| 21 | São Paulo | 0.71 | 0.88 | 0.92 | 0.93 | 68 | 54 (40–70) | 1 / 0.85 | 1 / 1.11 |
-| 22 | Abu Dhabi | 0.88 | 1.00 | 0.96 | 1.00 | 55 | 59 (42–80) | 0 / 0.74 | 0 / 0.96 |
+| 1 | Bahrain | 0.94 | 0.94 | 0.96 | 0.62 | 57 | 58 (45–74) | 1 / 0.71 | 0 / 0.67 |
+| 2 | Saudi Arabia | 0.62 | 0.92 | 0.88 | 1.00 | 34 | 30 (21–38) | 1 / 0.59 | 1 / 0.56 |
+| 3 | Australia | 0.82 | 0.94 | 0.92 | 1.00 | 32 | 23 (14–35) | 2 / 0.69 | 1 / 0.67 |
+| 5 | Miami | 0.62 | 1.00 | 0.94 | 0.93 | 47 | 40 (28–56) | 1 / 0.71 | 0 / 0.67 |
+| 6 | Spain | 0.89 | 1.00 | 0.98 | 1.00 | 52 | 65 (47–91) | 0 / 0.80 | 0 / 0.81 |
+| 8 | Azerbaijan | 0.80 | 0.93 | 0.91 | 1.00 | 33 | 37 (26–51) | 0 / 0.60 | 2 / 0.60 |
+| 9 | Canada | 0.71 | 1.00 | 0.94 | 0.94 | 31 | 50 (36–65) | 1 / 0.86 | 2 / 0.85 |
+| 12 | France | 0.93 | 1.00 | 0.99 | 1.00 | 29 | 30 (22–39) | 1 / 0.69 | 1 / 0.63 |
+| 14 | Belgium | 0.94 | 1.00 | 0.97 | 1.00 | 49 | 42 (33–52) | 1 / 0.54 | 0 / 0.49 |
+| 15 | Netherlands | 0.61 | 0.94 | 0.95 | 0.81 | 23 | 40 (25–58) | 1 / 0.88 | 1 / 0.87 |
+| 16 | Italy | 0.94 | 1.00 | 0.97 | 0.36 | 48 | 59 (47–73) | 1 / 0.69 | 1 / 0.63 |
+| 19 | United States | 0.65 | 1.00 | 0.92 | 1.00 | 60 | 44 (32–61) | 1 / 0.66 | 0 / 0.67 |
+| 20 | Mexico | 0.89 | 1.00 | 0.95 | 1.00 | 22 | 43 (29–62) | 0 / 0.85 | 1 / 0.82 |
+| 21 | São Paulo | 0.82 | 0.88 | 0.92 | 0.87 | 68 | 54 (41–68) | 1 / 0.79 | 0 / 0.77 |
+| 22 | Abu Dhabi | 0.88 | 1.00 | 0.96 | 1.00 | 55 | 59 (44–78) | 0 / 0.69 | 0 / 0.67 |
 
 ![coverage per race](../reports/figures/backtest_coverage.png)
 
 ![SC/VSC counts](../reports/figures/backtest_sc_vsc.png)
 
 **SC/VSC rates (random mode).**
-- SCs per race match on average (0.77 simulated vs 0.80 in 2022). The
-  simulated count is more spread out: 44% of simulated races have no SC
-  against 27% in 2022, and more simulated races have two or more.
-- VSCs run high (0.96 vs 0.73). The pooled rate comes from all 18 dry races
-  (18 VSCs); these 15 races had 11.
-- With 15 races, neither difference is clear evidence against the pooled
-  rates.
+- SCs per race: 0.72 simulated vs 0.80 in 2022.
+- VSCs per race: 0.69 vs 0.67, after the counting fix (0.96 before).
+- **Spread:** simulated counts are more spread out (more races with none,
+  more with two or more) than these 15 races, where most had exactly one SC.
+  With 15 races this is not clear evidence against the pooled rates.
+- **Limitation:** the rates are pooled over the season and constant per lap
+  (no circuit effect, no late-race clustering).
 
-**Passes in random mode** have wide intervals (Spain 46–98). A drawn SC
-bunches the field, and passes follow at the restart. The SC bunching issue
-below makes this stronger than it should be.
+**Passes in random mode** have wide intervals (Spain 47–91): a drawn SC
+bunches the field, and passes follow at the restart.
 
 ## 5. Australia, Saudi Arabia, Miami, São Paulo (Phase 3 watch items)
 
@@ -256,61 +378,42 @@ below makes this stronger than it should be.
   0.94, 0.88 and 0.88 in replay; Spearman 0.92–0.97. The watch items (flat or
   negative hard degradation in Australia and Miami; hard degrading faster than
   soft in São Paulo) do not show up as position misses.
-- **Saudi Arabia is the weakest race** (replay 80% coverage 0.69, gap 80%
-  0.64). Watch item first:
+- **Saudi Arabia was the weakest race:** replay 80% coverage 0.69 with the
+  Phase 4 SC queue. Watch item first:
   - Saudi's field hard degradation is about zero (−0.001 s/lap, 80% interval
-    −0.010 to +0.008), not clearly negative. Almost every car ran a long hard
-    final stint, so a flat hard affects everyone about equally.
-  - **The big misses are safety-car pit timing**, not tyre wear:
-    - Pérez pitted on lap 15 and the SC (after a VSC) came on lap 16. In
-      2022 Leclerc, Verstappen and Sainz pitted under it and came out ahead
-      of him; Pérez finished 4th. The simulator has him finishing 1.4th on
-      average.
-    - Hamilton (hard start, stayed out under the SC, pitted lap 40):
-      simulated 6.5th, finished 10th.
-  - Both point at the SC bunching issue below.
-
-## Found while backtesting: the SC queue closes up in one lap
-
-In the simulator, the first SC lap compresses the whole field to 0.8 s gaps.
-- **Cause:** the leader laps at 1.49× and everyone behind at 1.09× their own
-  pace, which closes about 38 s per lap.
-- **2022:** in the 2022 SC periods, the median gap between consecutive cars
-  *grows* on the first SC lap (4.6 → 6.3 s) and then closes over 3–5 laps:
-  3.5, 2.0, 1.6, 1.2 s after laps 2–5.
-- **Effect:** with instant bunching, a car that pits under the SC loses
-  0.72 × its green pit loss against a field that is already queued. So it
-  drops behind cars it really stays ahead of: Pérez in Saudi Arabia, above.
-  It also exaggerates the restart passes in random mode.
-- **Why it matters:** the **Silverstone** case study (Leclerc left out under
-  the late SC) turns on exactly this.
-
-**Proposed fix (needs approval; it changes the method).** Limit how fast gaps
-close under SC, estimated from these 2022 SC periods:
-- gaps are kept on the first SC lap;
-- on later SC laps each gap shrinks by a fixed ratio per lap (about 0.6,
-  from the medians above), down to `sc_gap_s`.
-
-That is one parameter, fitted on the even-round SCs and checked on the odd
-ones, as for passing.
+    −0.010 to +0.008), not clearly negative.
+  - The biggest miss, Pérez, was the SC queue (fixed above; Saudi's coverage
+    is now 0.85).
+  - Hamilton's remaining miss (simulated 6.9th, finished 10th) fits the watch
+    item: a 40-lap first stint on hards that loses no time to wear.
 
 ## Is calibration good enough for the case studies?
 
-- **Positions:** yes, slightly conservative. In replay, fair 50% / 80%
-  coverage is 0.59 / 0.86 and Spearman 0.96. Intervals are a little wide, so
-  a verdict that a call was outside the range of good options is unlikely to
-  come from intervals that are too narrow.
-- **Gaps:** good in replay (0.59 / 0.88). Too wide in random mode (0.62 /
-  0.97). Case-study probabilities that depend on SC luck are therefore
-  conservative.
+- **Positions:** yes, slightly conservative. With widening 1.0 (the Phase 6
+  setting), fair 50% / 80% coverage is 0.57 / 0.85 and Spearman 0.96, against
+  0.76 for the naive baseline. Intervals are a little wide, so a verdict that
+  a call was outside the range of good options will not come from intervals
+  that are too narrow.
+- **Gaps:** near-nominal coverage in replay (0.54 / 0.82 with widening 1.0),
+  but simulated gaps run about 10% large. Random mode is too wide, so
+  case-study probabilities that depend on SC luck are conservative.
 - **Passing:** race-level pass counts match after calibration (odd-round
-  check 5% low).
+  check 2% low).
+- **SC queue:** now closes at the 2022 rate for large gaps. Silverstone's
+  verdict can use it, with the small-gap limitation below.
 
 **Limitations to state in Phase 6:**
-- Close following is still about 1.2× too high, so time lost in traffic may
-  be slightly overstated.
-- The SC queue bunches in one lap (above). Until it is fixed, SC-timing
-  verdicts, **Silverstone above all**, are not reliable.
-- Pace terms come from the full posterior, so these backtests are optimistic
-  about pace. Phase 6 cutoff refits are the honest test.
-- Lap 1 is taken as it happened; no time penalties, blue flags or damage.
+- **Close following** is 1.15–1.25× 2022 after calibration. Time lost in
+  traffic, and the value of clearing it, may be slightly overstated.
+- **Small gaps under SC** close to 0.8 s from the second SC lap. In 2022 they
+  stayed around 1.6 s for three laps.
+- **SC closing ratio** is fitted on only 3 SC periods (even rounds). The
+  odd-round check is good for large gaps.
+- **SC/VSC hazards** are pooled and constant per lap; random-mode gaps are
+  too wide.
+- **Pace is in-sample.** These backtests use the full posterior, so they are
+  optimistic about pace. Phase 6 cutoff refits are the honest test (Part B).
+- **Not modelled:** lap 1 (taken as it happened), time penalties, blue flags,
+  damage.
+- **Passing and SC/VSC parameters use the whole 2022 season,** including the
+  decision race (see Part B).

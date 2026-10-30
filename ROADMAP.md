@@ -123,6 +123,20 @@ Case studies (2022):
     match the actual number of on-track passes; checked on odd rounds (303 vs
     318).
   - The Phase 4 "2.5× too many passes" was mostly a counting mismatch.
+  - Shift refitted to +0.986 after the SC queue fix (was +0.674); odd-round
+    check 311 vs 318.
+- **SC queue closing (Phase 5, approved):** gaps are kept on the first SC lap,
+  then multiplied by a fixed ratio per SC lap, down to 0.8 s.
+  - The ratio is 0.58, fitted on even-round SC periods (squared error in
+    seconds, so large gaps count most; a log-error fit gives 0.64 and closes
+    large gaps too slowly) and checked on odd rounds.
+  - Replaces Phase 4's one-lap bunching.
+- **SC/VSC counting (Phase 5):** a VSC that turns into an SC counts as one SC
+  period, not as both. 13 SCs and 13 VSCs (were 14 and 18).
+- **Final-stint widening in Phase 6: 1.0 (Phase 5).** The replay backtests
+  are better calibrated without the ×1.188 widening (fair position coverage
+  0.57 / 0.85 vs 0.60 / 0.87; gaps 0.54 / 0.82 vs 0.55 / 0.84). Phase 6 uses
+  1.0 and reports ×1.188 as a sensitivity check.
 - **Hungary confounding (Phase 3 → Phase 6):** Leclerc's stint 3 is Ferrari's
   only hard stint at Hungary. The data identify the sum of
   `team_compound[Ferrari, hard, Hungary]` and his stint effect, not the split,
@@ -191,8 +205,8 @@ Result:
 
 ## Phase 5: Validation
 - [x] Backtest on 2022 races outside the case studies (excluding Austria; see Decisions log): replay and random modes, `docs/validation.md`
-- [x] Check interval calibration (replay: fair 50%/80% position coverage 0.59/0.86, gaps 0.59/0.88; random mode gaps too wide)
-- [ ] Loop back to Phase 3/4 if needed (proposed: SC queue bunches in one lap; needs approval)
+- [x] Check interval calibration (replay, widening 1.0: fair 50%/80% position coverage 0.57/0.85, gaps 0.54/0.82; Spearman 0.96 vs 0.76 naive; random-mode gaps too wide)
+- [x] Loop back to Phase 3/4 if needed: SC queue closing, VSC counting, passing calibration, widening choice
 - [ ] Phase 6 dress rehearsal: cutoff refit with leakage-free cleaning, two non-case races cut at mid-race
 
 Watch items from Phase 4:
@@ -221,9 +235,11 @@ Open issues for Phase 6:
   mismatches, including new softs that the "softs first" return assumption
   sent back. Phase 6 must print Ferrari's reconstructed Hungary sets and
   check them against Leclerc's actual fittings.
-- **SC timing verdicts (from Phase 5).** The simulated SC queue bunches the
-  field in one lap; 2022 gaps closed over 3–5 laps. Silverstone's verdict
-  depends on this (`docs/validation.md`).
+- **SC timing verdicts (from Phase 5).** The SC queue now closes gradually
+  (fitted ratio 0.58 per lap), but small gaps close too fast and the ratio
+  rests on 3 SC periods. Silverstone's verdict depends on this
+  (`docs/validation.md`); state it as a limitation.
+- **Use widening 1.0** and report ×1.188 as a sensitivity check.
 - [ ] Hungary
 - [ ] Silverstone
 - [ ] Monaco (wet crossover; state limitations)
