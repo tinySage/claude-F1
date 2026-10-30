@@ -117,3 +117,14 @@ driver's median clean lap in that race.
 | n_stops | Int64 | Stops used |
 | source_year | Int64 | Season the stops come from: 2022, or 2021 for Monaco; null when `not_needed` |
 | pit_loss_status | str | `own_race` (2022 stops), `reference` (Monaco: green-flag, dry-to-dry stops from the most recent downloadable dry Monaco GP) or `not_needed` (Imola, Singapore, Suzuka: mixed-conditions races outside the dry fit, backtests and case studies) |
+
+## `sim_params.json`: field-simulator parameters
+
+Built by `uv run python -m f1strat.race_events` from the 18 dry 2022 races; see
+`docs/simulator.md`.
+
+- `passing`: pass-probability model (slope per second of free-air pace gap,
+  pooled and per-round intercepts, following gap, event counts).
+- `neutral`: SC/VSC start probability per green race lap, observed lengths,
+  lap-time ratios, and pit-loss ratios under SC/VSC.
+- `sc_gap_s`: queue gap under SC.
