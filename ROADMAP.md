@@ -31,9 +31,9 @@ Case studies (2022):
 **Done when:** every 2022 race's laps are in parquet with a documented schema and a loader in `src/f1strat/data.py`.
 
 ## Phase 2: Cleaning + EDA
-- [ ] Remove lap 1, in/out laps, SC/VSC/yellow-flag laps and deleted laps
-- [ ] Flag dirty-air laps (keep them, with a flag)
-- [ ] Estimate pit lane loss per circuit
+- [x] Label laps unusable for the deg model with one `exclude_reason` (lap 1, after chequered, in/out laps, red flag, SC, VSC, restart lap, deleted, inaccurate, missing/wet compound, rainfall, >107% outlier). Yellow flags are not an exclude reason.
+- [x] Flag dirty-air laps (`gap_ahead_s < 1.0`; keep them, flag only)
+- [x] Estimate green-flag pit lane loss per circuit (`data/processed/2022/pit_loss.parquet`)
 - [ ] EDA notebook with plots
 
 **Done when:** `src/f1strat/clean.py` produces a tested clean dataset with a dirty-air flag, and a per-circuit pit loss table exists.
