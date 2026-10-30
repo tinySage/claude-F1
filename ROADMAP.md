@@ -13,6 +13,25 @@ Case studies (2022):
   Austria stint 3 for 12 drivers, Monaco stint 5 for STR) are not filled in.
   They are excluded from modelling (`exclude_reason = missing_compound`), and
   **Austria is dropped from all backtests** (Phase 5).
+- **Mixed-conditions races (Phase 2):** Imola, Monaco, Singapore and Japan
+  2022 get the race-level reason `mixed_conditions` (after `wet_compound`), so
+  none of their laps feed the dry degradation fit. Their pit loss comes from
+  green-flag, dry-to-dry stops in the most recent dry race at the same circuit
+  in another season (pit lane length barely changes between years); only that
+  one race is loaded, and `source_year` is recorded in `pit_loss.parquet`.
+  Monaco's case study gets its own handling in Phase 6.
+  - Source years: **pending**. 2023–2026 timing data needs a signed-in F1
+    account (live timing returns 401; the FastF1 mirror has no copy), so all
+    four references currently fail to load and their values are null. Without
+    sign-in, only Imola 2021 (wet) and Monaco 2021 are reachable. An older
+    season is never used just because a newer one is unavailable.
+- **Rainfall (Phase 2):** not an exclude reason. `Rainfall` stays as a boolean
+  column for Phase 3 to test as a covariate. Hungary's cool, damp final third
+  (drizzle, everyone on slicks) is part of why the hard tyre struggled, so
+  those laps are evidence. Real wet running is caught by `wet_compound` and
+  `mixed_conditions`.
+- **Pit loss stops (Phase 2):** stops whose in lap is lap 1 are not used.
+- **Yellow flags (Phase 2):** not an exclude reason.
 
 ---
 
@@ -31,18 +50,10 @@ Case studies (2022):
 **Done when:** every 2022 race's laps are in parquet with a documented schema and a loader in `src/f1strat/data.py`.
 
 ## Phase 2: Cleaning + EDA
-- [x] Label laps unusable for the deg model with one `exclude_reason` (lap 1, after chequered, in/out laps, red flag, SC, VSC, restart lap, deleted, inaccurate, missing/wet compound, rainfall, >107% outlier). Yellow flags are not an exclude reason.
+- [x] Label laps unusable for the deg model with one `exclude_reason` (lap 1, after chequered, in/out laps, red flag, SC, VSC, restart lap, deleted, inaccurate, missing/wet compound, mixed conditions, >107% outlier)
 - [x] Flag dirty-air laps (`gap_ahead_s < 1.0`; keep them, flag only)
-- [x] Estimate green-flag pit lane loss per circuit (`data/processed/2022/pit_loss.parquet`)
+- [x] Estimate green-flag pit lane loss per circuit (`data/processed/2022/pit_loss.parquet`): 18 of 22 circuits; the 4 mixed-conditions references are pending F1 sign-in (see Decisions log)
 - [x] EDA notebook with plots (`notebooks/02_eda.ipynb`, figures in `reports/figures/`)
-
-Open issues from the EDA (awaiting a decision; nothing changed yet):
-- Drying-track races (Imola, Monaco, Singapore): dry-compound laps on a damp
-  track pass every filter, so their clean laps mix track drying with tyre
-  wear, and their pit loss (45–52 s) is inflated by wet in/out laps.
-- Japan: no clean laps (all wet), so no pit loss estimate.
-- Hungary: `Rainfall` is True on most laps from 47 onward (light drizzle, all
-  on slicks), so those laps are excluded, which overlaps Leclerc's hard stint.
 
 **Done when:** `src/f1strat/clean.py` produces a tested clean dataset with a dirty-air flag, and a per-circuit pit loss table exists.
 

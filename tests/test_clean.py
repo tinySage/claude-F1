@@ -3,7 +3,12 @@
 import pandas as pd
 import pytest
 
-from f1strat.clean import EXCLUDE_REASONS, clean_laps, pit_loss
+from f1strat.clean import (
+    EXCLUDE_REASONS,
+    MIXED_CONDITIONS_2022,
+    clean_laps,
+    pit_loss,
+)
 from f1strat.data import LAPS_SCHEMA, PROCESSED_DIR, load_season
 
 
@@ -40,6 +45,23 @@ def test_first_matching_reason_wins() -> None:
     assert pd.isna(got[1]) and pd.isna(got[5]) and pd.isna(got[6])
 
 
+def test_rainfall_alone_does_not_exclude() -> None:
+    """Rainfall is a covariate, not an exclude reason."""
+    rows = [_lap("AAA", n, 1, 90.0 * n, Rainfall=n >= 3) for n in range(1, 6)]
+    out = clean_laps(_frame(rows))
+    assert out.loc[out["Rainfall"], "exclude_reason"].isna().all()
+
+
+def test_mixed_conditions_labels_whole_race() -> None:
+    """Every lap of a mixed-conditions race gets a reason, after wet_compound."""
+    rows = [_lap("AAA", n, 1, 90.0 * n) for n in range(1, 6)]
+    rows[3] = _lap("AAA", 4, 1, 360.0, Compound="INTERMEDIATE")
+    got = clean_laps(_frame(rows), mixed_conditions={"Test GP"})["exclude_reason"]
+    assert got.astype("object").tolist() == [
+        "lap_1", "mixed_conditions", "mixed_conditions", "wet_compound", "mixed_conditions"
+    ]
+
+
 def test_gap_ahead_and_dirty_air() -> None:
     """Gap is measured to the car one position ahead on the same lap."""
     rows = [
@@ -67,12 +89,19 @@ def test_one_known_reason_per_lap(cleaned_2022: pd.DataFrame) -> None:
 
 
 def test_clean_laps_are_dry_known_compound_green(cleaned_2022: pd.DataFrame) -> None:
-    """No clean lap is on a wet or missing compound, or under SC/VSC/red flag."""
+    """No clean lap is on a wet or missing compound, under SC/VSC/red flag, or
+    from a mixed-conditions race."""
     clean = cleaned_2022[cleaned_2022["exclude_reason"].isna()]
     assert len(clean) > 0
     assert clean["Compound"].isin(["SOFT", "MEDIUM", "HARD"]).all()
     assert not clean["TrackStatus"].str.contains("[4567]", regex=True).any()
-    assert not clean["Rainfall"].any()
+    assert not clean["EventName"].isin(list(MIXED_CONDITIONS_2022)).any()
+
+
+def test_rainfall_laps_kept_in_hungary(cleaned_2022: pd.DataFrame) -> None:
+    """Hungary's drizzle laps on slicks are clean unless another reason applies."""
+    hun = cleaned_2022[cleaned_2022["EventName"] == "Hungarian Grand Prix"]
+    assert hun.loc[hun["Rainfall"], "exclude_reason"].isna().any()
 
 
 def test_dirty_air_never_excludes(cleaned_2022: pd.DataFrame) -> None:
@@ -81,9 +110,37 @@ def test_dirty_air_never_excludes(cleaned_2022: pd.DataFrame) -> None:
     assert clean["dirty_air"].any()
 
 
-def test_pit_loss_positive_and_saved_matches(cleaned_2022: pd.DataFrame) -> None:
-    """All pit loss values are positive and the saved table is up to date."""
-    pit = pit_loss(cleaned_2022, load_season(2022, table="race"))
-    assert (pit["pit_loss_s"] > 0).all()
-    saved = pd.read_parquet(PROCESSED_DIR / "2022" / "pit_loss.parquet")
-    pd.testing.assert_frame_equal(saved, pit)
+@pytest.fixture(scope="module")
+def saved_pit_loss() -> pd.DataFrame:
+    """The committed pit loss table."""
+    return pd.read_parquet(PROCESSED_DIR / "2022" / "pit_loss.parquet")
+
+
+def test_pit_loss_positive(saved_pit_loss: pd.DataFrame) -> None:
+    """All pit loss values present are positive; one row per 2022 race."""
+    assert len(saved_pit_loss) == 22
+    assert (saved_pit_loss["pit_loss_s"].dropna() > 0).all()
+
+
+def test_pit_loss_sources(saved_pit_loss: pd.DataFrame) -> None:
+    """Mixed-conditions circuits never use their own 2022 stops; every other
+    race does. A missing value is only allowed for a mixed-conditions race."""
+    mixed = saved_pit_loss["EventName"].isin(list(MIXED_CONDITIONS_2022))
+    assert (saved_pit_loss.loc[~mixed, "source_year"] == 2022).all()
+    assert (saved_pit_loss.loc[mixed, "source_year"].fillna(0) != 2022).all()
+    assert saved_pit_loss.loc[saved_pit_loss["pit_loss_s"].isna(), "EventName"].isin(
+        list(MIXED_CONDITIONS_2022)
+    ).all()
+
+
+def test_saved_pit_loss_matches_2022_recompute(
+    cleaned_2022: pd.DataFrame, saved_pit_loss: pd.DataFrame
+) -> None:
+    """Rows sourced from 2022 match a fresh computation (no network needed)."""
+    own = pit_loss(cleaned_2022, load_season(2022, table="race"))
+    saved = saved_pit_loss[saved_pit_loss["source_year"] == 2022]
+    pd.testing.assert_frame_equal(
+        saved.drop(columns="source_year").reset_index(drop=True),
+        own.reset_index(drop=True),
+        check_dtype=False,
+    )

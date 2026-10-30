@@ -100,3 +100,19 @@ How periods are built:
   message, so the cross-check is skipped for that race.
 - **Time-limited races**: Monaco (64 of 77 laps), Singapore (59 of 61) and
   Japan (28 of 53) ran fewer laps than `TotalLaps`.
+
+## `pit_loss.parquet`: one row per 2022 race
+
+Built by `uv run python -m f1strat.clean`. Per green-flag stop (no SC / VSC /
+red code on the in or out lap, in lap not lap 1): (in lap + out lap) − 2 × the
+driver's median clean lap in that race.
+
+| Column | Type | Meaning |
+|---|---|---|
+| RoundNumber | Int64 | 2022 round |
+| EventName | str | Event name |
+| Circuit | str | Circuit short name |
+| pit_loss_s | float | Median loss over stops (s); null if no value yet |
+| q25_s, q75_s | float | Interquartile range of the loss (s) |
+| n_stops | Int64 | Stops used |
+| source_year | Int64 | Season the stops come from: 2022, or a reference season for the mixed-conditions circuits (Imola, Monaco, Singapore, Suzuka); null while pending |

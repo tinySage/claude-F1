@@ -5,7 +5,9 @@ the first reason (if any) it should be kept out of the degradation model, and
 adds the gap to the car ahead plus a dirty-air flag. Nothing is dropped:
 filter on ``exclude_reason.isna()`` to get model laps.
 
-:func:`pit_loss` estimates the green-flag pit lane time loss per circuit.
+:func:`pit_loss` estimates the green-flag pit lane time loss per circuit;
+:func:`pit_loss_with_references` fills the mixed-conditions circuits from a
+dry race at the same circuit in another season.
 
 Track status codes inside a lap's ``TrackStatus`` string: 1 green, 2 yellow,
 4 SC, 5 red flag, 6 VSC deployed, 7 VSC ending.
@@ -13,11 +15,16 @@ Track status codes inside a lap's ``TrackStatus`` string: 1 green, 2 yellow,
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Collection
 from pathlib import Path
 
+import fastf1
 import pandas as pd
 
-from f1strat.data import PROCESSED_DIR
+from f1strat.data import PROCESSED_DIR, configure_cache, laps_table, load_race_session
+
+logger = logging.getLogger(__name__)
 
 #: Exclusion reasons, in priority order. A lap gets the first that applies.
 EXCLUDE_REASONS: tuple[str, ...] = (
@@ -33,8 +40,19 @@ EXCLUDE_REASONS: tuple[str, ...] = (
     "inaccurate",
     "missing_compound",
     "wet_compound",
-    "rainfall",
+    "mixed_conditions",
     "outlier",
+)
+
+#: 2022 races run partly wet or on a drying track. Every lap is kept out of the
+#: dry degradation fit, and their pit loss comes from a reference race.
+MIXED_CONDITIONS_2022: frozenset[str] = frozenset(
+    {
+        "Emilia Romagna Grand Prix",
+        "Monaco Grand Prix",
+        "Singapore Grand Prix",
+        "Japanese Grand Prix",
+    }
 )
 
 WET_COMPOUNDS = frozenset({"INTERMEDIATE", "WET"})
@@ -95,11 +113,20 @@ def _gap_ahead_s(laps: pd.DataFrame) -> pd.Series:
     return (laps["Time"] - merged["TimeAhead"]).dt.total_seconds()
 
 
-def clean_laps(laps: pd.DataFrame) -> pd.DataFrame:
+def clean_laps(
+    laps: pd.DataFrame, mixed_conditions: Collection[str] = MIXED_CONDITIONS_2022
+) -> pd.DataFrame:
     """Add ``exclude_reason``, ``gap_ahead_s`` and ``dirty_air`` to season laps.
+
+    ``Rainfall`` is not an exclude reason: it stays as a column for Phase 3 to
+    test as a covariate. Wet running is caught by ``wet_compound`` and
+    ``mixed_conditions``.
 
     Args:
         laps: Output of :func:`f1strat.data.load_season` (laps table).
+        mixed_conditions: Event names whose laps are all labelled
+            ``mixed_conditions`` (if no earlier reason applies). Defaults to
+            the 2022 list; pass an empty set for other seasons.
 
     Returns:
         A copy of ``laps`` with three extra columns:
@@ -129,7 +156,7 @@ def clean_laps(laps: pd.DataFrame) -> pd.DataFrame:
         "inaccurate": ~df["IsAccurate"] | df["LapTime"].isna(),
         "missing_compound": ~compound.isin(DRY_COMPOUNDS | WET_COMPOUNDS),
         "wet_compound": compound.isin(WET_COMPOUNDS),
-        "rainfall": df["Rainfall"],
+        "mixed_conditions": df["EventName"].isin(list(mixed_conditions)),
     }
 
     reason = pd.Series(pd.NA, index=df.index, dtype="object")
@@ -156,9 +183,9 @@ def pit_stops(cleaned: pd.DataFrame) -> pd.DataFrame:
 
     Returns:
         One row per stop with ``RoundNumber``, ``EventName``, ``Driver``,
-        ``InLap``, ``in_s``, ``out_s``, ``median_clean_s``, ``loss_s`` and
+        ``InLap``, ``in_s``, ``out_s``, ``median_clean_s``, ``loss_s``,
         ``green`` (no SC / VSC / red flag code on either lap, and the in lap is
-        not lap 1).
+        not lap 1) and ``dry_to_dry`` (dry compound on both laps).
     """
     lap_s = cleaned["LapTime"].dt.total_seconds()
     median = (
@@ -171,7 +198,7 @@ def pit_stops(cleaned: pd.DataFrame) -> pd.DataFrame:
         median_clean_s=median,
         neutral=_has_code(cleaned["TrackStatus"], NEUTRALISED_CODES),
     )
-    cols = _DRIVER_RACE + ["LapNumber", "lap_s", "neutral"]
+    cols = _DRIVER_RACE + ["LapNumber", "lap_s", "neutral", "Compound"]
     in_laps = base.loc[base["PitInTime"].notna(), cols + ["EventName", "median_clean_s"]]
     out_laps = base.loc[base["PitOutTime"].notna(), cols].assign(
         LapNumber=lambda d: d["LapNumber"] - 1
@@ -184,29 +211,17 @@ def pit_stops(cleaned: pd.DataFrame) -> pd.DataFrame:
     )
     stops["loss_s"] = stops["in_s"] + stops["out_s"] - 2 * stops["median_clean_s"]
     stops["green"] = ~stops["neutral_in"] & ~stops["neutral_out"] & (stops["InLap"] > 1)
+    stops["dry_to_dry"] = stops["Compound_in"].isin(DRY_COMPOUNDS) & stops[
+        "Compound_out"
+    ].isin(DRY_COMPOUNDS)
     return stops[
         ["RoundNumber", "EventName", "Driver", "InLap", "in_s", "out_s",
-         "median_clean_s", "loss_s", "green"]
+         "median_clean_s", "loss_s", "green", "dry_to_dry"]
     ].reset_index(drop=True)
 
 
-def pit_loss(cleaned: pd.DataFrame, race: pd.DataFrame) -> pd.DataFrame:
-    """Median green-flag pit lane loss per circuit.
-
-    For each green-flag stop (see :func:`pit_stops`): (in lap + out lap) minus
-    twice the driver's median clean lap in that race. Stops with a missing lap
-    time or no clean laps for the driver are skipped.
-
-    Args:
-        cleaned: Output of :func:`clean_laps`.
-        race: Race table from ``load_season(table="race")`` (for circuit names).
-
-    Returns:
-        One row per race: ``RoundNumber``, ``EventName``, ``Circuit``,
-        ``pit_loss_s`` (median), ``q25_s``, ``q75_s`` and ``n_stops``.
-    """
-    stops = pit_stops(cleaned)
-    stops = stops[stops["green"] & stops["loss_s"].notna()]
+def _summarise_stops(stops: pd.DataFrame) -> pd.DataFrame:
+    """Median, quartiles and count of ``loss_s`` per race."""
     grouped = stops.groupby(["RoundNumber", "EventName"])["loss_s"]
     out = pd.DataFrame(
         {
@@ -216,9 +231,146 @@ def pit_loss(cleaned: pd.DataFrame, race: pd.DataFrame) -> pd.DataFrame:
             "n_stops": grouped.size(),
         }
     ).reset_index()
+    out["n_stops"] = out["n_stops"].astype("Int64")
+    return out
+
+
+def pit_loss(
+    cleaned: pd.DataFrame,
+    race: pd.DataFrame,
+    mixed_conditions: Collection[str] = MIXED_CONDITIONS_2022,
+) -> pd.DataFrame:
+    """Median green-flag pit lane loss per circuit, from the season's own races.
+
+    For each green-flag stop (see :func:`pit_stops`): (in lap + out lap) minus
+    twice the driver's median clean lap in that race. Stops with a missing lap
+    time or no clean laps for the driver are skipped. Mixed-conditions races
+    are left out; :func:`pit_loss_with_references` fills them in.
+
+    Args:
+        cleaned: Output of :func:`clean_laps`.
+        race: Race table from ``load_season(table="race")`` (for circuit names).
+        mixed_conditions: Event names to leave out.
+
+    Returns:
+        One row per race: ``RoundNumber``, ``EventName``, ``Circuit``,
+        ``pit_loss_s`` (median), ``q25_s``, ``q75_s`` and ``n_stops``.
+    """
+    stops = pit_stops(cleaned)
+    keep = (
+        stops["green"]
+        & stops["loss_s"].notna()
+        & ~stops["EventName"].isin(list(mixed_conditions))
+    )
+    out = _summarise_stops(stops[keep])
     circuits = race.groupby("RoundNumber")["Circuit"].first()
     out.insert(2, "Circuit", out["RoundNumber"].map(circuits))
+    return out
+
+
+def reference_pit_loss(
+    event_name: str,
+    exclude_year: int = 2022,
+    first_year: int = 2018,
+    today: pd.Timestamp | None = None,
+) -> pd.DataFrame:
+    """Pit loss for one circuit from its most recent dry race in another season.
+
+    Seasons are tried newest first, skipping ``exclude_year`` and races not yet
+    held. A race is dry if no lap was run on an intermediate or wet tyre; the
+    first dry one is used (a wet candidate is loaded, checked and skipped).
+    A candidate whose data cannot be downloaded is an error, not a skip, so an
+    older season is never used just because a newer one is unavailable. Uses
+    green-flag, dry-to-dry stops only.
+
+    Args:
+        event_name: Event name, stable across seasons (e.g. "Monaco Grand Prix").
+        exclude_year: Season to skip (the one being studied).
+        first_year: Earliest season to try.
+        today: Cut-off for races already held; defaults to now.
+
+    Returns:
+        One row: ``EventName``, ``pit_loss_s``, ``q25_s``, ``q75_s``,
+        ``n_stops``, ``source_year``.
+
+    Raises:
+        LookupError: If no dry race is found.
+        RuntimeError: If a candidate race's timing data cannot be loaded (F1
+            live timing needs a signed-in F1 account for most seasons; FastF1
+            reads ``F1_USERNAME`` and ``F1_PASSWORD``).
+    """
+    today = today or pd.Timestamp.now()
+    configure_cache()
+    for year in range(today.year, first_year - 1, -1):
+        if year == exclude_year:
+            continue
+        schedule = fastf1.get_event_schedule(year, include_testing=False)
+        match = schedule[
+            (schedule["EventName"] == event_name) & (schedule["EventDate"] < today)
+        ]
+        if match.empty:
+            continue
+        rnd = int(match["RoundNumber"].iloc[0])
+        try:
+            laps = laps_table(load_race_session(year, rnd))
+        except fastf1.exceptions.DataNotLoadedError as err:
+            raise RuntimeError(
+                f"{year} {event_name}: timing data unavailable (most likely needs "
+                "a signed-in F1 account: set F1_USERNAME and F1_PASSWORD)"
+            ) from err
+        logger.info("loaded %d %s as pit loss reference candidate", year, event_name)
+        if laps["Compound"].isin(WET_COMPOUNDS).any():
+            logger.info("%d %s had wet running; trying an earlier season", year, event_name)
+            continue
+        stops = pit_stops(clean_laps(laps, mixed_conditions=()))
+        stops = stops[stops["green"] & stops["dry_to_dry"] & stops["loss_s"].notna()]
+        out = _summarise_stops(stops).drop(columns="RoundNumber")
+        out["source_year"] = year
+        return out
+    raise LookupError(f"no dry {event_name} found between {first_year} and {today.year}")
+
+
+def pit_loss_with_references(
+    cleaned: pd.DataFrame,
+    race: pd.DataFrame,
+    year: int = 2022,
+    mixed_conditions: Collection[str] = MIXED_CONDITIONS_2022,
+) -> pd.DataFrame:
+    """Season pit loss table with mixed-conditions circuits filled by reference.
+
+    Args:
+        cleaned: Output of :func:`clean_laps` for ``year``.
+        race: Race table for ``year``.
+        year: The season studied; its own races get ``source_year == year``.
+        mixed_conditions: Event names to fill from :func:`reference_pit_loss`.
+
+    Returns:
+        :func:`pit_loss` columns plus ``source_year``, one row per race. A
+        mixed-conditions race whose reference cannot be loaded keeps its row
+        with null ``pit_loss_s`` and ``source_year`` and ``n_stops == 0``; the
+        error is logged.
+    """
+    own = pit_loss(cleaned, race, mixed_conditions).assign(source_year=year)
+    circuits = race.groupby("RoundNumber")[["EventName", "Circuit"]].first()
+    refs = []
+    for rnd, row in circuits[circuits["EventName"].isin(list(mixed_conditions))].iterrows():
+        try:
+            ref = reference_pit_loss(row["EventName"], exclude_year=year)
+        except (RuntimeError, LookupError) as err:
+            logger.error("no pit loss reference for %s: %s", row["EventName"], err)
+            ref = pd.DataFrame(
+                {"EventName": [row["EventName"]], "pit_loss_s": [float("nan")],
+                 "q25_s": [float("nan")], "q75_s": [float("nan")],
+                 "n_stops": [0], "source_year": [pd.NA]}
+            )
+        ref.insert(0, "RoundNumber", rnd)
+        ref.insert(2, "Circuit", row["Circuit"])
+        refs.append(ref)
+    out = pd.concat([own, *refs], ignore_index=True)
+    out = out.sort_values("RoundNumber").reset_index(drop=True)
+    out["RoundNumber"] = out["RoundNumber"].astype("Int64")
     out["n_stops"] = out["n_stops"].astype("Int64")
+    out["source_year"] = out["source_year"].astype("Int64")
     return out
 
 
@@ -235,8 +387,11 @@ def main() -> None:
     """Clean the 2022 season and write the pit loss table."""
     from f1strat.data import load_season
 
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    for noisy in ("fastf1", "requests_cache"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     cleaned = clean_laps(load_season(2022))
-    pit = pit_loss(cleaned, load_season(2022, table="race"))
+    pit = pit_loss_with_references(cleaned, load_season(2022, table="race"))
     path = save_pit_loss(pit, 2022)
     print(pit.round(2).to_string(index=False))
     print(f"\nwrote {path}")
@@ -244,9 +399,12 @@ def main() -> None:
 
 __all__ = [
     "EXCLUDE_REASONS",
+    "MIXED_CONDITIONS_2022",
     "clean_laps",
     "pit_loss",
+    "pit_loss_with_references",
     "pit_stops",
+    "reference_pit_loss",
     "save_pit_loss",
 ]
 
