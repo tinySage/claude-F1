@@ -933,6 +933,24 @@ def load_fit(path: Path) -> BayesFit:
 
 
 FULL_FIT_PATH = MODELS_DIR / "deg_full_2022.nc"
+#: Thinned copy of the full fit (committed); the simulator reads this one.
+THIN_FIT_PATH = MODELS_DIR / "deg_full_2022_thin.nc"
+
+
+def thin_fit(fitted: BayesFit, n_draws: int = 1000) -> BayesFit:
+    """Keep ``n_draws`` draws spread evenly across chains (every k-th draw).
+
+    Thinning keeps the posterior's shape while cutting the file to a size that
+    can be committed, so a new session does not have to refit.
+    """
+    post = fitted.posterior
+    per_chain = n_draws // post.sizes["chain"]
+    step = post.sizes["draw"] // per_chain
+    thinned = post.isel(draw=slice(0, per_chain * step, step))
+    return BayesFit(posterior=thinned, races=fitted.races, drivers=fitted.drivers,
+                    teams=fitted.teams, driver_race=fitted.driver_race,
+                    lap_centre=fitted.lap_centre, diagnostics=fitted.diagnostics,
+                    stints=fitted.stints)
 
 
 def split_fit_path(split: str) -> Path:
@@ -955,11 +973,15 @@ def main(argv: list[str] | None = None) -> None:
 
     parser = argparse.ArgumentParser(prog="python -m f1strat.deg_model")
     parser.add_argument("target", nargs="?", default="full",
-                        choices=["full", "splits", "all", *SPLITS])
+                        choices=["full", "splits", "all", "thin", *SPLITS])
     parser.add_argument("--draws", type=int, default=5000)
     parser.add_argument("--tune", type=int, default=1500)
     args = parser.parse_args(argv)
     target = args.target
+    if target == "thin":
+        thinned = thin_fit(load_fit(FULL_FIT_PATH))
+        print(f"wrote {save_fit(thinned, THIN_FIT_PATH)}")
+        return
     laps = prepare(clean_laps(load_season(2022)))
     jobs: list[tuple[str, pd.DataFrame, Path]] = []
     if target in ("full", "all"):
@@ -973,6 +995,8 @@ def main(argv: list[str] | None = None) -> None:
         minutes = (time.time() - start) / 60
         print(f"{name}: {len(train)} laps, {minutes:.1f} min, {fitted.diagnostics}", flush=True)
         print(f"wrote {save_fit(fitted, path)}", flush=True)
+        if name == "full":
+            print(f"wrote {save_fit(thin_fit(fitted), THIN_FIT_PATH)}", flush=True)
 
 
 if __name__ == "__main__":
