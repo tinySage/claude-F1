@@ -13,7 +13,7 @@ Case studies (2022):
 ## Phase 0: Setup
 - [x] ROADMAP.md and CLAUDE.md written
 - [x] Python 3.11+ environment with uv; core dependencies installed
-- [ ] Repo layout (`src/f1strat/`, `notebooks/`, `tests/`, `data/`, `cache/`) and `.gitignore`
+- [x] Repo layout (`src/f1strat/`, `notebooks/`, `tests/`, `data/`, `cache/`) and `.gitignore`
 - [ ] Smoke test: FastF1 loads 2022 Hungarian GP race; Leclerc's laps have `Compound` and `TyreLife`
 
 **Done when:** `uv run pytest` passes, including the FastF1 smoke test, and the setup is pushed.
