@@ -365,3 +365,25 @@ def sets_left(inv: Inventory, raw_laps: pd.DataFrame, round_number: int,
             else int(st["life"]) - 1
         avail.pop(min(same, key=lambda i: abs(avail[i][1] - want)))
     return sorted((c, n + 1) for c, n in avail)
+
+
+def race_used_sets(raw_laps: pd.DataFrame, round_number: int, driver: str,
+                   upto_lap: int) -> list[tuple[str, int]]:
+    """Sets the car already fitted in the race and took off by ``upto_lap``.
+
+    Refitting a used race set is legal (Phase 6). Each completed dry stint
+    gives one set, as (compound, out-lap TyreLife) = (compound, its last
+    TyreLife + 1). The stint on the car at ``upto_lap`` is not included.
+    """
+    laps = raw_laps[(raw_laps["RoundNumber"] == round_number)
+                    & (raw_laps["Driver"] == driver) & (raw_laps["LapNumber"] <= upto_lap)]
+    if laps.empty:
+        return []
+    current = laps.loc[laps["LapNumber"].idxmax(), "Stint"]
+    done = laps[(laps["Stint"] != current) & laps["Compound"].isin(DRY)]
+    out = []
+    for _, st in done.groupby("Stint"):
+        life = st["TyreLife"].max()
+        if pd.notna(life):
+            out.append((str(st["Compound"].iloc[0]), int(life) + 1))
+    return sorted(out)
