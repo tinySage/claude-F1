@@ -20,3 +20,6 @@ __pycache__/
 models/*.nc
 # Thinned full fit (1,000 draws, ~7 MB) is committed; the simulator reads it.
 !models/deg_full_2022_thin.nc
+# Thinned held-out split fits (committed so notebook 03 runs on a fresh clone).
+!models/deg_last_stint_2022_thin.nc
+!models/deg_long_tyre_2022_thin.nc

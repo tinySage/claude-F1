@@ -22,6 +22,9 @@ dependencies = [
     "xgboost>=3.2.0",
 ]
 
+[project.scripts]
+pitwall = "f1strat.cli:main"
+
 [project.urls]
 Repository = "https://github.com/tinySage/what-the-pit-wall-knew"
 
@@ -34,6 +37,12 @@ packages = ["src/f1strat"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The default run is fast (~1 min); `pytest -m ""` runs everything.
+addopts = "-m 'not slow and not network'"
+markers = [
+    "slow: Bayesian fits with PyMC/nutpie (about 1 min each)",
+    "network: downloads from FastF1 (needs internet)",
+]
 
 [dependency-groups]
 dev = [
@@ -43,3 +52,18 @@ dev = [
     "pytest>=9.2.0",
     "tabulate>=0.10.0",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-include = ["*.ipynb"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+# zip(strict=...) would change behaviour where lengths legitimately differ.
+ignore = ["B905"]
+# Type hints and docstrings on public functions are checked by
+# tests/test_public_api.py (ruff's annotation rules also flag private helpers).
+
+[tool.ruff.lint.per-file-ignores]
+"notebooks/*" = ["E402", "E501"]

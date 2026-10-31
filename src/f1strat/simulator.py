@@ -46,17 +46,21 @@ import itertools
 from collections import Counter
 from collections.abc import Collection, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
-from f1strat.race_events import SimParams  # noqa: E402  (type for Field)
 from f1strat.deg_model import (
     COMPOUNDS,
     POST_STOP_LAPS,
     TYRE_SCALE,
     BayesFit,
 )
+from f1strat.race_events import SimParams  # noqa: E402  (type for Field)
+
+if TYPE_CHECKING:
+    from f1strat.race_events import Neutralisations
 
 DRY_COMPOUNDS: tuple[str, ...] = ("SOFT", "MEDIUM", "HARD")
 OPENING_LAPS: tuple[int, ...] = (2, 3)
@@ -92,6 +96,7 @@ class CarState:
 
     @property
     def stint_started_with_stop(self) -> bool:
+        """True unless the car is still on its starting set."""
         return self.stint > 1
 
 
@@ -119,11 +124,18 @@ class RaceState:
 
     @property
     def laps_remaining(self) -> int:
+        """Laps still to run after the state lap."""
         return self.total_laps - self.lap
 
     @classmethod
-    def from_laps(cls, raw_laps: pd.DataFrame, round_number: int, lap: int,
-                  total_laps: int, timing: str = "laps") -> "RaceState":
+    def from_laps(
+        cls,
+        raw_laps: pd.DataFrame,
+        round_number: int,
+        lap: int,
+        total_laps: int,
+        timing: str = "laps",
+    ) -> RaceState:
         """Build the actual state of a 2022 race at the end of ``lap``.
 
         Args:
@@ -153,8 +165,11 @@ class RaceState:
                 driver=row["Driver"],
                 team=row["Team"],
                 position=int(row["Position"]) if pd.notna(row["Position"]) else 99,
-                race_time=(float(mine["LapTime"].dt.total_seconds().sum()) if timing == "laps"
-                           else float((row["Time"] - origin).total_seconds())),
+                race_time=(
+                    float(mine["LapTime"].dt.total_seconds().sum())
+                    if timing == "laps"
+                    else float((row["Time"] - origin).total_seconds())
+                ),
                 compound=str(row["Compound"]),
                 tyre_life=int(row["TyreLife"]),
                 laps_since_stop=int(lap - stint_laps["LapNumber"].min()),
@@ -163,6 +178,7 @@ class RaceState:
                     str(c) for c in mine["Compound"].dropna() if str(c) in DRY_COMPOUNDS
                 ),
             )
+
         def kind(code: str) -> str:
             return "sc" if "4" in code else "vsc" if ("6" in code or "7" in code) else "green"
 
@@ -174,10 +190,16 @@ class RaceState:
                 if kind(str(leader.get(lp, "1"))) != track:
                     break
                 neutral += 1
-        return cls(round_number=round_number, lap=lap, total_laps=total_laps,
-                   cars=cars, track_status=track, neutral_laps=neutral)
+        return cls(
+            round_number=round_number,
+            lap=lap,
+            total_laps=total_laps,
+            cars=cars,
+            track_status=track,
+            neutral_laps=neutral,
+        )
 
-    def with_sets(self, sets: dict[str, Sequence[tuple[str, int]]]) -> "RaceState":
+    def with_sets(self, sets: dict[str, Sequence[tuple[str, int]]]) -> RaceState:
         """Copy of the state with each car's available sets."""
         return replace(self, sets={d: tuple(v) for d, v in sets.items()})
 
@@ -193,6 +215,7 @@ class Stop:
 
     @property
     def new(self) -> bool:
+        """True if the set fitted is new (out-lap TyreLife 1)."""
         return self.tyre_life == 1
 
 
@@ -210,8 +233,13 @@ class Plan:
         return " → ".join(parts)
 
 
-def is_legal(plan: Plan, car: CarState, state: RaceState, min_stint: int = 1,
-             require_two_compounds: bool = True) -> bool:
+def is_legal(
+    plan: Plan,
+    car: CarState,
+    state: RaceState,
+    min_stint: int = 1,
+    require_two_compounds: bool = True,
+) -> bool:
     """Legal remaining plan for ``car`` from ``state``.
 
     Stops are on laps after the state lap and before the last lap, in order,
@@ -274,11 +302,16 @@ def actual_plan(raw_laps: pd.DataFrame, round_number: int, driver: str, after_la
     the set's recorded TyreLife on the out lap (1 for a new set).
     """
     laps = raw_laps[(raw_laps["RoundNumber"] == round_number) & (raw_laps["Driver"] == driver)]
-    stints = laps.groupby("Stint").agg(first=("LapNumber", "min"),
-                                       compound=("Compound", "first"),
-                                       life=("TyreLife", "first")).sort_values("first")
-    stops = [Stop(int(row["first"]) - 1, str(row["compound"]), int(row["life"]))
-             for _, row in stints.iloc[1:].iterrows() if row["first"] - 1 > after_lap]
+    stints = (
+        laps.groupby("Stint")
+        .agg(first=("LapNumber", "min"), compound=("Compound", "first"), life=("TyreLife", "first"))
+        .sort_values("first")
+    )
+    stops = [
+        Stop(int(row["first"]) - 1, str(row["compound"]), int(row["life"]))
+        for _, row in stints.iloc[1:].iterrows()
+        if row["first"] - 1 > after_lap
+    ]
     return Plan(tuple(stops))
 
 
@@ -298,17 +331,17 @@ class CarModel:
     follow :data:`f1strat.deg_model.COMPOUNDS`. Degradation is in s per lap.
     """
 
-    base: np.ndarray          # race_base + driver_offset
-    trend: np.ndarray         # s per race lap
+    base: np.ndarray  # race_base + driver_offset
+    trend: np.ndarray  # s per race lap
     lap_centre: float
     opening: np.ndarray
-    compound: np.ndarray      # (n, 3): compound_offset + team_compound
-    deg: np.ndarray           # (n, 3): (deg + team_deg) per lap of tyre age
-    post_stop: np.ndarray     # (n, 3)
+    compound: np.ndarray  # (n, 3): compound_offset + team_compound
+    deg: np.ndarray  # (n, 3): (deg + team_deg) per lap of tyre age
+    post_stop: np.ndarray  # (n, 3)
     sigma: np.ndarray
     nu: np.ndarray
     sigma_stint: np.ndarray
-    final_mean: np.ndarray    # mu_final + final_race (prior draw widened if no data)
+    final_mean: np.ndarray  # mu_final + final_race (prior draw widened if no data)
     sigma_stint_final: np.ndarray  # already multiplied by the widening factor
     current_stint: np.ndarray | None  # fitted effect of the stint in progress
     #: Hindsight replays (Phase 6): fitted effects of stints that actually
@@ -356,13 +389,16 @@ def car_model(
     if (round_number, driver) in fitted.driver_race:
         offset = g("driver_offset")[:, fitted.driver_race.index((round_number, driver))]
     else:
-        season = (g("driver_season")[:, fitted.drivers.index(driver)]
-                  if driver in fitted.drivers else g("sigma_driver") * rng.standard_normal(n))
-        offset = (season + g("sigma_driver_race") * rng.standard_normal(n)
-                  - g("driver_race_mean")[:, r])
+        season = (
+            g("driver_season")[:, fitted.drivers.index(driver)]
+            if driver in fitted.drivers
+            else g("sigma_driver") * rng.standard_normal(n)
+        )
+        offset = (
+            season + g("sigma_driver_race") * rng.standard_normal(n) - g("driver_race_mean")[:, r]
+        )
 
-    has_final_data = (fitted.final_stint_races is None
-                      or round_number in fitted.final_stint_races)
+    has_final_data = fitted.final_stint_races is None or round_number in fitted.final_stint_races
     final_race = g("final_race")[:, r]
     if final_race_z is not None:
         final_race = widening * g("sigma_final_race") * final_race_z
@@ -394,14 +430,15 @@ class Draws:
     """Common random numbers: everything random in simulation ``i`` that does
     not depend on the plan. Reused for every plan in a comparison."""
 
-    noise: np.ndarray       # (n_sims, laps_remaining): Student-t lap noise in seconds
-    z_current: np.ndarray   # (n_sims,): stint in progress, if not fitted
-    z_stint: np.ndarray     # (n_sims, max_stops): j-th future non-final stint
-    z_final: np.ndarray     # (n_sims,): the final stint, whichever it is
-    pit_loss: np.ndarray    # (n_sims, max_stops): loss of the j-th stop, seconds
+    noise: np.ndarray  # (n_sims, laps_remaining): Student-t lap noise in seconds
+    z_current: np.ndarray  # (n_sims,): stint in progress, if not fitted
+    z_stint: np.ndarray  # (n_sims, max_stops): j-th future non-final stint
+    z_final: np.ndarray  # (n_sims,): the final stint, whichever it is
+    pit_loss: np.ndarray  # (n_sims, max_stops): loss of the j-th stop, seconds
 
     @property
     def n_sims(self) -> int:
+        """Number of simulations drawn."""
         return len(self.z_final)
 
 
@@ -450,14 +487,14 @@ def observed_pit_losses(cleaned: pd.DataFrame, round_number: int) -> np.ndarray:
 
 @dataclass
 class _Stint:
-    first_lap: int      # first lap of the stint still to be run
+    first_lap: int  # first lap of the stint still to be run
     n_laps: int
-    compound: int       # index into COMPOUNDS
-    life0: int          # TyreLife on first_lap
-    since0: int         # laps since stop on first_lap
+    compound: int  # index into COMPOUNDS
+    life0: int  # TyreLife on first_lap
+    since0: int  # laps since stop on first_lap
     from_stop: bool
-    kind: str           # "current", "future" or "final"
-    future_index: int   # j for z_stint[:, j] (future non-final stints)
+    kind: str  # "current", "future" or "final"
+    future_index: int  # j for z_stint[:, j] (future non-final stints)
 
 
 def _stints(state: RaceState, car: CarState, plan: Plan) -> list[_Stint]:
@@ -468,8 +505,18 @@ def _stints(state: RaceState, car: CarState, plan: Plan) -> list[_Stint]:
     for j, stop in enumerate([*plan.stops, None]):
         last = stop.lap if stop is not None else state.total_laps
         kind = "final" if stop is None else ("current" if j == 0 else "future")
-        out.append(_Stint(first, last - first + 1, COMPOUNDS.index(comp), life0, since0,
-                          from_stop, kind, j - 1))
+        out.append(
+            _Stint(
+                first,
+                last - first + 1,
+                COMPOUNDS.index(comp),
+                life0,
+                since0,
+                from_stop,
+                kind,
+                j - 1,
+            )
+        )
         if stop is not None:
             first, life0, since0 = stop.lap + 1, stop.tyre_life, 0
             comp, from_stop = stop.compound, True
@@ -497,12 +544,17 @@ def _common_laps(model: CarModel, state: RaceState, draws: Draws) -> np.ndarray:
     """(n_sims, laps_remaining): the plan-independent part of every lap."""
     laps = np.arange(state.lap + 1, state.total_laps + 1)
     opening = np.isin(laps, OPENING_LAPS).astype(float)
-    return (model.base[:, None] + model.opening[:, None] * opening[None, :]
-            + model.trend[:, None] * (laps - model.lap_centre)[None, :] + draws.noise)
+    return (
+        model.base[:, None]
+        + model.opening[:, None] * opening[None, :]
+        + model.trend[:, None] * (laps - model.lap_centre)[None, :]
+        + draws.noise
+    )
 
 
-def simulate_laps(model: CarModel, state: RaceState, driver: str, plan: Plan,
-                  draws: Draws) -> np.ndarray:
+def simulate_laps(
+    model: CarModel, state: RaceState, driver: str, plan: Plan, draws: Draws
+) -> np.ndarray:
     """Lap times (s), shape (n_sims, laps_remaining), pit losses on in laps.
 
     The lap-by-lap reference implementation.
@@ -515,16 +567,25 @@ def simulate_laps(model: CarModel, state: RaceState, driver: str, plan: Plan,
         since = st.since0 + np.arange(st.n_laps)
         warm = (np.isin(since, POST_STOP_LAPS) & st.from_stop).astype(float)
         c = st.compound
-        times[:, cols] += (model.compound[:, c, None] + model.deg[:, c, None] * ages[None, :]
-                           + model.post_stop[:, c, None] * warm[None, :]
-                           + _stint_effect(model, draws, st)[:, None])
+        times[:, cols] += (
+            model.compound[:, c, None]
+            + model.deg[:, c, None] * ages[None, :]
+            + model.post_stop[:, c, None] * warm[None, :]
+            + _stint_effect(model, draws, st)[:, None]
+        )
     for j, stop in enumerate(plan.stops):
         times[:, stop.lap - (state.lap + 1)] += draws.pit_loss[:, j]
     return times
 
 
-def plan_totals(model: CarModel, state: RaceState, driver: str, plans: Sequence[Plan],
-                draws: Draws, pit_factor: np.ndarray | None = None) -> np.ndarray:
+def plan_totals(
+    model: CarModel,
+    state: RaceState,
+    driver: str,
+    plans: Sequence[Plan],
+    draws: Draws,
+    pit_factor: np.ndarray | None = None,
+) -> np.ndarray:
     """Race time at the flag (s), shape (n_plans, n_sims), in closed form.
 
     Equal to ``state race_time + simulate_laps(...).sum(axis=1)`` for each
@@ -540,9 +601,15 @@ def plan_totals(model: CarModel, state: RaceState, driver: str, plans: Sequence[
         for st in _stints(state, car, plan):
             n, c = st.n_laps, st.compound
             age_sum = n * st.life0 + n * (n - 1) / 2
-            warm = sum(1 for k in range(n) if st.since0 + k in POST_STOP_LAPS) if st.from_stop else 0
-            total += (n * model.compound[:, c] + model.deg[:, c] * age_sum
-                      + warm * model.post_stop[:, c] + n * _stint_effect(model, draws, st))
+            warm = (
+                sum(1 for k in range(n) if st.since0 + k in POST_STOP_LAPS) if st.from_stop else 0
+            )
+            total += (
+                n * model.compound[:, c]
+                + model.deg[:, c] * age_sum
+                + warm * model.post_stop[:, c]
+                + n * _stint_effect(model, draws, st)
+            )
         for j, stop in enumerate(plan.stops):
             f = 1.0 if pit_factor is None else float(pit_factor[stop.lap - (state.lap + 1)])
             total += f * draws.pit_loss[:, j]
@@ -558,8 +625,8 @@ class SearchResult:
     """Shortlisted plans with their Monte Carlo race-time distributions."""
 
     plans: list[Plan]
-    totals: np.ndarray          # (n_plans, n_sims), seconds
-    n_legal: int                # legal plans scored on expected time
+    totals: np.ndarray  # (n_plans, n_sims), seconds
+    n_legal: int  # legal plans scored on expected time
     labels: list[str] = field(default_factory=list)
     #: Plans removed by the tyre-age cap (otherwise legal), and the best few
     #: of them as (mean race time, plan), best first.
@@ -575,15 +642,17 @@ class SearchResult:
         """
         best = self.totals.argmin(axis=0)
         mean = self.totals.mean(axis=1)
-        df = pd.DataFrame({
-            "plan": self.labels,
-            "stops": [len(p.stops) for p in self.plans],
-            "mean_s": mean,
-            "sd_s": self.totals.std(axis=1),
-            "p10_s": np.quantile(self.totals, 0.1, axis=1),
-            "p90_s": np.quantile(self.totals, 0.9, axis=1),
-            "p_fastest": [(best == i).mean() for i in range(len(self.plans))],
-        })
+        df = pd.DataFrame(
+            {
+                "plan": self.labels,
+                "stops": [len(p.stops) for p in self.plans],
+                "mean_s": mean,
+                "sd_s": self.totals.std(axis=1),
+                "p10_s": np.quantile(self.totals, 0.1, axis=1),
+                "p90_s": np.quantile(self.totals, 0.9, axis=1),
+                "p_fastest": [(best == i).mean() for i in range(len(self.plans))],
+            }
+        )
         df["gap_to_best_s"] = df["mean_s"] - df["mean_s"].min()
         if reference is not None:
             ref = self.totals[self.plans.index(reference)]
@@ -612,12 +681,16 @@ def _set_sequences(counts: Counter, k: int) -> Iterator[tuple]:
 def _effect_means(model: CarModel, draws: Draws, max_stops: int) -> dict[str, float]:
     """Sample means (over simulations) of each kind of stint effect."""
     final = model.final_mean + model.sigma_stint_final * draws.z_final
-    current = (model.current_stint if model.current_stint is not None
-               else model.sigma_stint * draws.z_current)
+    current = (
+        model.current_stint
+        if model.current_stint is not None
+        else model.sigma_stint * draws.z_current
+    )
     out = {
         "current": float(current.mean()),
-        "current_final": float((model.current_stint if model.current_stint is not None
-                                else final).mean()),
+        "current_final": float(
+            (model.current_stint if model.current_stint is not None else final).mean()
+        ),
         "final": float(final.mean()),
     }
     for j in range(max_stops):
@@ -693,8 +766,11 @@ def search(
     pit_mean = draws.pit_loss.mean(axis=0)
     lives = (1,) if used_life is None else (1, used_life)
     inventory = state.sets.get(driver) if state.sets is not None else None
-    sets = ([(COMPOUNDS.index(c), life) for c, life in allowed_sets] if allowed_sets is not None
-            else [(COMPOUNDS.index(c), life) for c in compounds for life in lives])
+    sets = (
+        [(COMPOUNDS.index(c), life) for c, life in allowed_sets]
+        if allowed_sets is not None
+        else [(COMPOUNDS.index(c), life) for c in compounds for life in lives]
+    )
     stint_start = state.lap - car.laps_since_stop
     laps = np.arange(state.lap + 1, state.total_laps)
     cur_c = COMPOUNDS.index(car.compound)
@@ -705,10 +781,14 @@ def search(
     n_capped = 0
     capped: list[tuple[float, tuple]] = []
     for k in range(max_stops + 1):
-        combos = (np.array(list(itertools.combinations(laps, k)), dtype=int)
-                  if k else np.zeros((1, 0), dtype=int))
-        bounds = np.column_stack([np.full(len(combos), stint_start), combos,
-                                  np.full(len(combos), state.total_laps)])
+        combos = (
+            np.array(list(itertools.combinations(laps, k)), dtype=int)
+            if k
+            else np.zeros((1, 0), dtype=int)
+        )
+        bounds = np.column_stack(
+            [np.full(len(combos), stint_start), combos, np.full(len(combos), state.total_laps)]
+        )
         ok = (np.diff(bounds, axis=1) >= min_stint).all(axis=1)
         combos = combos[ok]
         if len(combos) == 0:
@@ -727,29 +807,44 @@ def search(
         if max_age is not None:
             cur_ok = car.tyre_life + n_laps[:, 0] <= max_age.get(car.compound, 10**6)
         cur_kind = "current_final" if k == 0 else "current"
-        cur = _stint_mean_cost(n_laps[:, 0], car.laps_since_stop + 1,
-                               float(car.stint_started_with_stop), car.tyre_life + 1,
-                               a[cur_c], b[cur_c], ps[cur_c], e[cur_kind])
+        cur = _stint_mean_cost(
+            n_laps[:, 0],
+            car.laps_since_stop + 1,
+            float(car.stint_started_with_stop),
+            car.tyre_life + 1,
+            a[cur_c],
+            b[cur_c],
+            ps[cur_c],
+            e[cur_kind],
+        )
         if pit_factor is None or k == 0:
             base = cur + pit_mean[:k].sum()
         else:
-            base = cur + (np.asarray(pit_factor)[combos - (state.lap + 1)]
-                          * pit_mean[None, :k]).sum(axis=1)
-        sequences = (_set_sequences(Counter((COMPOUNDS.index(c), life) for c, life in inventory), k)
-                     if inventory is not None else itertools.product(sets, repeat=k))
+            base = cur + (
+                np.asarray(pit_factor)[combos - (state.lap + 1)] * pit_mean[None, :k]
+            ).sum(axis=1)
+        sequences = (
+            _set_sequences(Counter((COMPOUNDS.index(c), life) for c, life in inventory), k)
+            if inventory is not None
+            else itertools.product(sets, repeat=k)
+        )
         for seq in sequences:
             names = {COMPOUNDS[c] for c, _ in seq}
             if len((used_before | names) & set(DRY_COMPOUNDS)) < 2:
                 continue
-            if first_sets is not None and k > 0 and (COMPOUNDS[seq[0][0]], seq[0][1]) \
-                    not in set(first_sets):
+            if (
+                first_sets is not None
+                and k > 0
+                and (COMPOUNDS[seq[0][0]], seq[0][1]) not in set(first_sets)
+            ):
                 continue
             total = base.copy()
             age_ok = cur_ok.copy()
             for j, (c, life) in enumerate(seq):
                 kind = "final" if j == k - 1 else f"future{j}"
-                total += _stint_mean_cost(n_laps[:, j + 1], 0, 1.0, life,
-                                          a[c], b[c], ps[c], e[kind])
+                total += _stint_mean_cost(
+                    n_laps[:, j + 1], 0, 1.0, life, a[c], b[c], ps[c], e[kind]
+                )
                 if max_age is not None:
                     age_ok &= life + n_laps[:, j + 1] - 1 <= max_age.get(COMPOUNDS[c], 10**6)
             if not age_ok.all():
@@ -764,22 +859,27 @@ def search(
             best = [i for i in np.argsort(total)[:per_stratum] if np.isfinite(total[i])]
             key = (k, tuple(COMPOUNDS[c] for c, _ in seq))
             strata.setdefault(key, []).extend(
-                (float(total[i]), (tuple(combos[i]), seq)) for i in best)
+                (float(total[i]), (tuple(combos[i]), seq)) for i in best
+            )
 
     candidates = []
     for items in strata.values():
         candidates += sorted(items, key=lambda x: x[0])[:per_stratum]
     candidates.sort(key=lambda x: x[0])
-    chosen = [Plan(tuple(Stop(int(lap), COMPOUNDS[c], life) for lap, (c, life) in zip(lps, seq)))
-              for _, (lps, seq) in candidates]
+    chosen = [
+        Plan(tuple(Stop(int(lap), COMPOUNDS[c], life) for lap, (c, life) in zip(lps, seq)))
+        for _, (lps, seq) in candidates
+    ]
     chosen += [p for p in include if p not in chosen]
     totals = plan_totals(model, state, driver, chosen, draws, pit_factor)
     capped.sort(key=lambda x: x[0])
-    capped_plans = [(t, Plan(tuple(Stop(int(lap), COMPOUNDS[c], life)
-                                   for lap, (c, life) in zip(lps, seq))))
-                    for t, (lps, seq) in capped[:n_capped_kept]]
-    return SearchResult(chosen, totals, n_legal, [p.label(car.compound) for p in chosen],
-                        n_capped, capped_plans)
+    capped_plans = [
+        (t, Plan(tuple(Stop(int(lap), COMPOUNDS[c], life) for lap, (c, life) in zip(lps, seq))))
+        for t, (lps, seq) in capped[:n_capped_kept]
+    ]
+    return SearchResult(
+        chosen, totals, n_legal, [p.label(car.compound) for p in chosen], n_capped, capped_plans
+    )
 
 
 # --- Part B: the whole field ----------------------------------------------------
@@ -825,22 +925,27 @@ class Field:
     drivers: list[str]
     models: dict[str, CarModel]
     draws: dict[str, Draws]
-    status: np.ndarray          # (n_sims, laps_remaining): GREEN / SC / VSC
-    pass_u: np.ndarray          # (n_sims, laps_remaining, n_cars) uniforms
-    choice_u: np.ndarray        # (n_sims, n_cars) uniforms for rival plan options
-    params: "SimParams"
+    status: np.ndarray  # (n_sims, laps_remaining): GREEN / SC / VSC
+    pass_u: np.ndarray  # (n_sims, laps_remaining, n_cars) uniforms
+    choice_u: np.ndarray  # (n_sims, n_cars) uniforms for rival plan options
+    params: SimParams
     pit_losses: np.ndarray
     #: Posterior draw used by each simulation (Phase 6 sensitivity checks).
     draw_index: np.ndarray | None = None
 
     @property
     def n_sims(self) -> int:
+        """Number of simulations in the field."""
         return self.status.shape[0]
 
 
-def neutral_schedule(state: RaceState, neutral, n_sims: int,
-                     rng: np.random.Generator,
-                     current_length: int | None = None) -> np.ndarray:
+def neutral_schedule(
+    state: RaceState,
+    neutral: Neutralisations,
+    n_sims: int,
+    rng: np.random.Generator,
+    current_length: int | None = None,
+) -> np.ndarray:
     """SC/VSC status per simulation and remaining lap (plan-independent).
 
     A state already under SC/VSC continues it: the remaining length is drawn
@@ -871,11 +976,11 @@ def neutral_schedule(state: RaceState, neutral, n_sims: int,
             u = rng.random()
             if u < neutral.p_sc_per_lap:
                 n = int(rng.choice(sc_len))
-                out[i, j:j + n] = SC
+                out[i, j : j + n] = SC
                 j += n + 1
             elif u < neutral.p_sc_per_lap + neutral.p_vsc_per_lap:
                 n = int(rng.choice(vsc_len))
-                out[i, j:j + n] = VSC
+                out[i, j : j + n] = VSC
                 j += n + 1
             else:
                 j += 1
@@ -898,8 +1003,11 @@ def late_restart_rounds(race: pd.DataFrame, window: int = 20) -> list[int]:
         sc_laps = r.loc[r["SafetyCar"], "LapNumber"]
         if sc_laps.empty:
             continue
-        ends = [int(lap) for lap, nxt in zip(r["LapNumber"], r["SafetyCar"].shift(-1, fill_value=False))
-                if lap in set(sc_laps) and not nxt]
+        ends = [
+            int(lap)
+            for lap, nxt in zip(r["LapNumber"], r["SafetyCar"].shift(-1, fill_value=False))
+            if lap in set(sc_laps) and not nxt
+        ]
         if any(last - window <= e < last for e in ends):
             out.append(int(rnd))
     return out
@@ -909,7 +1017,7 @@ def build_field(
     fitted: BayesFit,
     state: RaceState,
     pit_losses: np.ndarray,
-    params: "SimParams",
+    params: SimParams,
     n_sims: int = 1000,
     seed: int = 0,
     max_stops: int = 3,
@@ -937,8 +1045,17 @@ def build_field(
     for d in drivers:
         car = state.cars[d]
         stint = car.stint if (use_fitted_current_stint and state.lap > 1) else None
-        models[d] = car_model(fitted, state.round_number, d, car.team, idx, rng,
-                              current_stint=stint, widening=widening, final_race_z=fr_z)
+        models[d] = car_model(
+            fitted,
+            state.round_number,
+            d,
+            car.team,
+            idx,
+            rng,
+            current_stint=stint,
+            widening=widening,
+            final_race_z=fr_z,
+        )
         draws[d] = make_draws(models[d], state.laps_remaining, pit_losses, max_stops, rng)
     drawn = neutral_schedule(state, params.neutral, n_sims, rng, current_neutral_length)
     if status is not None:
@@ -946,8 +1063,18 @@ def build_field(
     status = drawn
     pass_u = rng.random((n_sims, state.laps_remaining, len(drivers)))
     choice_u = rng.random((n_sims, len(drivers)))
-    return Field(state, drivers, models, draws, status, pass_u, choice_u, params,
-                 np.asarray(pit_losses, float), idx)
+    return Field(
+        state,
+        drivers,
+        models,
+        draws,
+        status,
+        pass_u,
+        choice_u,
+        params,
+        np.asarray(pit_losses, float),
+        idx,
+    )
 
 
 def plan_tyres(state: RaceState, car: CarState, plan: Plan) -> tuple[np.ndarray, np.ndarray]:
@@ -968,8 +1095,9 @@ def restart_k(field: Field) -> np.ndarray:
     if k is None or k.shape != field.status.shape:
         from f1strat.restart import laps_since_restart_sim
 
-        k = laps_since_restart_sim(np.asarray(field.status),
-                                   field.state.track_status in ("sc", "vsc"))
+        k = laps_since_restart_sim(
+            np.asarray(field.status), field.state.track_status in ("sc", "vsc")
+        )
         field._restart_k = k
     return k
 
@@ -1019,12 +1147,12 @@ class FieldResult:
     """Race times (s) and finishing positions (1 = winner), per simulation and car."""
 
     drivers: list[str]
-    times: np.ndarray          # (n_sims, n_cars)
-    positions: np.ndarray      # (n_sims, n_cars)
+    times: np.ndarray  # (n_sims, n_cars)
+    positions: np.ndarray  # (n_sims, n_cars)
     passes: int = 0
     holds: int = 0
     attempts: int = 0
-    attempt_pace: np.ndarray | None = None   # pace gaps of all pass attempts
+    attempt_pace: np.ndarray | None = None  # pace gaps of all pass attempts
     #: With ``record=True``: race time at the end of every simulated lap,
     #: (n_sims, laps_remaining, n_cars), +inf once a car has retired.
     history: np.ndarray | None = None
@@ -1034,9 +1162,12 @@ class FieldResult:
     double_stacks: int = 0
 
 
-def simulate_field(field: Field, plans: dict[str, PlanOptions],
-                   retire: dict[str, int] | None = None,
-                   record: bool = False) -> FieldResult:
+def simulate_field(
+    field: Field,
+    plans: dict[str, PlanOptions],
+    retire: dict[str, int] | None = None,
+    record: bool = False,
+) -> FieldResult:
     """Simulate the rest of the race for every car.
 
     Args:
@@ -1096,8 +1227,9 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions],
         pitting = P > 0
         out_lap = (pit[:, j - 1, :] > 0) if j > 0 else np.zeros_like(pitting)
         if j == 0:
-            out_lap = np.array([st.cars[d].laps_since_stop == 0 and st.cars[d].stint > 1
-                                for d in field.drivers])[None, :].repeat(n, 0)
+            out_lap = np.array(
+                [st.cars[d].laps_since_stop == 0 and st.cars[d].stint > 1 for d in field.drivers]
+            )[None, :].repeat(n, 0)
         gone = np.isinf(T)
         # --- green: battles in order of position ---------------------------------
         tail = np.full(n, -np.inf)
@@ -1149,8 +1281,11 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions],
             prev = np.full(n, -np.inf)
             # Gradual closing (Phase 5): gaps kept on the first SC lap, then
             # multiplied by sc_close_ratio per lap, never below sc_gap.
-            ratio = (None if neu.sc_close_ratio is None
-                     else np.where(sc_lap[:, j] <= 1, 1.0, neu.sc_close_ratio))
+            ratio = (
+                None
+                if neu.sc_close_ratio is None
+                else np.where(sc_lap[:, j] <= 1, 1.0, neu.sc_close_ratio)
+            )
             for r in range(C):
                 car = order[:, r]
                 if r == 0:
@@ -1195,9 +1330,18 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions],
             history[:, j, :] = T
             pit_laps[:, j, :] = pitting | out_lap
     positions = np.argsort(np.argsort(T, axis=1), axis=1) + 1
-    return FieldResult(field.drivers, T, positions, passes, holds, attempts,
-                       np.concatenate(attempt_pace) if attempt_pace else None,
-                       history, pit_laps, stacks)
+    return FieldResult(
+        field.drivers,
+        T,
+        positions,
+        passes,
+        holds,
+        attempts,
+        np.concatenate(attempt_pace) if attempt_pace else None,
+        history,
+        pit_laps,
+        stacks,
+    )
 
 
 @dataclass
@@ -1207,8 +1351,8 @@ class FieldSearchResult:
     focal: str
     plans: list[Plan]
     labels: list[str]
-    positions: np.ndarray      # (n_plans, n_sims, n_cars)
-    times: np.ndarray          # (n_plans, n_sims, n_cars)
+    positions: np.ndarray  # (n_plans, n_sims, n_cars)
+    times: np.ndarray  # (n_plans, n_sims, n_cars)
     drivers: list[str]
 
     def table(self, reference: Plan | None = None) -> pd.DataFrame:
@@ -1221,16 +1365,18 @@ class FieldSearchResult:
         c = self.drivers.index(self.focal)
         pos = self.positions[:, :, c]
         t = self.times[:, :, c]
-        df = pd.DataFrame({
-            "plan": self.labels,
-            "stops": [len(p.stops) for p in self.plans],
-            "mean_pos": pos.mean(axis=1),
-            "p_win": (pos == 1).mean(axis=1),
-            "p_podium": (pos <= 3).mean(axis=1),
-            "p10_pos": np.quantile(pos, 0.1, axis=1),
-            "p90_pos": np.quantile(pos, 0.9, axis=1),
-            "mean_time_s": t.mean(axis=1),
-        })
+        df = pd.DataFrame(
+            {
+                "plan": self.labels,
+                "stops": [len(p.stops) for p in self.plans],
+                "mean_pos": pos.mean(axis=1),
+                "p_win": (pos == 1).mean(axis=1),
+                "p_podium": (pos <= 3).mean(axis=1),
+                "p10_pos": np.quantile(pos, 0.1, axis=1),
+                "p90_pos": np.quantile(pos, 0.9, axis=1),
+                "mean_time_s": t.mean(axis=1),
+            }
+        )
         if reference is not None:
             ref = pos[self.plans.index(reference)]
             df["places_gained"] = (ref[None, :] - pos).mean(axis=1)
@@ -1242,18 +1388,25 @@ class FieldSearchResult:
         """Finishing-position distribution for every car under one focal plan."""
         k = self.plans.index(plan)
         pos = self.positions[k]
-        return pd.DataFrame({
-            "driver": self.drivers,
-            "mean_pos": pos.mean(axis=0),
-            "p_win": (pos == 1).mean(axis=0),
-            "p_podium": (pos <= 3).mean(axis=0),
-            "p10_pos": np.quantile(pos, 0.1, axis=0),
-            "p90_pos": np.quantile(pos, 0.9, axis=0),
-        }).sort_values("mean_pos").reset_index(drop=True)
+        return (
+            pd.DataFrame(
+                {
+                    "driver": self.drivers,
+                    "mean_pos": pos.mean(axis=0),
+                    "p_win": (pos == 1).mean(axis=0),
+                    "p_podium": (pos <= 3).mean(axis=0),
+                    "p10_pos": np.quantile(pos, 0.1, axis=0),
+                    "p90_pos": np.quantile(pos, 0.9, axis=0),
+                }
+            )
+            .sort_values("mean_pos")
+            .reset_index(drop=True)
+        )
 
 
-def field_search(field: Field, focal: str, candidates: Sequence[Plan],
-                 rival_plans: dict[str, PlanOptions]) -> FieldSearchResult:
+def field_search(
+    field: Field, focal: str, candidates: Sequence[Plan], rival_plans: dict[str, PlanOptions]
+) -> FieldSearchResult:
     """Simulate each candidate plan for ``focal`` against fixed rival plans.
 
     The same field draws are reused for every candidate (common random
@@ -1265,8 +1418,14 @@ def field_search(field: Field, focal: str, candidates: Sequence[Plan],
         positions.append(res.positions)
         times.append(res.times)
     car = field.state.cars[focal]
-    return FieldSearchResult(focal, list(candidates), [p.label(car.compound) for p in candidates],
-                             np.stack(positions), np.stack(times), field.drivers)
+    return FieldSearchResult(
+        focal,
+        list(candidates),
+        [p.label(car.compound) for p in candidates],
+        np.stack(positions),
+        np.stack(times),
+        field.drivers,
+    )
 
 
 def expected_pit_factor(field: Field) -> np.ndarray:
@@ -1274,15 +1433,22 @@ def expected_pit_factor(field: Field) -> np.ndarray:
     pit loss: 1 on green laps, ``sc_pit_ratio`` under SC, ``vsc_pit_ratio``
     under VSC. Used to make single-car searches SC-aware (Phase 6)."""
     neu = field.params.neutral
-    f = np.where(field.status == SC, neu.sc_pit_ratio,
-                 np.where(field.status == VSC, neu.vsc_pit_ratio, 1.0))
+    f = np.where(
+        field.status == SC, neu.sc_pit_ratio, np.where(field.status == VSC, neu.vsc_pit_ratio, 1.0)
+    )
     return f.mean(axis=0)
 
 
-def rival_plan_options(field: Field, driver: str, top: int = 3, temperature_s: float = 3.0,
-                       max_stops: int = 3, min_stint: int = 5,
-                       max_age: dict[str, int] | None = None,
-                       sc_aware: bool = False) -> list[tuple[Plan, float]]:
+def rival_plan_options(
+    field: Field,
+    driver: str,
+    top: int = 3,
+    temperature_s: float = 3.0,
+    max_stops: int = 3,
+    min_stint: int = 5,
+    max_age: dict[str, int] | None = None,
+    sc_aware: bool = False,
+) -> list[tuple[Plan, float]]:
     """A rival's plan options from its own single-car search (no hindsight).
 
     The ``top`` plans by expected time (one per compound sequence, best
@@ -1291,9 +1457,17 @@ def rival_plan_options(field: Field, driver: str, top: int = 3, temperature_s: f
     (:func:`expected_pit_factor`), so a rival can choose to stop under a
     safety car.
     """
-    res = search(field.models[driver], field.state, driver, field.draws[driver],
-                 max_stops=max_stops, min_stint=min_stint, per_stratum=1, max_age=max_age,
-                 pit_factor=expected_pit_factor(field) if sc_aware else None)
+    res = search(
+        field.models[driver],
+        field.state,
+        driver,
+        field.draws[driver],
+        max_stops=max_stops,
+        min_stint=min_stint,
+        per_stratum=1,
+        max_age=max_age,
+        pit_factor=expected_pit_factor(field) if sc_aware else None,
+    )
     means = res.totals.mean(axis=1)
     order = np.argsort(means)[:top]
     w = np.exp(-(means[order] - means[order[0]]) / temperature_s)

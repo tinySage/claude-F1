@@ -30,14 +30,20 @@ Decisions log).
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
 from f1strat.clean import MIXED_CONDITIONS_2022, pit_stops
 from f1strat.data import PROCESSED_DIR
+
+if TYPE_CHECKING:
+    from f1strat.deg_model import BayesFit
+    from f1strat.restart import RestartModel
 
 PARAMS_PATH = PROCESSED_DIR / "2022" / "sim_params.json"
 NEUTRAL = "4567"
@@ -48,10 +54,10 @@ HELD_GAP_QUANTILES = 41
 class PassModel:
     """P(pass on a lap) = sigmoid(intercept[circuit] + slope · pace gap)."""
 
-    slope: float                  # per second the attacker is faster (free air)
-    intercept: float              # pooled
-    circuit: dict[int, float]     # round -> intercept (shrunk)
-    follow_gap_s: float           # gap when held up
+    slope: float  # per second the attacker is faster (free air)
+    intercept: float  # pooled
+    circuit: dict[int, float]  # round -> intercept (shrunk)
+    follow_gap_s: float  # gap when held up
     n_events: int = 0
     n_passes: int = 0
     #: Phase 5 calibration (:mod:`f1strat.backtest`): shift on every circuit
@@ -63,10 +69,6 @@ class PassModel:
     #: that did not pass. Empty: every held car sits at ``follow_gap_s``.
     held_gaps: list[float] = field(default_factory=list)
 
-    def p_pass(self, round_number: int, pace_gap: np.ndarray) -> np.ndarray:
-        a = self.circuit.get(round_number, self.intercept) + self.shift
-        return 1.0 / (1.0 + np.exp(-(a + self.slope * pace_gap)))
-
 
 @dataclass
 class Neutralisations:
@@ -76,10 +78,10 @@ class Neutralisations:
     p_vsc_per_lap: float
     sc_lengths: list[int]
     vsc_lengths: list[int]
-    sc_lap_ratio: float           # SC lap / clean lap, median
-    sc_catchup_ratio: float       # fastest-decile SC lap ratio (cars closing up)
+    sc_lap_ratio: float  # SC lap / clean lap, median
+    sc_catchup_ratio: float  # fastest-decile SC lap ratio (cars closing up)
     vsc_lap_ratio: float
-    sc_pit_ratio: float           # pit loss under SC / green pit loss
+    sc_pit_ratio: float  # pit loss under SC / green pit loss
     vsc_pit_ratio: float
     n_sc: int = 0
     n_vsc: int = 0
@@ -97,7 +99,7 @@ class SimParams:
 
     passing: PassModel
     neutral: Neutralisations
-    sc_gap_s: float = 0.8         # queue gap behind the car ahead under SC
+    sc_gap_s: float = 0.8  # queue gap behind the car ahead under SC
     notes: list[str] = field(default_factory=list)
     #: Phase 6 (Silverstone): double-stack queue. Per track status
     #: (``"green"``, ``"sc"``, optional ``"vsc"``), ``D`` in seconds: when
@@ -108,30 +110,37 @@ class SimParams:
     #: Phase 6 (after Silverstone v1): restart layer (:mod:`f1strat.restart`),
     #: pace offsets and a pass multiplier on the first laps after an SC/VSC.
     #: ``None``: restarts are normal green laps.
-    restart: "RestartModel | None" = None
+    restart: RestartModel | None = None
 
     def save(self, path: Path = PARAMS_PATH) -> Path:
+        """Write the parameters as JSON (default ``sim_params.json``)."""
         path.write_text(json.dumps(asdict(self), indent=1))
         return path
 
     @classmethod
-    def load(cls, path: Path = PARAMS_PATH) -> "SimParams":
+    def load(cls, path: Path = PARAMS_PATH) -> SimParams:
+        """Read parameters written by :meth:`save`."""
         d = json.loads(path.read_text())
         passing = d["passing"]
         passing["circuit"] = {int(k): v for k, v in passing["circuit"].items()}
         from f1strat.restart import RestartModel
 
         rs = d.get("restart")
-        return cls(PassModel(**passing), Neutralisations(**d["neutral"]),
-                   d["sc_gap_s"], d.get("notes", []), d.get("double_stack"),
-                   RestartModel(**rs) if rs else None)
+        return cls(
+            PassModel(**passing),
+            Neutralisations(**d["neutral"]),
+            d["sc_gap_s"],
+            d.get("notes", []),
+            d.get("double_stack"),
+            RestartModel(**rs) if rs else None,
+        )
 
 
 def _dry(df: pd.DataFrame) -> pd.DataFrame:
     return df[~df["EventName"].isin(list(MIXED_CONDITIONS_2022))]
 
 
-def pass_events(cleaned: pd.DataFrame, fitted) -> pd.DataFrame:
+def pass_events(cleaned: pd.DataFrame, fitted: BayesFit) -> pd.DataFrame:
     """Attacker/defender pairs within 1 s, with outcome and free-air pace gap."""
     from f1strat.deg_model import lap_features, predict
 
@@ -162,17 +171,30 @@ def pair_events(feats: pd.DataFrame) -> pd.DataFrame:
         a_next, d_next = (rnd, r["Driver"], L + 1), (rnd, defender, L + 1)
         if a_next not in lap.index or d_next not in lap.index:
             continue
-        if neutral[a_next] or neutral[d_next] or pit[a_next] or pit[d_next] \
-                or pit.get((rnd, r["Driver"], L), False) or pit.get((rnd, defender, L), False):
+        if (
+            neutral[a_next]
+            or neutral[d_next]
+            or pit[a_next]
+            or pit[d_next]
+            or pit.get((rnd, r["Driver"], L), False)
+            or pit.get((rnd, defender, L), False)
+        ):
             continue
         pa, pd_ = lap.at[a_next, "Position"], lap.at[d_next, "Position"]
         if pd.isna(pa) or pd.isna(pd_):
             continue
-        rows.append({"RoundNumber": rnd, "lap": L + 1, "attacker": r["Driver"],
-                     "defender": defender, "gap_s": r["gap_ahead_s"],
-                     "pace_gap_s": lap.at[d_next, "pace"] - lap.at[a_next, "pace"],
-                     "passed": bool(pa < pd_),
-                     "gap_next_s": lap.at[a_next, "gap_ahead_s"]})
+        rows.append(
+            {
+                "RoundNumber": rnd,
+                "lap": L + 1,
+                "attacker": r["Driver"],
+                "defender": defender,
+                "gap_s": r["gap_ahead_s"],
+                "pace_gap_s": lap.at[d_next, "pace"] - lap.at[a_next, "pace"],
+                "passed": bool(pa < pd_),
+                "gap_next_s": lap.at[a_next, "gap_ahead_s"],
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -195,8 +217,9 @@ def stint_line_pace(cleaned: pd.DataFrame) -> pd.Series:
     return out
 
 
-def circuit_intercept_from(events: pd.DataFrame, slope: float, intercept: float,
-                           penalty: float = 1.0) -> float:
+def circuit_intercept_from(
+    events: pd.DataFrame, slope: float, intercept: float, penalty: float = 1.0
+) -> float:
     """One circuit's pass intercept from its own events, with the slope fixed
     and the deviation shrunk toward ``intercept`` (as in :func:`fit_pass_model`)."""
     ev = events.dropna(subset=["pace_gap_s"])
@@ -275,15 +298,30 @@ def season_pass_events(year: int, refresh: bool = False) -> tuple[pd.DataFrame, 
             session.load(laps=True, telemetry=False, weather=True, messages=False)
             laps = clean_laps(laps_table(session), mixed_conditions=())
         except Exception as err:  # noqa: BLE001 - record and move on
-            status.append({"RoundNumber": rnd, "EventName": name, "status": "download failed",
-                           "detail": f"{type(err).__name__}: {err}"[:200]})
+            status.append(
+                {
+                    "RoundNumber": rnd,
+                    "EventName": name,
+                    "status": "download failed",
+                    "detail": f"{type(err).__name__}: {err}"[:200],
+                }
+            )
             continue
         known = laps["Compound"].isin(["SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET"])
-        dry_share = float(laps.loc[known, "Compound"].isin(["SOFT", "MEDIUM", "HARD"]).mean()) \
-            if known.any() else 0.0
+        dry_share = (
+            float(laps.loc[known, "Compound"].isin(["SOFT", "MEDIUM", "HARD"]).mean())
+            if known.any()
+            else 0.0
+        )
         if dry_share < DRY_SHARE:
-            status.append({"RoundNumber": rnd, "EventName": name, "status": "wet",
-                           "detail": f"dry share {dry_share:.2f}"})
+            status.append(
+                {
+                    "RoundNumber": rnd,
+                    "EventName": name,
+                    "status": "wet",
+                    "detail": f"dry share {dry_share:.2f}",
+                }
+            )
             continue
         feats = lap_features(laps)
         feats = feats[feats["Compound"].isin(["SOFT", "MEDIUM", "HARD"])].copy()
@@ -291,9 +329,15 @@ def season_pass_events(year: int, refresh: bool = False) -> tuple[pd.DataFrame, 
         events = pair_events(feats)
         if len(events):
             frames.append(events.assign(EventName=name))
-        status.append({"RoundNumber": rnd, "EventName": name, "status": "used",
-                       "detail": f"dry share {dry_share:.2f}; {len(events)} events, "
-                                 f"{int(events['passed'].sum()) if len(events) else 0} passes"})
+        status.append(
+            {
+                "RoundNumber": rnd,
+                "EventName": name,
+                "status": "used",
+                "detail": f"dry share {dry_share:.2f}; {len(events)} events, "
+                f"{int(events['passed'].sum()) if len(events) else 0} passes",
+            }
+        )
     events = pd.concat(frames, ignore_index=True)
     status = pd.DataFrame(status)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -319,18 +363,30 @@ def relative_circuit_intercept(event_name: str, pooled_now: float, year_ref: int
     if event_name not in by_name:
         raise ValueError(f"no dry {year_ref} {event_name} in the pass events")
     shift = by_name[event_name] - ref.intercept
-    return {"intercept": pooled_now + shift, "shift": shift,
-            "ref_circuit": by_name[event_name], "ref_average": ref.intercept,
-            "ref_slope": ref.slope, "ref_events": ref.n_events, "ref_year": year_ref,
-            "ref_races_used": int((status["status"] == "used").sum()),
-            "ref_races_not_used": status.loc[status["status"] != "used",
-                                             ["EventName", "status", "detail"]
-                                             ].to_dict("records")}
+    return {
+        "intercept": pooled_now + shift,
+        "shift": shift,
+        "ref_circuit": by_name[event_name],
+        "ref_average": ref.intercept,
+        "ref_slope": ref.slope,
+        "ref_events": ref.n_events,
+        "ref_year": year_ref,
+        "ref_races_used": int((status["status"] == "used").sum()),
+        "ref_races_not_used": status.loc[
+            status["status"] != "used", ["EventName", "status", "detail"]
+        ].to_dict("records"),
+    }
 
 
-def in_race_pass_update(cleaned_cut: pd.DataFrame, fitted, round_number: int,
-                        prior_intercept: float, slope: float, first_racing_lap: int = 1,
-                        exclude_teammates: bool = False) -> dict:
+def in_race_pass_update(
+    cleaned_cut: pd.DataFrame,
+    fitted: BayesFit,
+    round_number: int,
+    prior_intercept: float,
+    slope: float,
+    first_racing_lap: int = 1,
+    exclude_teammates: bool = False,
+) -> dict:
     """Update a circuit's pass intercept with the race's own passes so far.
 
     The events are those of :func:`pass_events` for ``round_number`` in the
@@ -347,14 +403,24 @@ def in_race_pass_update(cleaned_cut: pd.DataFrame, fitted, round_number: int,
     ev = pass_events(cleaned_cut[cleaned_cut["RoundNumber"] == round_number], fitted)
     ev = ev[ev["lap"] > first_racing_lap]
     if exclude_teammates and len(ev):
-        team = cleaned_cut[cleaned_cut["RoundNumber"] == round_number] \
-            .groupby("Driver")["Team"].first()
+        team = (
+            cleaned_cut[cleaned_cut["RoundNumber"] == round_number]
+            .groupby("Driver")["Team"]
+            .first()
+        )
         ev = ev[ev["attacker"].map(team) != ev["defender"].map(team)]
     value = circuit_intercept_from(ev, slope, prior_intercept)
-    return {"prior": prior_intercept, "intercept": value, "events": int(len(ev)),
-            "passes": int(ev["passed"].sum()) if len(ev) else 0,
-            "pass_list": ev.loc[ev["passed"], ["lap", "attacker", "defender", "pace_gap_s"]]
-            .round(3).to_dict("records") if len(ev) else []}
+    return {
+        "prior": prior_intercept,
+        "intercept": value,
+        "events": int(len(ev)),
+        "passes": int(ev["passed"].sum()) if len(ev) else 0,
+        "pass_list": ev.loc[ev["passed"], ["lap", "attacker", "defender", "pace_gap_s"]]
+        .round(3)
+        .to_dict("records")
+        if len(ev)
+        else [],
+    }
 
 
 def fit_pass_model(events: pd.DataFrame, penalty: float = 1.0) -> PassModel:
@@ -371,14 +437,20 @@ def fit_pass_model(events: pd.DataFrame, penalty: float = 1.0) -> PassModel:
     circuit = {int(r): a0 + float(d) for r, d in zip(x.columns, dev)}
     held = ev[~ev["passed"] & ev["gap_next_s"].notna()]
     quantiles = np.quantile(held["gap_next_s"], np.linspace(0, 1, HELD_GAP_QUANTILES))
-    return PassModel(slope=b, intercept=a0, circuit=circuit,
-                     follow_gap_s=float(held["gap_next_s"].median()),
-                     n_events=len(ev), n_passes=int(ev["passed"].sum()),
-                     held_gaps=[round(float(q), 3) for q in quantiles])
+    return PassModel(
+        slope=b,
+        intercept=a0,
+        circuit=circuit,
+        follow_gap_s=float(held["gap_next_s"].median()),
+        n_events=len(ev),
+        n_passes=int(ev["passed"].sum()),
+        held_gaps=[round(float(q), 3) for q in quantiles],
+    )
 
 
-def _penalised_offsets(x: np.ndarray, y: np.ndarray, offset: np.ndarray,
-                       penalty: float, iters: int = 200) -> np.ndarray:
+def _penalised_offsets(
+    x: np.ndarray, y: np.ndarray, offset: np.ndarray, penalty: float, iters: int = 200
+) -> np.ndarray:
     """Newton steps for a logistic model with a fixed offset and L2-penalised
     group intercepts (one column of ``x`` per circuit)."""
     w = np.zeros(x.shape[1])
@@ -426,8 +498,9 @@ def fit_neutralisations(cleaned: pd.DataFrame, race: pd.DataFrame) -> Neutralisa
     green = 0
     for _, r in race.groupby("RoundNumber"):
         r = r.sort_values("LapNumber")
-        green += int(((~r["SafetyCar"]) & (~r["VSC"]) & (~r["RedFlag"])
-                      & (r["LapNumber"] >= 2)).sum())
+        green += int(
+            ((~r["SafetyCar"]) & (~r["VSC"]) & (~r["RedFlag"]) & (r["LapNumber"] >= 2)).sum()
+        )
         for kind, first, n in neutral_runs(r):
             if first >= 2:
                 starts[kind] += 1
@@ -435,8 +508,11 @@ def fit_neutralisations(cleaned: pd.DataFrame, race: pd.DataFrame) -> Neutralisa
 
     laps = _dry(cleaned)
     lap_s = laps["LapTime"].dt.total_seconds()
-    med = lap_s.where(laps["exclude_reason"].isna()).groupby(
-        [laps["RoundNumber"], laps["Driver"]]).transform("median")
+    med = (
+        lap_s.where(laps["exclude_reason"].isna())
+        .groupby([laps["RoundNumber"], laps["Driver"]])
+        .transform("median")
+    )
     ratio = lap_s / med
     status = laps["TrackStatus"].fillna("")
     no_pit = laps["PitInTime"].isna() & laps["PitOutTime"].isna()
@@ -446,13 +522,19 @@ def fit_neutralisations(cleaned: pd.DataFrame, race: pd.DataFrame) -> Neutralisa
 
     sc_pit, vsc_pit = _neutral_pit_ratios(cleaned)
     return Neutralisations(
-        p_sc_per_lap=starts["SafetyCar"] / green, p_vsc_per_lap=starts["VSC"] / green,
-        sc_lengths=lengths["SafetyCar"], vsc_lengths=lengths["VSC"],
+        p_sc_per_lap=starts["SafetyCar"] / green,
+        p_vsc_per_lap=starts["VSC"] / green,
+        sc_lengths=lengths["SafetyCar"],
+        vsc_lengths=lengths["VSC"],
         sc_lap_ratio=float(sc_ratios.median()),
         sc_catchup_ratio=float(sc_ratios.quantile(0.1)),
         vsc_lap_ratio=float(vsc_ratios.median()),
-        sc_pit_ratio=sc_pit, vsc_pit_ratio=vsc_pit,
-        n_sc=starts["SafetyCar"], n_vsc=starts["VSC"], green_laps=green)
+        sc_pit_ratio=sc_pit,
+        vsc_pit_ratio=vsc_pit,
+        n_sc=starts["SafetyCar"],
+        n_vsc=starts["VSC"],
+        green_laps=green,
+    )
 
 
 def _neutral_pit_ratios(cleaned: pd.DataFrame, return_samples: bool = False):
@@ -462,13 +544,15 @@ def _neutral_pit_ratios(cleaned: pd.DataFrame, return_samples: bool = False):
     median (lap L + lap L+1) of cars that did not pit on those laps.
     """
     laps = _dry(cleaned)
-    lap_s = laps["LapTime"].dt.total_seconds()
-    t = laps.assign(lap_s=lap_s).set_index(["RoundNumber", "Driver", "LapNumber"])["lap_s"]
     stops = pit_stops(laps)
     green = stops[stops["green"]].groupby("RoundNumber")["loss_s"].median()
-    pitting = set(zip(laps.loc[laps["PitInTime"].notna() | laps["PitOutTime"].notna(), "RoundNumber"],
-                      laps.loc[laps["PitInTime"].notna() | laps["PitOutTime"].notna(), "LapNumber"],
-                      laps.loc[laps["PitInTime"].notna() | laps["PitOutTime"].notna(), "Driver"]))
+    pitting = set(
+        zip(
+            laps.loc[laps["PitInTime"].notna() | laps["PitOutTime"].notna(), "RoundNumber"],
+            laps.loc[laps["PitInTime"].notna() | laps["PitOutTime"].notna(), "LapNumber"],
+            laps.loc[laps["PitInTime"].notna() | laps["PitOutTime"].notna(), "Driver"],
+        )
+    )
     status = laps.set_index(["RoundNumber", "Driver", "LapNumber"])["TrackStatus"].fillna("")
     out = {"sc": [], "vsc": []}
     for _, s in stops.iterrows():
@@ -478,11 +562,19 @@ def _neutral_pit_ratios(cleaned: pd.DataFrame, return_samples: bool = False):
         if kind is None or L < 2 or rnd not in green.index or pd.isna(s["in_s"] + s["out_s"]):
             continue
         others = laps[(laps["RoundNumber"] == rnd) & laps["LapNumber"].isin([L, L + 1])]
-        others = others[[(rnd, ln, dr) not in pitting and (rnd, L, dr) not in pitting
-                         and (rnd, L + 1, dr) not in pitting
-                         for ln, dr in zip(others["LapNumber"], others["Driver"])]]
-        pair = others.groupby("Driver")["LapTime"].apply(
-            lambda x: x.dt.total_seconds().sum() if len(x) == 2 else np.nan).dropna()
+        others = others[
+            [
+                (rnd, ln, dr) not in pitting
+                and (rnd, L, dr) not in pitting
+                and (rnd, L + 1, dr) not in pitting
+                for ln, dr in zip(others["LapNumber"], others["Driver"])
+            ]
+        ]
+        pair = (
+            others.groupby("Driver")["LapTime"]
+            .apply(lambda x: x.dt.total_seconds().sum() if len(x) == 2 else np.nan)
+            .dropna()
+        )
         if len(pair) < 3:
             continue
         loss = s["in_s"] + s["out_s"] - float(pair.median())
@@ -501,20 +593,25 @@ def pit_lane_stops(raw: pd.DataFrame) -> pd.DataFrame:
     10–60 s (red flags, garage stops) are left out.
     """
     laps = raw.sort_values(["RoundNumber", "Driver", "LapNumber"])
-    inl = laps.loc[laps["PitInTime"].notna(),
-                   ["RoundNumber", "EventName", "Driver", "Team", "LapNumber", "PitInTime",
-                    "TrackStatus"]]
-    out = laps.loc[laps["PitOutTime"].notna(),
-                   ["RoundNumber", "Driver", "LapNumber", "PitOutTime", "TrackStatus"]]
+    inl = laps.loc[
+        laps["PitInTime"].notna(),
+        ["RoundNumber", "EventName", "Driver", "Team", "LapNumber", "PitInTime", "TrackStatus"],
+    ]
+    out = laps.loc[
+        laps["PitOutTime"].notna(),
+        ["RoundNumber", "Driver", "LapNumber", "PitOutTime", "TrackStatus"],
+    ]
     out = out.assign(LapNumber=out["LapNumber"] - 1)
     st = inl.merge(out, on=["RoundNumber", "Driver", "LapNumber"], suffixes=("", "_out"))
     st["lane_s"] = (st["PitOutTime"] - st["PitInTime"]).dt.total_seconds()
     st = st[(st["LapNumber"] > 1) & st["lane_s"].between(10, 60)].copy()
     code = st["TrackStatus"].fillna("").astype(str) + st["TrackStatus_out"].fillna("").astype(str)
-    st["kind"] = np.where(code.str.contains("4"), "sc",
-                          np.where(code.str.contains("[67]"), "vsc", "green"))
-    st["team_stops_on_lap"] = st.groupby(["RoundNumber", "Team", "LapNumber"])["Driver"] \
-        .transform("size")
+    st["kind"] = np.where(
+        code.str.contains("4"), "sc", np.where(code.str.contains("[67]"), "vsc", "green")
+    )
+    st["team_stops_on_lap"] = st.groupby(["RoundNumber", "Team", "LapNumber"])["Driver"].transform(
+        "size"
+    )
     return st.reset_index(drop=True)
 
 
@@ -535,20 +632,32 @@ def double_stack_pairs(raw: pd.DataFrame) -> pd.DataFrame:
 
     rows = []
     for (rnd, team, lap), g in st[st["team_stops_on_lap"] == 2].groupby(
-            ["RoundNumber", "Team", "LapNumber"]):
+        ["RoundNumber", "Team", "LapNumber"]
+    ):
         if rnd not in by_race.index:
             continue
         a, b = g.sort_values("PitInTime").iloc[0], g.sort_values("PitInTime").iloc[1]
         ref = base(int(rnd), str(b["kind"]))
-        rows.append({"RoundNumber": int(rnd), "EventName": a["EventName"], "Team": team,
-                     "lap": int(lap), "first": a["Driver"], "second": b["Driver"],
-                     "kind": b["kind"],
-                     "gap_s": (b["PitInTime"] - a["PitInTime"]).total_seconds(),
-                     "first_extra_s": a["lane_s"] - ref, "extra_s": b["lane_s"] - ref})
+        rows.append(
+            {
+                "RoundNumber": int(rnd),
+                "EventName": a["EventName"],
+                "Team": team,
+                "lap": int(lap),
+                "first": a["Driver"],
+                "second": b["Driver"],
+                "kind": b["kind"],
+                "gap_s": (b["PitInTime"] - a["PitInTime"]).total_seconds(),
+                "first_extra_s": a["lane_s"] - ref,
+                "extra_s": b["lane_s"] - ref,
+            }
+        )
     return pd.DataFrame(rows)
 
 
-def double_stack_loss(pairs: pd.DataFrame, kinds=("green", "sc")) -> dict[str, dict]:
+def double_stack_loss(
+    pairs: pd.DataFrame, kinds: Sequence[str] = ("green", "sc")
+) -> dict[str, dict]:
     """``D`` per track status for the double-stack queue.
 
     The second car waits for the first car's stationary time plus a margin
@@ -566,8 +675,11 @@ def double_stack_loss(pairs: pd.DataFrame, kinds=("green", "sc")) -> dict[str, d
             continue
         cost = [np.abs(k["extra_s"] - np.maximum(0.0, D - k["gap_s"])).sum() for D in grid]
         D = float(grid[int(np.argmin(cost))])
-        out[kind] = {"D_s": round(D, 2), "n_pairs": int(len(k)),
-                     "n_queued": int((k["gap_s"] < D).sum())}
+        out[kind] = {
+            "D_s": round(D, 2),
+            "n_pairs": int(len(k)),
+            "n_queued": int((k["gap_s"] < D).sum()),
+        }
     return out
 
 
@@ -578,11 +690,10 @@ def neutral_pit_samples(cleaned: pd.DataFrame) -> dict[str, int]:
     return {"sc": len(sc), "vsc": len(vsc)}
 
 
-def estimate(fitted, cleaned: pd.DataFrame, race: pd.DataFrame) -> SimParams:
+def estimate(fitted: BayesFit, cleaned: pd.DataFrame, race: pd.DataFrame) -> SimParams:
     """All field-simulator parameters from 2022."""
     events = pass_events(cleaned, fitted)
-    return SimParams(passing=fit_pass_model(events),
-                     neutral=fit_neutralisations(cleaned, race))
+    return SimParams(passing=fit_pass_model(events), neutral=fit_neutralisations(cleaned, race))
 
 
 def main() -> None:

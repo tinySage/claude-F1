@@ -234,9 +234,7 @@ def predict_baseline(model: BaselineModel, laps: pd.DataFrame) -> pd.Series:
         drivers = sorted(fit_r.drivers)
         compounds = sorted(fit_r.compounds)
         x = _baseline_design(race_laps, drivers, compounds)[fit_r.coef.index]
-        seen = race_laps["Driver"].isin(fit_r.drivers) & race_laps["Compound"].isin(
-            fit_r.compounds
-        )
+        seen = race_laps["Driver"].isin(fit_r.drivers) & race_laps["Compound"].isin(fit_r.compounds)
         y = x.to_numpy() @ fit_r.coef.to_numpy()
         pred.loc[race_laps.index] = np.where(seen, y, np.nan)
     return pred
@@ -270,8 +268,14 @@ def baseline_report(df: pd.DataFrame) -> pd.DataFrame:
     for name, split in SPLITS.items():
         train, test = split(df)
         pred = predict_baseline(fit_baseline(train), test)
-        rows.append({"split": name, "n_train": len(train), "n_test": len(test),
-                     **evaluate(test["lap_s"], pred)})
+        rows.append(
+            {
+                "split": name,
+                "n_train": len(train),
+                "n_test": len(test),
+                **evaluate(test["lap_s"], pred),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -285,19 +289,50 @@ TYRE_SCALE = 10.0
 #: Posterior variables kept after fitting (z-scores and hyperpriors not needed
 #: for prediction are dropped to keep the saved file small).
 KEEP_VARS: tuple[str, ...] = (
-    "race_base", "driver_season", "sigma_driver", "sigma_driver_race", "driver_offset",
-    "driver_race_mean", "mu_compound", "tau_compound", "compound_offset",
-    "team_compound_season", "sigma_tc_season", "sigma_tc_race", "team_compound",
-    "mu_deg", "tau_deg", "deg", "team_deg", "sigma_team_deg", "post_stop",
-    "opening", "mu_trend", "tau_trend", "trend", "dirty_air_penalty",
-    "rain_effect", "sigma", "nu", "sigma_stint", "stint_effect", "mu_final",
-    "sigma_stint_final", "final_race", "sigma_final_race",
+    "race_base",
+    "driver_season",
+    "sigma_driver",
+    "sigma_driver_race",
+    "driver_offset",
+    "driver_race_mean",
+    "mu_compound",
+    "tau_compound",
+    "compound_offset",
+    "team_compound_season",
+    "sigma_tc_season",
+    "sigma_tc_race",
+    "team_compound",
+    "mu_deg",
+    "tau_deg",
+    "deg",
+    "team_deg",
+    "sigma_team_deg",
+    "post_stop",
+    "opening",
+    "mu_trend",
+    "tau_trend",
+    "trend",
+    "dirty_air_penalty",
+    "rain_effect",
+    "sigma",
+    "nu",
+    "sigma_stint",
+    "stint_effect",
+    "mu_final",
+    "sigma_stint_final",
+    "final_race",
+    "sigma_final_race",
 )
 
 
 #: Practice-likelihood variables kept when a fit has practice long runs.
-PRACTICE_VARS: tuple[str, ...] = ("practice_level", "sigma_run", "tau_fuel",
-                                  "fuel_practice", "sigma_practice")
+PRACTICE_VARS: tuple[str, ...] = (
+    "practice_level",
+    "sigma_run",
+    "tau_fuel",
+    "fuel_practice",
+    "sigma_practice",
+)
 
 
 @dataclass
@@ -309,7 +344,7 @@ class BayesFit:
     the ``*_s_per_lap`` helpers for reporting units.
     """
 
-    posterior: "xr.Dataset"
+    posterior: xr.Dataset
     races: list[int]
     drivers: list[str]
     teams: list[str]
@@ -333,8 +368,7 @@ def _stint_keys(laps: pd.DataFrame) -> list[tuple[int, str, int]]:
     return list(zip(laps["RoundNumber"].astype(int), laps["Driver"], laps["Stint"].astype(int)))
 
 
-def build_model(laps: pd.DataFrame, practice: pd.DataFrame | None = None
-                ) -> tuple["pm.Model", dict]:
+def build_model(laps: pd.DataFrame, practice: pd.DataFrame | None = None) -> tuple[pm.Model, dict]:
     """Build the PyMC model in ``docs/model.md`` for prepared laps.
 
     Args:
@@ -355,9 +389,12 @@ def build_model(laps: pd.DataFrame, practice: pd.DataFrame | None = None
     drivers = sorted(laps["Driver"].unique())
     teams = sorted(laps["Team"].unique())
     pairs = sorted(set(zip(laps["RoundNumber"].astype(int), laps["Driver"])))
-    stints = sorted(set(zip(laps["RoundNumber"].astype(int), laps["Driver"],
-                            laps["Stint"].astype(int))))
-    final_keys = set(zip(*[laps.loc[laps["final_stint"], k] for k in ("RoundNumber", "Driver", "Stint")]))
+    stints = sorted(
+        set(zip(laps["RoundNumber"].astype(int), laps["Driver"], laps["Stint"].astype(int)))
+    )
+    final_keys = set(
+        zip(*[laps.loc[laps["final_stint"], k] for k in ("RoundNumber", "Driver", "Stint")])
+    )
     final_keys = {(int(r), d, int(k)) for r, d, k in final_keys}
     is_final = np.array([key in final_keys for key in stints])
     stint_race = np.array([races.index(rr) for rr, _, _ in stints])
@@ -374,8 +411,7 @@ def build_model(laps: pd.DataFrame, practice: pd.DataFrame | None = None
     nonfinal_average = np.zeros((len(pairs), len(stints)))
     nonfinal_average[stint_pair[~is_final], np.flatnonzero(~is_final)] = 1.0
     counts = nonfinal_average.sum(axis=1, keepdims=True)
-    nonfinal_average = np.divide(nonfinal_average, counts, out=nonfinal_average,
-                                 where=counts > 0)
+    nonfinal_average = np.divide(nonfinal_average, counts, out=nonfinal_average, where=counts > 0)
     pair_race = np.array([races.index(rr) for rr, _ in pairs])
     pair_driver = np.array([drivers.index(dd) for _, dd in pairs])
     average = np.zeros((len(races), len(pairs)))
@@ -392,8 +428,12 @@ def build_model(laps: pd.DataFrame, practice: pd.DataFrame | None = None
     race_median = laps.groupby("RoundNumber")["lap_s"].median().loc[races].to_numpy()
 
     coords = {
-        "race": races, "driver": drivers, "team": teams, "compound": list(COMPOUNDS),
-        "compound_nonref": list(NONREF_COMPOUNDS), "driver_race": np.arange(len(pairs)),
+        "race": races,
+        "driver": drivers,
+        "team": teams,
+        "compound": list(COMPOUNDS),
+        "compound_nonref": list(NONREF_COMPOUNDS),
+        "driver_race": np.arange(len(pairs)),
         "stint": np.arange(len(stints)),
     }
     n_race, n_team = len(races), len(teams)
@@ -422,8 +462,7 @@ def build_model(laps: pd.DataFrame, practice: pd.DataFrame | None = None
         # prior, and in centred form that made a funnel with sigma_final_race.
         sigma_final_race = pm.HalfNormal("sigma_final_race", 0.5)
         z_final_race = pm.Normal("z_final_race", 0.0, 1.0, dims="race")
-        final_race = pm.Deterministic("final_race", sigma_final_race * z_final_race,
-                                      dims="race")
+        final_race = pm.Deterministic("final_race", sigma_final_race * z_final_race, dims="race")
         # Centred: each stint has ~15+ laps, so the data dominate the prior and
         # the centred form samples better than the non-centred one here.
         stint_raw = pm.Normal(
@@ -452,8 +491,8 @@ def build_model(laps: pd.DataFrame, practice: pd.DataFrame | None = None
         sigma_tcs = pm.HalfNormal("sigma_tc_season", 0.5)
         tc_season = pm.Deterministic(
             "team_compound_season",
-            sigma_tcs * pm.ZeroSumNormal("z_tc_season", sigma=1.0,
-                                         dims=("compound_nonref", "team")),
+            sigma_tcs
+            * pm.ZeroSumNormal("z_tc_season", sigma=1.0, dims=("compound_nonref", "team")),
             dims=("compound_nonref", "team"),
         )
         sigma_tcr = pm.HalfNormal("sigma_tc_race", 0.3)
@@ -469,8 +508,9 @@ def build_model(laps: pd.DataFrame, practice: pd.DataFrame | None = None
         mu_deg = pm.Normal("mu_deg", 0.5, 1.0, dims="compound")
         tau_deg = pm.HalfNormal("tau_deg", 0.5, dims="compound")
         z_deg = pm.Normal("z_deg", 0.0, 1.0, dims=("compound", "race"))
-        deg = pm.Deterministic("deg", mu_deg[:, None] + tau_deg[:, None] * z_deg,
-                               dims=("compound", "race"))
+        deg = pm.Deterministic(
+            "deg", mu_deg[:, None] + tau_deg[:, None] * z_deg, dims=("compound", "race")
+        )
         sigma_team_deg = pm.HalfNormal("sigma_team_deg", 0.3)
         team_deg = pm.Deterministic(
             "team_deg",
@@ -507,8 +547,10 @@ def build_model(laps: pd.DataFrame, practice: pd.DataFrame | None = None
 
         if practice is not None and len(practice):
             p = practice.copy()
-            p["pair"] = _index(pd.Series(list(zip(p["RoundNumber"].astype(int), p["Driver"])),
-                                         index=p.index), pairs)
+            p["pair"] = _index(
+                pd.Series(list(zip(p["RoundNumber"].astype(int), p["Driver"])), index=p.index),
+                pairs,
+            )
             p["team_i"] = _index(p["Team"], teams)
             p = p[(p["pair"] >= 0) & (p["team_i"] >= 0)]
             sessions = sorted(set(zip(p["RoundNumber"].astype(int), p["session"])))
@@ -516,12 +558,18 @@ def build_model(laps: pd.DataFrame, practice: pd.DataFrame | None = None
             pr = _index(p["RoundNumber"].astype(int), races)
             pt_ = p["team_i"].to_numpy()
             pc = _index(p["Compound"], list(COMPOUNDS))
-            ps = _index(pd.Series(list(zip(p["RoundNumber"].astype(int), p["session"])),
-                                  index=p.index), sessions)
+            ps = _index(
+                pd.Series(list(zip(p["RoundNumber"].astype(int), p["session"])), index=p.index),
+                sessions,
+            )
             pj = _index(p["run"], runs)
-            run_session = (p.groupby("run")[["RoundNumber", "session"]].first()
-                           .loc[runs].apply(lambda x: sessions.index((int(x.iloc[0]), x.iloc[1])),
-                                            axis=1).to_numpy())
+            run_session = (
+                p.groupby("run")[["RoundNumber", "session"]]
+                .first()
+                .loc[runs]
+                .apply(lambda x: sessions.index((int(x.iloc[0]), x.iloc[1])), axis=1)
+                .to_numpy()
+            )
             model.add_coord("practice_session", [f"{rr}_{ss}" for rr, ss in sessions])
             model.add_coord("practice_run", runs)
             level = pm.Normal("practice_level", 0.0, 3.0, dims="practice_session")
@@ -530,26 +578,43 @@ def build_model(laps: pd.DataFrame, practice: pd.DataFrame | None = None
             run_offset = level[run_session] + sigma_run * z_run
             tau_fuel = pm.HalfNormal("tau_fuel", 0.03)
             z_fuel = pm.Normal("z_fuel", 0.0, 1.0, dims="practice_session")
-            fuel = pm.Deterministic("fuel_practice", mu_trend + tau_fuel * z_fuel,
-                                    dims="practice_session")
+            fuel = pm.Deterministic(
+                "fuel_practice", mu_trend + tau_fuel * z_fuel, dims="practice_session"
+            )
             sigma_practice = pm.HalfNormal("sigma_practice", 1.0)
             pa = p["TyreLife"].to_numpy(float) / TYRE_SCALE
-            mu_p = (race_base[pr] + driver_offset[p["pair"].to_numpy()]
-                    + compound_offset[pc, pr] + team_compound[pc, pr, pt_]
-                    + (deg[pc, pr] + team_deg[pc, pt_]) * pa
-                    + run_offset[pj] + fuel[ps] * p["lap_in_run"].to_numpy(float))
-            pm.StudentT("practice_lap_time", nu=nu, mu=mu_p, sigma=sigma_practice,
-                        observed=p["lap_s"].to_numpy(float))
+            mu_p = (
+                race_base[pr]
+                + driver_offset[p["pair"].to_numpy()]
+                + compound_offset[pc, pr]
+                + team_compound[pc, pr, pt_]
+                + (deg[pc, pr] + team_deg[pc, pt_]) * pa
+                + run_offset[pj]
+                + fuel[ps] * p["lap_in_run"].to_numpy(float)
+            )
+            pm.StudentT(
+                "practice_lap_time",
+                nu=nu,
+                mu=mu_p,
+                sigma=sigma_practice,
+                observed=p["lap_s"].to_numpy(float),
+            )
 
     final_rounds = sorted({int(r) for r in laps.loc[laps["final_stint"], "RoundNumber"]})
-    meta = {"practice_laps": 0 if practice is None else int(len(p)) if len(practice) else 0,
-            "races": races, "drivers": drivers, "teams": teams,
-            "driver_race": pairs, "lap_centre": lap_centre, "stints": stints,
-            "final_stint_races": final_rounds}
+    meta = {
+        "practice_laps": 0 if practice is None else int(len(p)) if len(practice) else 0,
+        "races": races,
+        "drivers": drivers,
+        "teams": teams,
+        "driver_race": pairs,
+        "lap_centre": lap_centre,
+        "stints": stints,
+        "final_stint_races": final_rounds,
+    }
     return model, meta
 
 
-def diagnose(idata: "xr.DataTree", var_names: list[str] | None = None) -> dict[str, float]:
+def diagnose(idata: xr.DataTree, var_names: list[str] | None = None) -> dict[str, float]:
     """R-hat, ESS and divergences over the sampled (non-deterministic) variables."""
     import arviz as az
 
@@ -594,22 +659,36 @@ def fit(
     laps = apply_cutoff(laps, cutoff)
     model, meta = build_model(laps, practice)
     compiled = nutpie.compile_pymc_model(model)
-    idata = nutpie.sample(compiled, draws=draws, tune=tune, chains=chains,
-                          seed=seed, progress_bar=False, adaptation=adaptation,
-                          target_accept=target_accept)
+    idata = nutpie.sample(
+        compiled,
+        draws=draws,
+        tune=tune,
+        chains=chains,
+        seed=seed,
+        progress_bar=False,
+        adaptation=adaptation,
+        target_accept=target_accept,
+    )
     sampled = [v.name for v in model.free_RVs]
     diag = diagnose(idata, sampled)
     keep = list(KEEP_VARS) + [v for v in PRACTICE_VARS if v in idata.posterior]
     posterior = idata.posterior.to_dataset()[keep].astype("float32")
     # Keep each draw's divergence flag, to check where divergences sit.
     posterior["diverging"] = idata.sample_stats["diverging"].astype("int8")
-    return BayesFit(posterior=posterior, diagnostics=diag, races=meta["races"],
-                    drivers=meta["drivers"], teams=meta["teams"],
-                    driver_race=meta["driver_race"], lap_centre=meta["lap_centre"],
-                    stints=meta["stints"], final_stint_races=meta["final_stint_races"])
+    return BayesFit(
+        posterior=posterior,
+        diagnostics=diag,
+        races=meta["races"],
+        drivers=meta["drivers"],
+        teams=meta["teams"],
+        driver_race=meta["driver_race"],
+        lap_centre=meta["lap_centre"],
+        stints=meta["stints"],
+        final_stint_races=meta["final_stint_races"],
+    )
 
 
-def _flat(post: "xr.Dataset", name: str, idx: np.ndarray) -> np.ndarray:
+def _flat(post: xr.Dataset, name: str, idx: np.ndarray) -> np.ndarray:
     """Draws of ``name`` stacked over chains, subset to ``idx``: (n_draws, ...)."""
     arr = post[name].to_numpy()
     return arr.reshape(-1, *arr.shape[2:])[idx].astype(float)
@@ -647,17 +726,25 @@ def predict(
     t = _index(laps["Team"], fitted.teams)
     c = _index(laps["Compound"], list(COMPOUNDS))
     d = _index(laps["Driver"], fitted.drivers)
-    dr = _index(pd.Series(list(zip(laps["RoundNumber"].astype(int), laps["Driver"])),
-                          index=laps.index), fitted.driver_race)
+    dr = _index(
+        pd.Series(list(zip(laps["RoundNumber"].astype(int), laps["Driver"])), index=laps.index),
+        fitted.driver_race,
+    )
     ok = (r >= 0) & (t >= 0) & (c >= 0)
     rr, tt, cc = np.where(ok, r, 0), np.where(ok, t, 0), np.where(ok, c, 0)
 
     # Driver offset: fitted where the pair was seen, else a pooled draw.
     seen = dr >= 0
-    driver_part = np.where(d >= 0, g["driver_season"][:, np.where(d >= 0, d, 0)],
-                           g["sigma_driver"][:, None] * rng.standard_normal((n_s, len(laps))))
-    pooled = (driver_part + g["sigma_driver_race"][:, None]
-              * rng.standard_normal((n_s, len(laps))) - g["driver_race_mean"][:, rr])
+    driver_part = np.where(
+        d >= 0,
+        g["driver_season"][:, np.where(d >= 0, d, 0)],
+        g["sigma_driver"][:, None] * rng.standard_normal((n_s, len(laps))),
+    )
+    pooled = (
+        driver_part
+        + g["sigma_driver_race"][:, None] * rng.standard_normal((n_s, len(laps)))
+        - g["driver_race_mean"][:, rr]
+    )
     offset = np.where(seen, g["driver_offset"][:, np.where(seen, dr, 0)], pooled)
 
     # Stint effect: fitted where the stint was seen. An unseen stint draws once
@@ -670,10 +757,11 @@ def predict(
     codes, uniques = pd.factorize(pd.Series(keys, dtype=object))
     z = rng.standard_normal((n_s, len(uniques)))[:, codes]
     final = laps["final_stint"].to_numpy(bool)
-    new_stint = np.where(final,
-                         g["mu_final"][:, None] + g["final_race"][:, rr]
-                         + g["sigma_stint_final"][:, None] * z,
-                         g["sigma_stint"][:, None] * z)
+    new_stint = np.where(
+        final,
+        g["mu_final"][:, None] + g["final_race"][:, rr] + g["sigma_stint_final"][:, None] * z,
+        g["sigma_stint"][:, None] * z,
+    )
     offset = offset + np.where(st >= 0, g["stint_effect"][:, np.where(st >= 0, st, 0)], new_stint)
 
     a = laps["TyreLife"].to_numpy(float) / TYRE_SCALE
@@ -709,9 +797,7 @@ def coverage(actual: pd.Series, pred: Prediction) -> float:
     return float(inside.mean())
 
 
-def interval_widening_factor(
-    actual: pd.Series, pred: Prediction, target: float = 0.8
-) -> float:
+def interval_widening_factor(actual: pd.Series, pred: Prediction, target: float = 0.8) -> float:
     """Factor by which to scale interval half-widths (around the mean) so that
     ``target`` of ``actual`` falls inside. Found by bisection; 1.0 means the
     intervals are already wide enough."""
@@ -744,25 +830,41 @@ def effects_table(fitted: BayesFit, interval: float = 0.8) -> pd.DataFrame:
     scale = {"mu_deg": 1 / TYRE_SCALE}
     units = {"mu_deg": "s/lap", "mu_trend": "s/lap"}
     rows = []
-    for name in ("mu_deg", "mu_compound", "post_stop", "opening", "mu_trend",
-                 "dirty_air_penalty", "rain_effect", "sigma_stint", "mu_final",
-                 "sigma_stint_final", "sigma_final_race"):
+    for name in (
+        "mu_deg",
+        "mu_compound",
+        "post_stop",
+        "opening",
+        "mu_trend",
+        "dirty_air_penalty",
+        "rain_effect",
+        "sigma_stint",
+        "mu_final",
+        "sigma_stint_final",
+        "sigma_final_race",
+    ):
         da = post[name] * scale.get(name, 1.0)
         extra = [d for d in da.dims if d not in ("chain", "draw")]
         stacked = da.stack(sample=("chain", "draw"))
         labels = stacked[extra[0]].to_numpy() if extra else [None]
         for lab in labels:
             v = stacked.sel({extra[0]: lab}).to_numpy() if extra else stacked.to_numpy()
-            rows.append({"effect": name, "level": lab, "unit": units.get(name, "s"),
-                         "mean": float(v.mean()), "lo": float(np.quantile(v, q)),
-                         "hi": float(np.quantile(v, 1 - q))})
+            rows.append(
+                {
+                    "effect": name,
+                    "level": lab,
+                    "unit": units.get(name, "s"),
+                    "mean": float(v.mean()),
+                    "lo": float(np.quantile(v, q)),
+                    "hi": float(np.quantile(v, 1 - q)),
+                }
+            )
     return pd.DataFrame(rows)
 
 
 # --- XGBoost ------------------------------------------------------------------
 
-XGB_NUMERIC = ["TyreLife", "race_lap", "dirty_air", "Rainfall", "first_two_flying",
-               "opening_laps"]
+XGB_NUMERIC = ["TyreLife", "race_lap", "dirty_air", "Rainfall", "first_two_flying", "opening_laps"]
 XGB_CATEGORICAL = ["RoundNumber", "Driver", "Team", "Compound"]
 
 
@@ -787,8 +889,15 @@ def fit_xgboost(laps: pd.DataFrame, cutoff: Cutoff | None = None, seed: int = 0)
 
     laps = apply_cutoff(laps, cutoff)
     x = _xgb_features(laps)
-    model = XGBRegressor(n_estimators=600, max_depth=6, learning_rate=0.05,
-                         subsample=0.8, colsample_bytree=0.8, n_jobs=4, random_state=seed)
+    model = XGBRegressor(
+        n_estimators=600,
+        max_depth=6,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        n_jobs=4,
+        random_state=seed,
+    )
     model.fit(x, laps["lap_s"])
     return XGBFit(model=model, columns=list(x.columns))
 
@@ -826,8 +935,12 @@ def comparison_table(laps: pd.DataFrame, bayes_fits: dict[str, BayesFit]) -> pd.
             for model, pred in preds.items():
                 if model == "baseline" and subset == "all":
                     continue
-                row = {"split": name, "subset": subset, "model": model,
-                       **evaluate(test.loc[mask, "lap_s"], pred[mask])}
+                row = {
+                    "split": name,
+                    "subset": subset,
+                    "model": model,
+                    **evaluate(test.loc[mask, "lap_s"], pred[mask]),
+                }
                 if model == "bayes":
                     sub = Prediction(bayes.mean[mask], bayes.lo[mask], bayes.hi[mask])
                     row["coverage_80"] = coverage(test.loc[mask, "lap_s"], sub)
@@ -837,7 +950,10 @@ def comparison_table(laps: pd.DataFrame, bayes_fits: dict[str, BayesFit]) -> pd.
 
 #: Tyre-age buckets for the long_tyre error table (inclusive bounds).
 TYRE_AGE_BUCKETS: tuple[tuple[str, int, int], ...] = (
-    ("16-20", 16, 20), ("21-30", 21, 30), ("31-40", 31, 40), ("40+", 41, 10**6),
+    ("16-20", 16, 20),
+    ("21-30", 21, 30),
+    ("31-40", 31, 40),
+    ("40+", 41, 10**6),
 )
 
 
@@ -863,8 +979,15 @@ def error_by_tyre_age(laps: pd.DataFrame, bayes_fit: BayesFit) -> pd.DataFrame:
         mask = test["TyreLife"].between(lo, hi)
         for model, pred in preds.items():
             err = (pred - test["lap_s"])[mask]
-            rows.append({"bucket": label, "model": model, "n": int(mask.sum()),
-                         "mae_s": float(err.abs().mean()), "mean_error_s": float(err.mean())})
+            rows.append(
+                {
+                    "bucket": label,
+                    "model": model,
+                    "n": int(mask.sum()),
+                    "mae_s": float(err.abs().mean()),
+                    "mean_error_s": float(err.mean()),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -877,8 +1000,11 @@ def stint_team_confounding(
     compound, race]`` and of the stint's effect, their sum, and the posterior
     correlation between the two.
     """
-    tc = _draws(fitted, "team_compound").sel(
-        team=team, compound=compound, race=round_number).to_numpy()
+    tc = (
+        _draws(fitted, "team_compound")
+        .sel(team=team, compound=compound, race=round_number)
+        .to_numpy()
+    )
     k = fitted.stints.index((round_number, driver, stint))
     se = _draws(fitted, "stint_effect").isel(stint=k).to_numpy()
     out: dict[str, float] = {"correlation": float(np.corrcoef(tc, se)[0, 1])}
@@ -889,7 +1015,7 @@ def stint_team_confounding(
     return out
 
 
-def _draws(fitted: BayesFit, name: str) -> "xr.DataArray":
+def _draws(fitted: BayesFit, name: str) -> xr.DataArray:
     return fitted.posterior[name].stack(sample=("chain", "draw"))
 
 
@@ -908,10 +1034,17 @@ def deg_by_race(fitted: BayesFit, interval: float = 0.8) -> pd.DataFrame:
         soft, hard = d.sel(compound="SOFT").to_numpy(), d.sel(compound="HARD").to_numpy()
         for comp in COMPOUNDS:
             v = d.sel(compound=comp).to_numpy()
-            rows.append({"RoundNumber": rnd, "compound": comp, "mean": float(v.mean()),
-                         "lo": float(np.quantile(v, q)), "hi": float(np.quantile(v, 1 - q)),
-                         "p_negative": float((v < 0).mean()),
-                         "p_hard_gt_soft": float((hard > soft).mean())})
+            rows.append(
+                {
+                    "RoundNumber": rnd,
+                    "compound": comp,
+                    "mean": float(v.mean()),
+                    "lo": float(np.quantile(v, q)),
+                    "hi": float(np.quantile(v, 1 - q)),
+                    "p_negative": float((v < 0).mean()),
+                    "p_hard_gt_soft": float((hard > soft).mean()),
+                }
+            )
     out = pd.DataFrame(rows)
     out["negative"] = out["mean"] < 0
     hard_mean = out[out["compound"] == "HARD"].set_index("RoundNumber")["mean"]
@@ -941,13 +1074,22 @@ def deg_curve(
     off = _draws(fitted, "compound_offset").sel(compound=compound, race=round_number).to_numpy()
     deg = _draws(fitted, "deg").sel(compound=compound, race=round_number).to_numpy()
     if team is not None:
-        off = off + _draws(fitted, "team_compound").sel(
-            compound=compound, race=round_number, team=team).to_numpy()
+        off = (
+            off
+            + _draws(fitted, "team_compound")
+            .sel(compound=compound, race=round_number, team=team)
+            .to_numpy()
+        )
         deg = deg + _draws(fitted, "team_deg").sel(compound=compound, team=team).to_numpy()
     curve = off[None, :] + deg[None, :] * a[:, None]
-    return pd.DataFrame({"TyreLife": ages, "mean": curve.mean(axis=1),
-                         "lo": np.quantile(curve, q, axis=1),
-                         "hi": np.quantile(curve, 1 - q, axis=1)})
+    return pd.DataFrame(
+        {
+            "TyreLife": ages,
+            "mean": curve.mean(axis=1),
+            "lo": np.quantile(curve, q, axis=1),
+            "hi": np.quantile(curve, 1 - q, axis=1),
+        }
+    )
 
 
 def season_deg_table(fitted: BayesFit, interval: float = 0.8) -> pd.DataFrame:
@@ -962,8 +1104,11 @@ def season_deg_table(fitted: BayesFit, interval: float = 0.8) -> pd.DataFrame:
     for comp in COMPOUNDS:
         m = mu.sel(compound=comp).to_numpy()
         row = {"compound": comp}
-        for label, v in (("deg_s_per_lap", m), ("loss_10_laps_s", 10 * m),
-                         ("loss_20_laps_s", 20 * m)):
+        for label, v in (
+            ("deg_s_per_lap", m),
+            ("loss_10_laps_s", 10 * m),
+            ("loss_20_laps_s", 20 * m),
+        ):
             row[label] = float(v.mean())
             row[f"{label}_lo"] = float(np.quantile(v, q))
             row[f"{label}_hi"] = float(np.quantile(v, 1 - q))
@@ -987,14 +1132,24 @@ def team_compound_summary(
     tdeg = _draws(fitted, "team_deg").sel(team=team) / TYRE_SCALE
     rows = []
     for comp in COMPOUNDS:
-        values = {"team_compound": tc.sel(compound=comp).to_numpy(),
-                  "field_compound": field.sel(compound=comp).to_numpy()}
+        values = {
+            "team_compound": tc.sel(compound=comp).to_numpy(),
+            "field_compound": field.sel(compound=comp).to_numpy(),
+        }
         values["total"] = values["team_compound"] + values["field_compound"]
         values["team_deg_s_per_lap"] = tdeg.sel(compound=comp).to_numpy()
         for term, v in values.items():
-            rows.append({"team": team, "RoundNumber": round_number, "compound": comp,
-                         "term": term, "mean": float(v.mean()),
-                         "lo": float(np.quantile(v, q)), "hi": float(np.quantile(v, 1 - q))})
+            rows.append(
+                {
+                    "team": team,
+                    "RoundNumber": round_number,
+                    "compound": comp,
+                    "term": term,
+                    "mean": float(v.mean()),
+                    "lo": float(np.quantile(v, q)),
+                    "hi": float(np.quantile(v, 1 - q)),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -1008,15 +1163,18 @@ def save_fit(fitted: BayesFit, path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     ds = fitted.posterior.copy()
     ds.attrs = {
-        "races": json.dumps(fitted.races), "drivers": json.dumps(fitted.drivers),
+        "races": json.dumps(fitted.races),
+        "drivers": json.dumps(fitted.drivers),
         "teams": json.dumps(fitted.teams),
         "driver_race": json.dumps([[r, d] for r, d in fitted.driver_race]),
-        "lap_centre": fitted.lap_centre, "diagnostics": json.dumps(fitted.diagnostics),
+        "lap_centre": fitted.lap_centre,
+        "diagnostics": json.dumps(fitted.diagnostics),
         "stints": json.dumps([[r, d, k] for r, d, k in fitted.stints]),
         "final_stint_races": json.dumps(fitted.final_stint_races),
     }
-    ds.to_netcdf(path, engine="h5netcdf",
-                 encoding={v: {"zlib": True, "complevel": 5} for v in ds.data_vars})
+    ds.to_netcdf(
+        path, engine="h5netcdf", encoding={v: {"zlib": True, "complevel": 5} for v in ds.data_vars}
+    )
     return path
 
 
@@ -1027,10 +1185,13 @@ def load_fit(path: Path) -> BayesFit:
     ds = xr.load_dataset(path, engine="h5netcdf")
     a = ds.attrs
     return BayesFit(
-        posterior=ds, races=json.loads(a["races"]), drivers=json.loads(a["drivers"]),
+        posterior=ds,
+        races=json.loads(a["races"]),
+        drivers=json.loads(a["drivers"]),
         teams=json.loads(a["teams"]),
         driver_race=[(int(r), d) for r, d in json.loads(a["driver_race"])],
-        lap_centre=float(a["lap_centre"]), diagnostics=json.loads(a["diagnostics"]),
+        lap_centre=float(a["lap_centre"]),
+        diagnostics=json.loads(a["diagnostics"]),
         stints=[(int(r), d, int(k)) for r, d, k in json.loads(a.get("stints", "[]"))],
         final_stint_races=json.loads(a.get("final_stint_races", "null")),
     )
@@ -1051,15 +1212,36 @@ def thin_fit(fitted: BayesFit, n_draws: int = 1000) -> BayesFit:
     per_chain = n_draws // post.sizes["chain"]
     step = post.sizes["draw"] // per_chain
     thinned = post.isel(draw=slice(0, per_chain * step, step))
-    return BayesFit(posterior=thinned, races=fitted.races, drivers=fitted.drivers,
-                    teams=fitted.teams, driver_race=fitted.driver_race,
-                    lap_centre=fitted.lap_centre, diagnostics=fitted.diagnostics,
-                    stints=fitted.stints, final_stint_races=fitted.final_stint_races)
+    return BayesFit(
+        posterior=thinned,
+        races=fitted.races,
+        drivers=fitted.drivers,
+        teams=fitted.teams,
+        driver_race=fitted.driver_race,
+        lap_centre=fitted.lap_centre,
+        diagnostics=fitted.diagnostics,
+        stints=fitted.stints,
+        final_stint_races=fitted.final_stint_races,
+    )
 
 
 def split_fit_path(split: str) -> Path:
-    """Where the fit on a split's training data is saved."""
+    """Where the fit on a split's training data is saved (gitignored)."""
     return MODELS_DIR / f"deg_{split}_2022.nc"
+
+
+def thin_path(path: Path) -> Path:
+    """The committed thinned copy of a saved fit: ``<stem>_thin.nc``."""
+    return path.with_name(f"{path.stem}_thin.nc")
+
+
+def load_fit_or_thin(path: Path) -> BayesFit:
+    """The fit at ``path`` if it exists, else its committed thinned copy.
+
+    The full posteriors (about 40 MB each) are gitignored; the thinned copies
+    (1,000 draws) let the notebooks and figures run on a fresh clone.
+    """
+    return load_fit(path) if path.exists() else load_fit(thin_path(path))
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -1076,8 +1258,9 @@ def main(argv: list[str] | None = None) -> None:
     from f1strat.data import load_season
 
     parser = argparse.ArgumentParser(prog="python -m f1strat.deg_model")
-    parser.add_argument("target", nargs="?", default="full",
-                        choices=["full", "splits", "all", "thin", *SPLITS])
+    parser.add_argument(
+        "target", nargs="?", default="full", choices=["full", "splits", "all", "thin", *SPLITS]
+    )
     parser.add_argument("--draws", type=int, default=5000)
     parser.add_argument("--tune", type=int, default=1500)
     args = parser.parse_args(argv)
@@ -1099,8 +1282,7 @@ def main(argv: list[str] | None = None) -> None:
         minutes = (time.time() - start) / 60
         print(f"{name}: {len(train)} laps, {minutes:.1f} min, {fitted.diagnostics}", flush=True)
         print(f"wrote {save_fit(fitted, path)}", flush=True)
-        if name == "full":
-            print(f"wrote {save_fit(thin_fit(fitted), THIN_FIT_PATH)}", flush=True)
+        print(f"wrote {save_fit(thin_fit(fitted), thin_path(path))}", flush=True)
 
 
 if __name__ == "__main__":

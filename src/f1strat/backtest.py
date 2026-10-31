@@ -31,8 +31,10 @@ The same counters are applied to the actual race and to every simulation:
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -51,6 +53,10 @@ from f1strat.simulator import (
     simulate_field,
 )
 
+if TYPE_CHECKING:
+    from f1strat.deg_model import BayesFit
+    from f1strat.race_events import SimParams
+
 #: Dry 2022 races outside the case studies (Monaco 7, Britain 10, Hungary 13)
 #: and Austria (11, missing compounds; ROADMAP Decisions log).
 BACKTEST_ROUNDS: tuple[int, ...] = (1, 2, 3, 5, 6, 8, 9, 12, 14, 15, 16, 19, 20, 21, 22)
@@ -66,14 +72,14 @@ class Actual:
 
     round_number: int
     total_laps: int
-    drivers: list[str]           # cars running at the end of lap 1
-    times: np.ndarray            # (total_laps + 1, n_cars): session time at the end of
-                                 # lap L (row L), +inf after retiring; row 0 unused
-    pit_laps: np.ndarray         # (total_laps + 1, n_cars): in or out lap
-    status: np.ndarray           # (total_laps + 1,): GREEN / SC / VSC per race lap
-    last_lap: dict[str, int]     # laps completed
-    finished: dict[str, bool]    # running at the flag (incl. lapped cars)
-    order: list[str]             # finishers in finishing order
+    drivers: list[str]  # cars running at the end of lap 1
+    times: np.ndarray  # (total_laps + 1, n_cars): session time at the end of
+    # lap L (row L), +inf after retiring; row 0 unused
+    pit_laps: np.ndarray  # (total_laps + 1, n_cars): in or out lap
+    status: np.ndarray  # (total_laps + 1,): GREEN / SC / VSC per race lap
+    last_lap: dict[str, int]  # laps completed
+    finished: dict[str, bool]  # running at the flag (incl. lapped cars)
+    order: list[str]  # finishers in finishing order
     gap_to_winner: dict[str, float] = field(default_factory=dict)  # lead-lap finishers
 
 
@@ -123,8 +129,7 @@ def actual_race(raw: pd.DataFrame, race: pd.DataFrame, round_number: int) -> Act
     finished = {d: bool(end[d] >= winner_end - 1e-6) for d in drivers}
     order = sorted((d for d in drivers if finished[d]), key=lambda d: (-last[d], end[d]))
     gaps = {d: end[d] - winner_end for d in order if last[d] == total}
-    return Actual(round_number, total, drivers, times, pit, status, last, finished,
-                  order, gaps)
+    return Actual(round_number, total, drivers, times, pit, status, last, finished, order, gaps)
 
 
 # --- Counters shared by the actual race and the simulations --------------------
@@ -146,8 +151,7 @@ def count_passes(times: np.ndarray, pit_laps: np.ndarray, green: np.ndarray) -> 
         if not green[:, j].any():
             continue
         prev, now = times[:, j - 1, :], times[:, j, :]
-        ok = (np.isfinite(prev) & np.isfinite(now) & ~pit_laps[:, j, :]
-              & green[:, j, None])
+        ok = np.isfinite(prev) & np.isfinite(now) & ~pit_laps[:, j, :] & green[:, j, None]
         before = prev[:, :, None] < prev[:, None, :]
         after = now[:, :, None] < now[:, None, :]
         pair = ok[:, :, None] & ok[:, None, :]
@@ -155,8 +159,9 @@ def count_passes(times: np.ndarray, pit_laps: np.ndarray, green: np.ndarray) -> 
     return out
 
 
-def close_share(times: np.ndarray, pit_laps: np.ndarray, green: np.ndarray,
-                gap_s: float = CLOSE_GAP_S) -> tuple[np.ndarray, np.ndarray]:
+def close_share(
+    times: np.ndarray, pit_laps: np.ndarray, green: np.ndarray, gap_s: float = CLOSE_GAP_S
+) -> tuple[np.ndarray, np.ndarray]:
     """(close car-laps, counted car-laps) per simulation (see module docstring)."""
     n, L1, C = times.shape
     green = np.broadcast_to(green, (n, L1))
@@ -182,8 +187,10 @@ def actual_counts(act: Actual, from_lap: int = 1) -> dict[str, float]:
     p = act.pit_laps[None, from_lap:, :]
     g = act.status[from_lap:] == GREEN
     close, total = close_share(t, p, g)
-    return {"passes": int(count_passes(t, p, g)[0]),
-            "close_share": float(close[0] / max(total[0], 1))}
+    return {
+        "passes": int(count_passes(t, p, g)[0]),
+        "close_share": float(close[0] / max(total[0], 1)),
+    }
 
 
 def neutral_counts(status: np.ndarray, before: int = GREEN) -> tuple[np.ndarray, np.ndarray]:
@@ -229,15 +236,15 @@ class Backtest:
 
     actual: Actual
     mode: str
-    drivers: list[str]            # simulated cars (running at the end of lap 1)
-    positions: np.ndarray         # (n_sims, n_cars): rank among finishers, nan if retired
-    gaps: np.ndarray              # (n_sims, n_cars): s behind the simulated winner
-    passes: np.ndarray            # (n_sims,)
-    close: np.ndarray             # (n_sims,) share of counted car-laps within 1 s
-    sc_counts: np.ndarray         # (n_sims,) SC periods started after the state lap
+    drivers: list[str]  # simulated cars (running at the end of lap 1)
+    positions: np.ndarray  # (n_sims, n_cars): rank among finishers, nan if retired
+    gaps: np.ndarray  # (n_sims, n_cars): s behind the simulated winner
+    passes: np.ndarray  # (n_sims,)
+    close: np.ndarray  # (n_sims,) share of counted car-laps within 1 s
+    sc_counts: np.ndarray  # (n_sims,) SC periods started after the state lap
     vsc_counts: np.ndarray
     actual_counts: dict[str, float]
-    lap1_order: list[str] = field(default_factory=list)   # order after lap 1
+    lap1_order: list[str] = field(default_factory=list)  # order after lap 1
     #: Phase 6 restart layer validation: passes in the first 3 green laps
     #: after each SC/VSC (per simulation; replay mode has the actual schedule).
     restart_passes: np.ndarray | None = None
@@ -245,11 +252,11 @@ class Backtest:
 
 
 def run_backtest(
-    fitted,
+    fitted: BayesFit,
     raw: pd.DataFrame,
     race: pd.DataFrame,
     cleaned: pd.DataFrame,
-    params,
+    params: SimParams,
     round_number: int,
     mode: str = "replay",
     n_sims: int = 1000,
@@ -273,26 +280,42 @@ def run_backtest(
     act = actual_race(raw, race, round_number)
     state = RaceState.from_laps(raw, round_number, lap=1, total_laps=act.total_laps)
     # Race time at the end of lap 1: session time, the same clock for every car.
-    state = RaceState(state.round_number, state.lap, state.total_laps,
-                      {d: _with_time(c, act, d) for d, c in state.cars.items()},
-                      state.track_status, state.sets, state.neutral_laps)
+    state = RaceState(
+        state.round_number,
+        state.lap,
+        state.total_laps,
+        {d: _with_time(c, act, d) for d, c in state.cars.items()},
+        state.track_status,
+        state.sets,
+        state.neutral_laps,
+    )
     forced = act.status[2:] if mode == "replay" else None
     late = round_number in late_restart_rounds(race)
     plans: dict[str, Plan] = {d: actual_plan(raw, round_number, d, 1) for d in state.cars}
-    fld = build_field(fitted, state, observed_pit_losses(cleaned, round_number), params,
-                      n_sims=n_sims, seed=seed, use_fitted_current_stint=False,
-                      widening=widening,
-                      final_race_prior=(mode == "random" and late), status=forced,
-                      max_stops=max(3, *(len(p.stops) for p in plans.values())))
+    fld = build_field(
+        fitted,
+        state,
+        observed_pit_losses(cleaned, round_number),
+        params,
+        n_sims=n_sims,
+        seed=seed,
+        use_fitted_current_stint=False,
+        widening=widening,
+        final_race_prior=(mode == "random" and late),
+        status=forced,
+        max_stops=max(3, *(len(p.stops) for p in plans.values())),
+    )
     retire = {d: act.last_lap[d] for d in fld.drivers if not act.finished[d]}
     res = simulate_field(fld, plans, retire=retire, record=True)
 
     start = np.array([state.cars[d].race_time for d in fld.drivers])
     hist = np.concatenate([np.broadcast_to(start, (n_sims, 1, len(start))), res.history], axis=1)
-    out_lap1 = np.array([state.cars[d].laps_since_stop == 0 and state.cars[d].stint > 1
-                         for d in fld.drivers])
-    pits = np.concatenate([np.broadcast_to(out_lap1, (n_sims, 1, len(start))), res.pit_laps],
-                          axis=1)
+    out_lap1 = np.array(
+        [state.cars[d].laps_since_stop == 0 and state.cars[d].stint > 1 for d in fld.drivers]
+    )
+    pits = np.concatenate(
+        [np.broadcast_to(out_lap1, (n_sims, 1, len(start))), res.pit_laps], axis=1
+    )
     green = np.concatenate([np.zeros((n_sims, 1), bool), fld.status == GREEN], axis=1)
     passes = count_passes(hist, pits, green)
     c, t = close_share(hist, pits, green)
@@ -308,15 +331,35 @@ def run_backtest(
     from f1strat.restart import RESTART_LAPS, laps_since_restart_sim
 
     k_sim = laps_since_restart_sim(np.asarray(fld.status), bool(act.status[1] != GREEN))
-    win = np.concatenate([np.zeros((n_sims, 1), bool),
-                          (k_sim >= 1) & (k_sim <= RESTART_LAPS)], axis=1) & green
+    win = (
+        np.concatenate(
+            [np.zeros((n_sims, 1), bool), (k_sim >= 1) & (k_sim <= RESTART_LAPS)], axis=1
+        )
+        & green
+    )
     restart_passes = count_passes(hist, pits, win)
     k_act = laps_since_restart_sim(act.status[None, 2:], bool(act.status[1] != GREEN))[0]
     win_act = np.concatenate([[False], (k_act >= 1) & (k_act <= RESTART_LAPS)])
-    act_rs = int(count_passes(act.times[None, 1:, :], act.pit_laps[None, 1:, :],
-                              win_act & (act.status[1:] == GREEN))[0])
-    return Backtest(act, mode, fld.drivers, positions, gaps, passes, close, sc_n, vsc_n,
-                    actual_counts(act), lap1, restart_passes, act_rs)
+    act_rs = int(
+        count_passes(
+            act.times[None, 1:, :], act.pit_laps[None, 1:, :], win_act & (act.status[1:] == GREEN)
+        )[0]
+    )
+    return Backtest(
+        act,
+        mode,
+        fld.drivers,
+        positions,
+        gaps,
+        passes,
+        close,
+        sc_n,
+        vsc_n,
+        actual_counts(act),
+        lap1,
+        restart_passes,
+        act_rs,
+    )
 
 
 def _with_time(car, act: Actual, driver: str):
@@ -350,11 +393,22 @@ def position_table(bt: Backtest, seed: int = 0) -> pd.DataFrame:
         a = bt.actual.order.index(d) + 1
         pit = (pos < a).mean() + rng.random() * (pos == a).mean()
         naive = [x for x in bt.lap1_order if x in bt.actual.order].index(d) + 1
-        rows.append({"round": bt.actual.round_number, "driver": d, "actual": a,
-                     "naive": naive, "sim_mean": pos.mean(), "lo50": lo50[c], "hi50": hi50[c],
-                     "lo80": lo80[c], "hi80": hi80[c],
-                     "in50": lo50[c] <= a <= hi50[c], "in80": lo80[c] <= a <= hi80[c],
-                     "pit": pit})
+        rows.append(
+            {
+                "round": bt.actual.round_number,
+                "driver": d,
+                "actual": a,
+                "naive": naive,
+                "sim_mean": pos.mean(),
+                "lo50": lo50[c],
+                "hi50": hi50[c],
+                "lo80": lo80[c],
+                "hi80": hi80[c],
+                "in50": lo50[c] <= a <= hi50[c],
+                "in80": lo80[c] <= a <= hi80[c],
+                "pit": pit,
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -368,9 +422,17 @@ def gap_table(bt: Backtest) -> pd.DataFrame:
             continue
         c = bt.drivers.index(d)
         x = bt.gaps[:, c]
-        rows.append({"round": bt.actual.round_number, "driver": d, "actual_gap_s": g,
-                     "sim_median_s": np.median(x), "pit": (x < g).mean(),
-                     "in50": lo50[c] <= g <= hi50[c], "in80": lo80[c] <= g <= hi80[c]})
+        rows.append(
+            {
+                "round": bt.actual.round_number,
+                "driver": d,
+                "actual_gap_s": g,
+                "sim_median_s": np.median(x),
+                "pit": (x < g).mean(),
+                "in50": lo50[c] <= g <= hi50[c],
+                "in80": lo80[c] <= g <= hi80[c],
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -383,8 +445,11 @@ def race_summary(bt: Backtest) -> dict[str, float]:
     act = bt.actual
     n_sc, n_vsc = (int(x[0]) for x in neutral_counts(act.status[2:], before=act.status[1]))
     return {
-        "round": act.round_number, "mode": bt.mode, "finishers": len(pos),
-        "pos_in50": pos["in50"].mean(), "pos_in80": pos["in80"].mean(),
+        "round": act.round_number,
+        "mode": bt.mode,
+        "finishers": len(pos),
+        "pos_in50": pos["in50"].mean(),
+        "pos_in80": pos["in80"].mean(),
         "spearman": spearmanr(pos["actual"], pos["sim_mean"]).statistic,
         "spearman_naive": spearmanr(pos["actual"], pos["naive"]).statistic,
         "mae": (pos["actual"] - pos["sim_mean"]).abs().mean(),
@@ -397,8 +462,10 @@ def race_summary(bt: Backtest) -> dict[str, float]:
         "passes_sim_p90": np.quantile(bt.passes, 0.9),
         "close_actual": bt.actual_counts["close_share"],
         "close_sim": bt.close.mean(),
-        "sc_actual": n_sc, "vsc_actual": n_vsc,
-        "sc_sim": bt.sc_counts.mean(), "vsc_sim": bt.vsc_counts.mean(),
+        "sc_actual": n_sc,
+        "vsc_actual": n_vsc,
+        "sc_sim": bt.sc_counts.mean(),
+        "vsc_sim": bt.vsc_counts.mean(),
     }
 
 
@@ -409,17 +476,33 @@ FIT_ROUNDS: tuple[int, ...] = tuple(r for r in BACKTEST_ROUNDS if r % 2 == 0)
 CHECK_ROUNDS: tuple[int, ...] = tuple(r for r in BACKTEST_ROUNDS if r % 2 == 1)
 
 
-def with_passing(params, shift: float, dirty_air_s: float = 0.0, slope_scale: float = 1.0):
+def with_passing(
+    params: SimParams, shift: float, dirty_air_s: float = 0.0, slope_scale: float = 1.0
+) -> SimParams:
     """Copy of ``params`` with the passing calibration set."""
     from dataclasses import replace
 
-    return replace(params, passing=replace(params.passing, shift=shift,
-                                           dirty_air_s=dirty_air_s,
-                                           slope=params.passing.slope * slope_scale))
+    return replace(
+        params,
+        passing=replace(
+            params.passing,
+            shift=shift,
+            dirty_air_s=dirty_air_s,
+            slope=params.passing.slope * slope_scale,
+        ),
+    )
 
 
-def pass_totals(fitted, raw, race, cleaned, params, rounds, n_sims: int = 200,
-                seed: int = 0) -> tuple[float, float, float, float]:
+def pass_totals(
+    fitted: BayesFit,
+    raw: pd.DataFrame,
+    race: pd.DataFrame,
+    cleaned: pd.DataFrame,
+    params: SimParams,
+    rounds: Sequence[int],
+    n_sims: int = 200,
+    seed: int = 0,
+) -> tuple[float, float, float, float]:
     """(simulated passes, actual passes, simulated close share, actual close share)
     summed / averaged over ``rounds`` in replay mode."""
     sim = act = 0.0
@@ -433,17 +516,34 @@ def pass_totals(fitted, raw, race, cleaned, params, rounds, n_sims: int = 200,
     return sim, act, float(np.mean(close_s)), float(np.mean(close_a))
 
 
-def calibrate_shift(fitted, raw, race, cleaned, params, dirty_air_s: float = 0.0,
-                    slope_scale: float = 1.0, rounds=FIT_ROUNDS, lo: float = -1.5, hi: float = 2.5,
-                    iters: int = 10, n_sims: int = 200) -> float:
+def calibrate_shift(
+    fitted: BayesFit,
+    raw: pd.DataFrame,
+    race: pd.DataFrame,
+    cleaned: pd.DataFrame,
+    params: SimParams,
+    dirty_air_s: float = 0.0,
+    slope_scale: float = 1.0,
+    rounds: Sequence[int] = FIT_ROUNDS,
+    lo: float = -1.5,
+    hi: float = 2.5,
+    iters: int = 10,
+    n_sims: int = 200,
+) -> float:
     """Intercept shift that makes simulated passes match actual over ``rounds``
     (replay mode, with ``dirty_air_s`` fixed). Bisection: under common random
     numbers, simulated passes increase with the shift."""
     for _ in range(iters):
         mid = (lo + hi) / 2
-        sim, act, _, _ = pass_totals(fitted, raw, race, cleaned,
-                                     with_passing(params, mid, dirty_air_s, slope_scale),
-                                     rounds, n_sims)
+        sim, act, _, _ = pass_totals(
+            fitted,
+            raw,
+            race,
+            cleaned,
+            with_passing(params, mid, dirty_air_s, slope_scale),
+            rounds,
+            n_sims,
+        )
         lo, hi = (mid, hi) if sim < act else (lo, mid)
     return (lo + hi) / 2
 
@@ -451,7 +551,9 @@ def calibrate_shift(fitted, raw, race, cleaned, params, dirty_air_s: float = 0.0
 # --- Safety-car closing ---------------------------------------------------------------
 
 
-def sc_gap_observations(raw: pd.DataFrame, race: pd.DataFrame, rounds) -> pd.DataFrame:
+def sc_gap_observations(
+    raw: pd.DataFrame, race: pd.DataFrame, rounds: Sequence[int]
+) -> pd.DataFrame:
     """Gaps between consecutive cars during 2022 SC periods.
 
     For every SC period starting after lap 1 (``k`` = SC lap within the period,
@@ -475,11 +577,19 @@ def sc_gap_observations(raw: pd.DataFrame, race: pd.DataFrame, rounds) -> pd.Dat
                 k, lap = 1, L
                 while lap <= act.total_laps and st[lap] == SC:
                     t = act.times[lap]
-                    if (act.pit_laps[L:lap + 1, [i, a]].any()
-                            or not (np.isfinite(t[i]) and np.isfinite(t[a]))):
+                    if act.pit_laps[L : lap + 1, [i, a]].any() or not (
+                        np.isfinite(t[i]) and np.isfinite(t[a])
+                    ):
                         break
-                    rows.append({"round": rnd, "sc_lap": L, "k": k,
-                                 "gap0": t0[i] - t0[a], "gap": t[i] - t[a]})
+                    rows.append(
+                        {
+                            "round": rnd,
+                            "sc_lap": L,
+                            "k": k,
+                            "gap0": t0[i] - t0[a],
+                            "gap": t[i] - t[a],
+                        }
+                    )
                     k, lap = k + 1, lap + 1
     return pd.DataFrame(rows)
 
@@ -500,8 +610,10 @@ def fit_sc_close_ratio(obs: pd.DataFrame, sc_gap_s: float, loss: str = "seconds"
     o = obs[(obs["k"] >= 2) & (obs["gap0"] > 0) & (obs["gap"] > 0)]
     grid = np.arange(0.20, 1.001, 0.005)
     if loss == "log":
-        err = [np.mean((np.log(o["gap"]) - np.log(predicted_sc_gap(o, r, sc_gap_s))) ** 2)
-               for r in grid]
+        err = [
+            np.mean((np.log(o["gap"]) - np.log(predicted_sc_gap(o, r, sc_gap_s))) ** 2)
+            for r in grid
+        ]
     else:
         err = [np.mean((o["gap"] - predicted_sc_gap(o, r, sc_gap_s)) ** 2) for r in grid]
     return float(grid[int(np.argmin(err))])
@@ -510,11 +622,14 @@ def fit_sc_close_ratio(obs: pd.DataFrame, sc_gap_s: float, loss: str = "seconds"
 def sc_gap_table(obs: pd.DataFrame, ratio: float | None, sc_gap_s: float) -> pd.DataFrame:
     """Median observed vs predicted gap by SC lap ``k`` (``ratio=None``: Phase 4,
     every gap at ``sc_gap_s`` from the first SC lap)."""
-    pred = (np.full(len(obs), sc_gap_s) if ratio is None
-            else predicted_sc_gap(obs, ratio, sc_gap_s))
+    pred = np.full(len(obs), sc_gap_s) if ratio is None else predicted_sc_gap(obs, ratio, sc_gap_s)
     o = obs.assign(pred=pred)
-    return o.groupby("k").agg(pairs=("gap", "size"), gap_before=("gap0", "median"),
-                              observed=("gap", "median"), predicted=("pred", "median"))
+    return o.groupby("k").agg(
+        pairs=("gap", "size"),
+        gap_before=("gap0", "median"),
+        observed=("gap", "median"),
+        predicted=("pred", "median"),
+    )
 
 
 # --- Running everything -------------------------------------------------------------
@@ -522,24 +637,43 @@ def sc_gap_table(obs: pd.DataFrame, ratio: float | None, sc_gap_s: float) -> pd.
 FIG_DIR = Path(__file__).resolve().parents[2] / "reports" / "figures"
 
 
-def run_all(fitted, raw, race, cleaned, params, rounds=BACKTEST_ROUNDS,
-            n_sims: int = 1000, seed: int = 0, modes=("replay", "random"),
-            widening: float = DEFAULT_WIDENING) -> dict[str, pd.DataFrame]:
+def run_all(
+    fitted: BayesFit,
+    raw: pd.DataFrame,
+    race: pd.DataFrame,
+    cleaned: pd.DataFrame,
+    params: SimParams,
+    rounds: Sequence[int] = BACKTEST_ROUNDS,
+    n_sims: int = 1000,
+    seed: int = 0,
+    modes: Sequence[str] = ("replay", "random"),
+    widening: float = DEFAULT_WIDENING,
+) -> dict[str, pd.DataFrame]:
     """Both modes for every round: per-race summary, positions and gaps."""
     out: dict[str, list] = {"summary": [], "positions": [], "gaps": [], "passes": []}
     for mode in modes:
         for rnd in rounds:
-            bt = run_backtest(fitted, raw, race, cleaned, params, rnd, mode, n_sims, seed,
-                              widening)
+            bt = run_backtest(fitted, raw, race, cleaned, params, rnd, mode, n_sims, seed, widening)
             out["summary"].append(race_summary(bt))
             out["positions"].append(position_table(bt).assign(mode=mode))
             out["gaps"].append(gap_table(bt).assign(mode=mode))
-            out["passes"].append(pd.DataFrame({"round": rnd, "mode": mode,
-                                               "sim_passes": bt.passes,
-                                               "sim_sc": bt.sc_counts,
-                                               "sim_vsc": bt.vsc_counts}))
-    return {k: pd.concat([v if isinstance(v, pd.DataFrame) else pd.DataFrame([v])
-                          for v in vs], ignore_index=True) for k, vs in out.items()}
+            out["passes"].append(
+                pd.DataFrame(
+                    {
+                        "round": rnd,
+                        "mode": mode,
+                        "sim_passes": bt.passes,
+                        "sim_sc": bt.sc_counts,
+                        "sim_vsc": bt.vsc_counts,
+                    }
+                )
+            )
+    return {
+        k: pd.concat(
+            [v if isinstance(v, pd.DataFrame) else pd.DataFrame([v]) for v in vs], ignore_index=True
+        )
+        for k, vs in out.items()
+    }
 
 
 def overall(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
@@ -550,23 +684,46 @@ def overall(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
     for mode, pos in tables["positions"].groupby("mode"):
         gap = tables["gaps"][tables["gaps"]["mode"] == mode]
         s = tables["summary"][tables["summary"]["mode"] == mode]
-        rows.append({
-            "mode": mode, "finishers": len(pos),
-            "pos_in50": pos["in50"].mean(), "pos_in80": pos["in80"].mean(),
-            "pos_pit50": pos["pit"].between(0.25, 0.75).mean(),
-            "pos_pit80": pos["pit"].between(0.1, 0.9).mean(),
-            "spearman_mean": s["spearman"].mean(),
-            "spearman_pooled": spearmanr(pos["actual"], pos["sim_mean"]).statistic,
-            "gaps": len(gap), "gap_in50": gap["in50"].mean(), "gap_in80": gap["in80"].mean(),
-            "pos_mean_abs_err": (pos["actual"] - pos["sim_mean"]).abs().mean(),
-            "naive_spearman_mean": s["spearman_naive"].mean(),
-            "naive_mean_abs_err": (pos["actual"] - pos["naive"]).abs().mean(),
-            "passes_actual": s["passes_actual"].mean(), "passes_sim": s["passes_sim"].mean(),
-            "close_actual": s["close_actual"].mean(), "close_sim": s["close_sim"].mean(),
-            "sc_actual": s["sc_actual"].mean(), "sc_sim": s["sc_sim"].mean(),
-            "vsc_actual": s["vsc_actual"].mean(), "vsc_sim": s["vsc_sim"].mean(),
-        })
+        rows.append(
+            {
+                "mode": mode,
+                "finishers": len(pos),
+                "pos_in50": pos["in50"].mean(),
+                "pos_in80": pos["in80"].mean(),
+                "pos_pit50": pos["pit"].between(0.25, 0.75).mean(),
+                "pos_pit80": pos["pit"].between(0.1, 0.9).mean(),
+                "spearman_mean": s["spearman"].mean(),
+                "spearman_pooled": spearmanr(pos["actual"], pos["sim_mean"]).statistic,
+                "gaps": len(gap),
+                "gap_in50": gap["in50"].mean(),
+                "gap_in80": gap["in80"].mean(),
+                "pos_mean_abs_err": (pos["actual"] - pos["sim_mean"]).abs().mean(),
+                "naive_spearman_mean": s["spearman_naive"].mean(),
+                "naive_mean_abs_err": (pos["actual"] - pos["naive"]).abs().mean(),
+                "passes_actual": s["passes_actual"].mean(),
+                "passes_sim": s["passes_sim"].mean(),
+                "close_actual": s["close_actual"].mean(),
+                "close_sim": s["close_sim"].mean(),
+                "sc_actual": s["sc_actual"].mean(),
+                "sc_sim": s["sc_sim"].mean(),
+                "vsc_actual": s["vsc_actual"].mean(),
+                "vsc_sim": s["vsc_sim"].mean(),
+            }
+        )
     return pd.DataFrame(rows)
+
+
+#: Per-simulation SC/VSC counts of the random-mode backtests (written by ``run``).
+NEUTRAL_DRAWS_PATH = FIG_DIR / "backtest_neutral_draws.csv"
+
+
+def saved_tables(fig_dir: Path = FIG_DIR) -> dict[str, pd.DataFrame]:
+    """The tables :func:`plot_all` needs, read back from the saved CSVs."""
+    tables = {
+        k: pd.read_csv(fig_dir / f"backtest_{k}.csv") for k in ("summary", "positions", "gaps")
+    }
+    tables["passes"] = pd.read_csv(fig_dir / NEUTRAL_DRAWS_PATH.name).assign(mode="random")
+    return tables
 
 
 def plot_all(tables: dict[str, pd.DataFrame], fig_dir: Path = FIG_DIR) -> list[Path]:
@@ -582,8 +739,9 @@ def plot_all(tables: dict[str, pd.DataFrame], fig_dir: Path = FIG_DIR) -> list[P
     # PIT histograms: positions and gaps, both modes.
     fig, axes = plt.subplots(2, 2, figsize=(10, 7), sharey="row")
     for col, mode in enumerate(("replay", "random")):
-        for row, (key, label) in enumerate((("positions", "finishing position"),
-                                            ("gaps", "gap to winner"))):
+        for row, (key, label) in enumerate(
+            (("positions", "finishing position"), ("gaps", "gap to winner"))
+        ):
             t = tables[key][tables[key]["mode"] == mode]
             ax = axes[row, col]
             ax.hist(t["pit"], bins=10, range=(0, 1), color="#4C72B0", edgecolor="white")
@@ -604,12 +762,24 @@ def plot_all(tables: dict[str, pd.DataFrame], fig_dir: Path = FIG_DIR) -> list[P
     for ax, mode in zip(axes, ("replay", "random")):
         t = s[s["mode"] == mode]
         x = np.arange(len(t))
-        for k, (col, lvl, c) in enumerate((("pos_in50", 0.5, "#4C72B0"),
-                                           ("pos_in80", 0.8, "#DD8452"),
-                                           ("gap_in80", 0.8, "#55A868"))):
-            ax.scatter(x + (k - 1) * 0.2, t[col], color=c, s=18,
-                       label={"pos_in50": "position 50%", "pos_in80": "position 80%",
-                              "gap_in80": "gap 80%"}[col])
+        for k, (col, _level, c) in enumerate(
+            (
+                ("pos_in50", 0.5, "#4C72B0"),
+                ("pos_in80", 0.8, "#DD8452"),
+                ("gap_in80", 0.8, "#55A868"),
+            )
+        ):
+            ax.scatter(
+                x + (k - 1) * 0.2,
+                t[col],
+                color=c,
+                s=18,
+                label={
+                    "pos_in50": "position 50%",
+                    "pos_in80": "position 80%",
+                    "gap_in80": "gap 80%",
+                }[col],
+            )
         ax.axhline(0.5, color="#4C72B0", ls="--", lw=1)
         ax.axhline(0.8, color="#DD8452", ls="--", lw=1)
         ax.set_xticks(x, t["round"].astype(int))
@@ -627,11 +797,15 @@ def plot_all(tables: dict[str, pd.DataFrame], fig_dir: Path = FIG_DIR) -> list[P
     for ax, mode in zip(axes, ("replay", "random")):
         t = s[s["mode"] == mode]
         x = np.arange(len(t))
-        ax.errorbar(x, t["passes_sim"], yerr=[t["passes_sim"] - t["passes_sim_p10"],
-                                              t["passes_sim_p90"] - t["passes_sim"]],
-                    fmt="o", color="#4C72B0", label="simulated (mean, 10–90%)")
-        ax.scatter(x, t["passes_actual"], color="#C44E52", marker="x", s=40, label="2022",
-                   zorder=3)
+        ax.errorbar(
+            x,
+            t["passes_sim"],
+            yerr=[t["passes_sim"] - t["passes_sim_p10"], t["passes_sim_p90"] - t["passes_sim"]],
+            fmt="o",
+            color="#4C72B0",
+            label="simulated (mean, 10–90%)",
+        )
+        ax.scatter(x, t["passes_actual"], color="#C44E52", marker="x", s=40, label="2022", zorder=3)
         ax.set_xticks(x, t["round"].astype(int))
         ax.set_xlabel("round (even: calibration fit; odd: check)")
         ax.set_title(names[mode], fontsize=10)
@@ -662,8 +836,9 @@ def plot_all(tables: dict[str, pd.DataFrame], fig_dir: Path = FIG_DIR) -> list[P
     p = tables["passes"][tables["passes"]["mode"] == "random"]
     t = s[s["mode"] == "random"]
     fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
-    for ax, (sim, act, label) in zip(axes, (("sim_sc", "sc_actual", "SC periods"),
-                                            ("sim_vsc", "vsc_actual", "VSC periods"))):
+    for ax, (sim, act, label) in zip(
+        axes, (("sim_sc", "sc_actual", "SC periods"), ("sim_vsc", "vsc_actual", "VSC periods"))
+    ):
         k = np.arange(0, 6)
         sim_share = [(p[sim] == v).mean() for v in k]
         act_share = [(t[act] == v).mean() for v in k]
@@ -703,7 +878,8 @@ def main(argv: list[str] | None = None) -> None:
         check_obs = sc_gap_observations(raw, race, CHECK_ROUNDS)
         ratio = fit_sc_close_ratio(fit_obs, params.sc_gap_s)
         params = replace(params, neutral=replace(params.neutral, sc_close_ratio=ratio))
-        print(f"SC closing ratio {ratio:.3f} (fit on {fit_obs['sc_lap'].groupby(fit_obs['round']).nunique().sum()} SC periods)")
+        n_periods = fit_obs["sc_lap"].groupby(fit_obs["round"]).nunique().sum()
+        print(f"SC closing ratio {ratio:.3f} (fit on {n_periods} SC periods)")
         print(f"(log-error fit: {fit_sc_close_ratio(fit_obs, params.sc_gap_s, 'log'):.3f})")
         tabs = []
         for name, o in (("fit (even)", fit_obs), ("check (odd)", check_obs)):
@@ -720,8 +896,10 @@ def main(argv: list[str] | None = None) -> None:
         print(f"shift {shift:.3f}; wrote {params.save()}")
         for name, rounds in (("fit (even)", FIT_ROUNDS), ("check (odd)", CHECK_ROUNDS)):
             sim, act, cs, ca = pass_totals(fitted, raw, race, cleaned, params, rounds)
-            print(f"{name}: passes sim {sim:.0f} vs actual {act:.0f}; "
-                  f"close share sim {cs:.3f} vs actual {ca:.3f}")
+            print(
+                f"{name}: passes sim {sim:.0f} vs actual {act:.0f}; "
+                f"close share sim {cs:.3f} vs actual {ca:.3f}"
+            )
         return
     if cmd[0] == "widening":  # sensitivity: replay without the final-stint widening
         tables = run_all(fitted, raw, race, cleaned, params, modes=("replay",), widening=1.0)
@@ -731,8 +909,13 @@ def main(argv: list[str] | None = None) -> None:
         return
     tables = run_all(fitted, raw, race, cleaned, params)
     for name, df in tables.items():
-        if name != "passes":  # per-simulation draws: plotted, not saved
+        if name != "passes":
             df.to_csv(FIG_DIR / f"backtest_{name}.csv", index=False)
+    # Per-simulation SC/VSC counts in random mode, for the SC/VSC plot.
+    draws = tables["passes"]
+    draws[draws["mode"] == "random"][["round", "sim_sc", "sim_vsc"]].to_csv(
+        NEUTRAL_DRAWS_PATH, index=False
+    )
     ov = overall(tables)
     ov.to_csv(FIG_DIR / "backtest_overall.csv", index=False)
     print(ov.round(3).to_string())
