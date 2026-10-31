@@ -1,0 +1,65 @@
+option,focal,teammate,focal_points,teammate_points,combined
+"SAI pits, LEC stays out (actual family)",H,H → 39 S(new),23.145,17.196,40.341
+"SAI pits, LEC stays out (actual family)",H,H → 39 M(used 2),23.793,15.997,39.79
+"SAI pits, LEC stays out (actual family)",H,H → 39 H(new),24.082,15.451,39.533
+"SAI pits, LEC stays out (actual family)",H,H → 39 S(new) → 44 S(new),24.257,6.141,30.398
+"SAI pits, LEC stays out (actual family)",H → 40 S(new),H → 39 S(new),18.025,18.683,36.708
+"SAI pits, LEC stays out (actual family)",H → 40 S(new),H → 39 M(used 2),18.951,17.2,36.151
+"SAI pits, LEC stays out (actual family)",H → 40 S(new),H → 39 H(new),19.422,16.519,35.941
+"SAI pits, LEC stays out (actual family)",H → 40 S(new),H → 39 S(new) → 44 S(new),21.1,6.297,27.397
+"SAI pits, LEC stays out (actual family)",H → 40 M(used 2),H → 39 S(new),16.52,19.427,35.947
+"SAI pits, LEC stays out (actual family)",H → 40 M(used 2),H → 39 M(used 2),17.152,17.965,35.117
+"SAI pits, LEC stays out (actual family)",H → 40 M(used 2),H → 39 H(new),17.539,17.335,34.874
+"SAI pits, LEC stays out (actual family)",H → 40 M(used 2),H → 39 S(new) → 44 S(new),19.866,6.297,26.163
+"SAI pits, LEC stays out (actual family)",H → 40 H(new),H → 39 S(new),16.035,19.592,35.627
+"SAI pits, LEC stays out (actual family)",H → 40 H(new),H → 39 M(used 2),16.541,18.2,34.741
+"SAI pits, LEC stays out (actual family)",H → 40 H(new),H → 39 H(new),16.765,17.621,34.386
+"SAI pits, LEC stays out (actual family)",H → 40 H(new),H → 39 S(new) → 44 S(new),19.284,6.3,25.584
+both pit (double stack),H → 39 S(new),H → 39 S(new),21.178,16.064,37.242
+both pit (double stack),H → 39 S(new),H → 39 M(used 2),21.441,15.348,36.789
+both pit (double stack),H → 39 S(new),H → 39 H(new),21.515,15.108,36.623
+both pit (double stack),H → 39 S(new),H → 39 S(new) → 44 S(new),21.66,5.895,27.555
+both pit (double stack),H → 39 M(used 2),H → 39 S(new),19.51,16.616,36.126
+both pit (double stack),H → 39 M(used 2),H → 39 M(used 2),20.0,15.586,35.586
+both pit (double stack),H → 39 M(used 2),H → 39 H(new),20.144,15.227,35.371
+both pit (double stack),H → 39 M(used 2),H → 39 S(new) → 44 S(new),20.38,5.895,26.275
+both pit (double stack),H → 39 H(new),H → 39 S(new),18.723,16.94,35.663
+both pit (double stack),H → 39 H(new),H → 39 M(used 2),19.253,15.833,35.086
+both pit (double stack),H → 39 H(new),H → 39 H(new),19.475,15.292,34.767
+both pit (double stack),H → 39 H(new),H → 39 S(new) → 44 S(new),19.815,5.893,25.708
+both pit (double stack),H → 39 S(new) → 44 S(new),H → 39 S(new),7.266,19.967,27.233
+both pit (double stack),H → 39 S(new) → 44 S(new),H → 39 M(used 2),7.271,19.002,26.273
+both pit (double stack),H → 39 S(new) → 44 S(new),H → 39 H(new),7.269,18.593,25.862
+both pit (double stack),H → 39 S(new) → 44 S(new),H → 39 S(new) → 44 S(new),8.899,3.539,12.438
+"LEC pits, SAI stays out",H → 39 S(new),H,19.932,18.151,38.083
+"LEC pits, SAI stays out",H → 39 S(new),H → 40 S(new),21.434,15.77,37.204
+"LEC pits, SAI stays out",H → 39 S(new),H → 40 M(used 2),21.536,15.144,36.68
+"LEC pits, SAI stays out",H → 39 S(new),H → 40 H(new),21.609,14.827,36.436
+"LEC pits, SAI stays out",H → 39 M(used 2),H,18.531,18.772,37.303
+"LEC pits, SAI stays out",H → 39 M(used 2),H → 40 S(new),19.752,16.282,36.034
+"LEC pits, SAI stays out",H → 39 M(used 2),H → 40 M(used 2),20.205,15.2,35.405
+"LEC pits, SAI stays out",H → 39 M(used 2),H → 40 H(new),20.265,14.908,35.173
+"LEC pits, SAI stays out",H → 39 H(new),H,17.908,19.033,36.941
+"LEC pits, SAI stays out",H → 39 H(new),H → 40 S(new),19.001,16.581,35.582
+"LEC pits, SAI stays out",H → 39 H(new),H → 40 M(used 2),19.481,15.375,34.856
+"LEC pits, SAI stays out",H → 39 H(new),H → 40 H(new),19.67,14.916,34.586
+"LEC pits, SAI stays out",H → 39 S(new) → 44 S(new),H,7.221,20.521,27.742
+"LEC pits, SAI stays out",H → 39 S(new) → 44 S(new),H → 40 S(new),7.275,19.824,27.099
+"LEC pits, SAI stays out",H → 39 S(new) → 44 S(new),H → 40 M(used 2),7.289,18.671,25.96
+"LEC pits, SAI stays out",H → 39 S(new) → 44 S(new),H → 40 H(new),7.284,18.226,25.51
+neither pits,H,H,24.682,15.864,40.546
+neither pits,H,H → 40 S(new),23.417,16.746,40.163
+neither pits,H,H → 40 M(used 2),23.95,15.578,39.528
+neither pits,H,H → 40 H(new),24.164,15.061,39.225
+neither pits,H → 40 S(new),H,19.591,18.224,37.815
+neither pits,H → 40 S(new),H → 40 S(new),20.86,15.651,36.511
+neither pits,H → 40 S(new),H → 40 M(used 2),21.054,14.87,35.924
+neither pits,H → 40 S(new),H → 40 H(new),21.114,14.592,35.706
+neither pits,H → 40 M(used 2),H,17.982,19.006,36.988
+neither pits,H → 40 M(used 2),H → 40 S(new),19.118,16.189,35.307
+neither pits,H → 40 M(used 2),H → 40 M(used 2),19.63,15.006,34.636
+neither pits,H → 40 M(used 2),H → 40 H(new),19.716,14.743,34.459
+neither pits,H → 40 H(new),H,17.214,19.39,36.604
+neither pits,H → 40 H(new),H → 40 S(new),18.392,16.507,34.899
+neither pits,H → 40 H(new),H → 40 M(used 2),18.95,15.242,34.192
+neither pits,H → 40 H(new),H → 40 H(new),19.118,14.769,33.887

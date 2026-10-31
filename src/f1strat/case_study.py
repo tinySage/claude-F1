@@ -911,6 +911,7 @@ def plot_points(main: dict, path: Path, race_name: str = "Hungary") -> Path:
     rows = sorted(_merged(main), key=lambda r: meas[r[0].split(" = ")[0]]["mean_points"])
     fig, ax = plt.subplots(figsize=(9.5, 0.6 * len(rows) + 1.8), facecolor=SURFACE)
     _style(ax)
+    seen: set[str] = set()
     for y, (joined, _) in enumerate(rows):
         n = joined.split(" = ")[0]
         left = 0.0
@@ -918,8 +919,10 @@ def plot_points(main: dict, path: Path, race_name: str = "Hungary") -> Path:
         for label, vals, color in POINT_BINS:
             w = sum(dist.get(v, dist.get(str(v), 0.0)) for v in vals)
             if w > 0:
+                # Legend entry on each bin's first appearance (any row).
                 ax.barh(y, w - 0.004, left=left, color=color, height=0.62,
-                        label=label if y == 0 else None)
+                        label=label if label not in seen else None)
+                seen.add(label)
             left += w
         ax.text(1.01, y, f"{meas[n]['mean_points']:.1f} pts", va="center", fontsize=9,
                 color=INK)
@@ -930,6 +933,9 @@ def plot_points(main: dict, path: Path, race_name: str = "Hungary") -> Path:
                  f"{main.get('cutoff', 38)}; 2,000 simulations)", fontsize=10, color=INK,
                  loc="left")
     handles, labels = ax.get_legend_handles_labels()
+    order = [b[0] for b in POINT_BINS]
+    pairs = sorted(zip(handles, labels), key=lambda hl: order.index(hl[1]))
+    handles, labels = [h for h, _ in pairs], [lbl for _, lbl in pairs]
     ax.legend(handles, labels, title="points", ncol=7, fontsize=8, title_fontsize=8,
               loc="upper center", bbox_to_anchor=(0.5, -0.12 - 0.3 / len(rows)),
               frameon=False)
@@ -1058,6 +1064,9 @@ def main(argv: list[str] | None = None) -> None:
     args = argv if argv is not None else sys.argv[1:]
     if args and args[0] == "pass-sensitivity":
         pass_sensitivity()
+        return
+    if args and args[0] == "silverstone-break-even":
+        silverstone_break_even()
         return
     if args and args[0] == "silverstone":
         run_silverstone(hindsight_only="--hindsight-only" in args)
@@ -1406,6 +1415,52 @@ def plot_joint(joint: dict, path: Path, hind: dict | None = None) -> Path:
     fig.savefig(path, dpi=130)
     plt.close(fig)
     return path
+
+
+#: Exploratory (Silverstone): s/lap added to Ferrari's hard pace.
+SILVERSTONE_BREAK_EVEN: tuple[float, ...] = (0.25, 0.5, 0.75, 1.0, 1.5)
+
+
+def silverstone_inputs():
+    """(fitted, state, losses, params, call, cap) at Silverstone's cutoff, as in
+    :func:`run_silverstone`."""
+    from f1strat.data import load_season
+    from f1strat.deg_model import Cutoff, cutoff_inputs, load_fit, thin_fit
+    from f1strat.race_events import double_stack_loss, double_stack_pairs
+    from f1strat.rehearsal import fit_path, leakage_free_params
+    from f1strat.simulator import observed_pit_losses
+
+    call = silverstone_call()
+    rnd = call.round_number
+    raw, race = load_season(2022), load_season(2022, table="race")
+    cleaned, laps = cutoff_inputs(raw, Cutoff(rnd, call.cutoff))
+    fitted = thin_fit(load_fit(fit_path(rnd, call.cutoff, "cutoff")))
+    params, _ = leakage_free_params(fitted, raw, race, cleaned, rnd, **call.param_kwargs)
+    params = replace(params, double_stack={k: v["D_s"] for k, v in
+                                           double_stack_loss(double_stack_pairs(raw)).items()})
+    state, _ = decision_state(raw, race, call, cleaned, outlap_scale=params.neutral.sc_pit_ratio)
+    return fitted, state, observed_pit_losses(cleaned, rnd), params, call, tyre_age_cap(laps)
+
+
+def silverstone_break_even(shifts=SILVERSTONE_BREAK_EVEN) -> list[dict]:
+    """Exploratory, outside the committed rule: the verdict with Ferrari's hard
+    pace shifted by each of ``shifts`` (both Ferraris; only Leclerc stays on
+    hards after lap 39). Writes ``case_silverstone_break_even.json``."""
+    import json
+
+    fitted, state, losses, params, call, cap = silverstone_inputs()
+    out = []
+    for x in shifts:
+        v = verdict(fitted, state, losses, params, call, cap,
+                    Check(f"Ferrari hard pace +{x:.2f} s/lap", hard_pace_add=x))
+        r = {k: v[k] for k in ("check", "band", "primary", "chosen")}
+        r["measure"] = {n: m["mean_points"] for n, m in v["measure"].items()}
+        out.append(r)
+        print(x, v["band"], round(v["primary"]["mean_loss"], 2),
+              v["chosen"]["best overall"], v["chosen"][call.call_family], flush=True)
+    (FIG_DIR / "case_silverstone_break_even.json").write_text(
+        json.dumps(out, indent=1, default=str))
+    return out
 
 
 def run_silverstone(hindsight_only: bool = False) -> dict:

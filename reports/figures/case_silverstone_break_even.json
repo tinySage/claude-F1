@@ -1,0 +1,167 @@
+[
+ {
+  "check": "Ferrari hard pace +0.25 s/lap",
+  "band": "within range",
+  "primary": {
+   "mean_loss": 0.0,
+   "p10": 0.0,
+   "p50": 0.0,
+   "p90": 0.0,
+   "p_loss_pos": 0.0,
+   "p_loss_neg": 0.0,
+   "p_level_or_ahead": 1.0
+  },
+  "chosen": {
+   "best overall": "H",
+   "call: stay out at 39": "H",
+   "pit at 39: hard (new)": "H \u2192 39 H(new)",
+   "pit at 39: medium (used 2)": "H \u2192 39 M(used 2)",
+   "pit at 39: medium (used 25)": "H \u2192 39 M(used 25) \u2192 44 S(new)",
+   "pit at 39: soft (new)": "H \u2192 39 S(new)",
+   "as run": "H",
+   "hards to the flag": "H"
+  },
+  "measure": {
+   "best overall": 21.6965,
+   "call: stay out at 39": 21.6965,
+   "pit at 39: hard (new)": 17.489,
+   "pit at 39: medium (used 2)": 19.899,
+   "pit at 39: medium (used 25)": 7.008,
+   "pit at 39: soft (new)": 21.441,
+   "as run": 21.6965,
+   "hards to the flag": 21.6965
+  }
+ },
+ {
+  "check": "Ferrari hard pace +0.50 s/lap",
+  "band": "marginal",
+  "primary": {
+   "mean_loss": 2.443,
+   "p10": -7.0,
+   "p50": 0.0,
+   "p90": 10.0,
+   "p_loss_pos": 0.467,
+   "p_loss_neg": 0.191,
+   "p_level_or_ahead": 0.533
+  },
+  "chosen": {
+   "best overall": "H \u2192 39 S(new)",
+   "call: stay out at 39": "H",
+   "pit at 39: hard (new)": "H \u2192 39 H(new)",
+   "pit at 39: medium (used 2)": "H \u2192 39 M(used 2)",
+   "pit at 39: medium (used 25)": "H \u2192 39 M(used 25) \u2192 44 S(new)",
+   "pit at 39: soft (new)": "H \u2192 39 S(new)",
+   "as run": "H",
+   "hards to the flag": "H"
+  },
+  "measure": {
+   "best overall": 21.441,
+   "call: stay out at 39": 18.998,
+   "pit at 39: hard (new)": 16.2585,
+   "pit at 39: medium (used 2)": 19.899,
+   "pit at 39: medium (used 25)": 7.008,
+   "pit at 39: soft (new)": 21.441,
+   "as run": 18.998,
+   "hards to the flag": 18.998
+  }
+ },
+ {
+  "check": "Ferrari hard pace +0.75 s/lap",
+  "band": "marginal",
+  "primary": {
+   "mean_loss": 3.273,
+   "p10": 0.0,
+   "p50": 3.0,
+   "p90": 10.0,
+   "p_loss_pos": 0.566,
+   "p_loss_neg": 0.008,
+   "p_level_or_ahead": 0.434
+  },
+  "chosen": {
+   "best overall": "H \u2192 39 S(new)",
+   "call: stay out at 39": "H \u2192 40 S(new)",
+   "pit at 39: hard (new)": "H \u2192 39 H(new)",
+   "pit at 39: medium (used 2)": "H \u2192 39 M(used 2)",
+   "pit at 39: medium (used 25)": "H \u2192 39 M(used 25) \u2192 44 S(new)",
+   "pit at 39: soft (new)": "H \u2192 39 S(new)",
+   "as run": "H",
+   "hards to the flag": "H"
+  },
+  "measure": {
+   "best overall": 21.441,
+   "call: stay out at 39": 18.168,
+   "pit at 39: hard (new)": 15.1455,
+   "pit at 39: medium (used 2)": 19.899,
+   "pit at 39: medium (used 25)": 7.008,
+   "pit at 39: soft (new)": 21.441,
+   "as run": 16.499,
+   "hards to the flag": 16.499
+  }
+ },
+ {
+  "check": "Ferrari hard pace +1.00 s/lap",
+  "band": "marginal",
+  "primary": {
+   "mean_loss": 3.273,
+   "p10": 0.0,
+   "p50": 3.0,
+   "p90": 10.0,
+   "p_loss_pos": 0.566,
+   "p_loss_neg": 0.008,
+   "p_level_or_ahead": 0.434
+  },
+  "chosen": {
+   "best overall": "H \u2192 39 S(new)",
+   "call: stay out at 39": "H \u2192 40 S(new)",
+   "pit at 39: hard (new)": "H \u2192 39 H(new)",
+   "pit at 39: medium (used 2)": "H \u2192 39 M(used 2)",
+   "pit at 39: medium (used 25)": "H \u2192 39 M(used 25) \u2192 44 S(new)",
+   "pit at 39: soft (new)": "H \u2192 39 S(new)",
+   "as run": "H",
+   "hards to the flag": "H"
+  },
+  "measure": {
+   "best overall": 21.441,
+   "call: stay out at 39": 18.168,
+   "pit at 39: hard (new)": 14.215,
+   "pit at 39: medium (used 2)": 19.899,
+   "pit at 39: medium (used 25)": 7.008,
+   "pit at 39: soft (new)": 21.441,
+   "as run": 14.8715,
+   "hards to the flag": 14.8715
+  }
+ },
+ {
+  "check": "Ferrari hard pace +1.50 s/lap",
+  "band": "marginal",
+  "primary": {
+   "mean_loss": 3.273,
+   "p10": 0.0,
+   "p50": 3.0,
+   "p90": 10.0,
+   "p_loss_pos": 0.566,
+   "p_loss_neg": 0.008,
+   "p_level_or_ahead": 0.434
+  },
+  "chosen": {
+   "best overall": "H \u2192 39 S(new)",
+   "call: stay out at 39": "H \u2192 40 S(new)",
+   "pit at 39: hard (new)": "H \u2192 39 H(new)",
+   "pit at 39: medium (used 2)": "H \u2192 39 M(used 2)",
+   "pit at 39: medium (used 25)": "H \u2192 39 M(used 25) \u2192 44 S(new)",
+   "pit at 39: soft (new)": "H \u2192 39 S(new)",
+   "as run": "H",
+   "hards to the flag": "H"
+  },
+  "measure": {
+   "best overall": 21.441,
+   "call: stay out at 39": 18.168,
+   "pit at 39: hard (new)": 12.7065,
+   "pit at 39: medium (used 2)": 19.899,
+   "pit at 39: medium (used 25)": 7.008,
+   "pit at 39: soft (new)": 21.441,
+   "as run": 13.201,
+   "hards to the flag": 13.201
+  }
+ }
+]
