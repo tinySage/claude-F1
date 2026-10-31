@@ -1557,3 +1557,226 @@ figures).
     worse than modelled over the final laps (v1 break-even);
   - Ferrari's actual split strategy was the best joint option, and the
     double stack the worst.
+
+## Monaco 2022: the crossover and the double stack
+
+Written and committed **before any counterfactual is computed.**
+
+**Why Monaco is a different kind of study.** The lap model is dry-only and
+excludes Monaco (mixed conditions), so the simulator is not used. Monaco is a
+**track-position accounting study**:
+- almost nobody passes there (2021: 0 passes in 115 close battles);
+- so the order after the stop cycle largely sets the result.
+
+That premise is checked against the 2022 race below.
+
+### Reconstruction (`f1strat.monaco`; `reports/figures/case_monaco_reconstruction.json`)
+
+**The race.**
+- **Start:** behind the SC after the rain delay (SC through lap 2), on wets.
+- **Schedule:** 77 laps planned, 64 run (the time limit).
+- **SC:** laps 26/27–29, after Schumacher's crash on lap 27.
+- **Red flag:** lap 30 (barrier repairs), then a restart behind the SC on
+  lap 31.
+
+**Stops through the crossover** (Ferrari and Red Bull; pit-lane time = pit
+exit − pit entry):
+
+| In lap | Car | Off → on | Pit entry | Pit-lane time (s) | Note |
+|---|---|---|---|---|---|
+| 16 | Pérez | wet → inter | 2:31:29.7 | 24.27 | first front-runner onto inters |
+| 18 | **Leclerc** | wet → inter | 2:34:26.7 | 25.68 | |
+| 18 | Verstappen | wet → inter | 2:34:34.0 | 26.77 | |
+| 21 | Sainz | wet → hard | 2:39:06.2 | 24.60 | straight from wets to slicks |
+| 21 | **Leclerc** | inter → hard | 2:39:09.2 | **28.05** | same lap, 3.06 s behind Sainz: double stack |
+| 22 | Pérez | inter → hard | 2:40:35.5 | 24.55 | |
+| 22 | Verstappen | inter → hard | 2:40:39.3 | 26.90 | Red Bull's own double stack, 3.72 s behind Pérez |
+
+**Order and gaps to the leader at the line** (s; in laps distort a car's own
+gap):
+
+| End of lap | Leclerc | Sainz | Pérez | Verstappen | Compounds (LEC/SAI/PER/VER) |
+|---|---|---|---|---|---|
+| 15 | **P1** | P2 +5.2 | P3 +8.1 | P4 +10.2 | W/W/W/W |
+| 17 | **P1** | P2 +6.3 | P4 +24.7 (in pits on lap 16) | P3 +10.1 | W/W/I/W |
+| 18 | P3 (in lap) | **P1** | P2 +11.7 | P4 (in lap) | → I / W / I / → I |
+| 20 | P3 +7.5 | **P1** | P2 +4.0 | P4 +11.0 | I/W/I/I |
+| 21 | P4 (in lap) | P3 (in lap) | **P1** | P2 +4.9 | → H / → H / I / I |
+| 23 | P4 +4.4 | P2 +0.8 | **P1** | P3 +3.3 | H/H/H/H |
+| 29 (last lap before the red flag) | P4 +5.4 | P2 +1.5 | **P1** | P3 +2.5 | H/H/H/H |
+| 64 (flag) | **P4** | P2 | **P1** | P3 | |
+
+- **Leclerc led from pole to lap 18.**
+  - Pérez's lap-16 stop for inters (an undercut on a drying track: his laps
+    18–19 were 85.2 and 87.0 s, against 91–92 s on wets) put him ahead.
+  - Sainz stayed out on wets to lap 21 and went straight to hards, and also
+    came out ahead.
+  - The red flag froze the order at P1 Pérez, P2 Sainz, P3 Verstappen,
+    P4 Leclerc.
+- **What the red flag froze:**
+  - the lap-29 order, behind the SC (gaps 1.5–5.4 s, erased at the restart
+    behind the SC);
+  - under the red flag every car could change tyres for free. Pérez and
+    Verstappen took new mediums; Leclerc and Sainz restarted on hards,
+    recorded as TyreLife 10 (their lap-22 sets).
+  - So any tyre-age difference created by the stop choices was erased. Only
+    the order mattered.
+
+**Ferrari's decisions for Leclerc, and their cutoffs** (cutoff = the last lap
+completed before the in-lap began, as for Hungary):
+
+| Decision | What happened | Cutoff |
+|---|---|---|
+| **D1: inters** | in at the end of lap 18 for intermediates (one lap after Pérez's inters out lap, lap 17) | **lap 17** |
+| **D2: slicks behind Sainz** | in at the end of lap 21 for hards, on the same lap as Sainz and 3.06 s behind him at pit entry | **lap 20** |
+
+**The double-stack cost** (`monaco.queue_time`):
+- **Leclerc's queue:** 28.05 s in the pit lane, against 25.60 s, the median
+  of the race's 23 solo green stops. That is **2.45 s** (2.37 s against his
+  own lap-18 stop).
+- **Arrival gap:** 3.06 s behind Sainz, so the implied `D` = 2.45 + 3.06 =
+  **5.5 s**.
+- **The season `D` (7.15 s, Silverstone)** would predict max(0, 7.15 − 3.06)
+  = **4.1 s**, so for this stack it overstates the queue by about 1.6 s.
+- **Red Bull's lap-22 stack** cost Verstappen 1.3 s against the solo median,
+  or 0.1 s against his own lap-18 stop (implied `D` 5.0 s).
+
+**Passes outside the stop cycles** (the Phase 5 counter: green laps, neither
+car on an in or out lap, position by race time on the same lap number):
+- **10 passes in the whole race, none involving a top-8 finisher.**
+  - Gasly ×4, Vettel, Stroll, Albon, on laps 11–21: mostly cars on inters
+    passing cars on wets.
+  - Latifi on Zhou, lap 49: the only one after lap 23.
+- **The top-8 order at the end of lap 23 is exactly the finishing order**
+  (Pérez, Sainz, Verstappen, Leclerc, Russell, Norris, Alonso, Hamilton).
+- **The premise holds:** the order after the stop cycle is the result.
+
+### Pre-registered method (approved Part A; committed before any counterfactual)
+
+**Counterfactuals** (Leclerc only; every other car keeps its actual plan),
+as approved in Part A:
+
+| Decision | Call (as run) | Alternatives |
+|---|---|---|
+| D1 (cutoff 17) | inters at 18, slicks at 21 (behind Sainz) | inters at 19, slicks at 21; **skip inters**: wets to slicks at 21 (Sainz's lap); skip inters: wets to slicks at 22 |
+| D1, earlier stop (cutoff 16) | inters at 18 | inters at 17 (one lap earlier), evaluated at its own cutoff |
+| D2 (cutoff 20) | slicks at 21, queued behind Sainz | slicks at 21 **with no queue**; slicks at 22 |
+| D2, earlier stop (cutoff 19) | slicks at 21, queued | slicks at 20, evaluated at its own cutoff |
+
+- **D1 alternatives** keep the actual slick stop at 21 unless named. A stop
+  on Sainz's lap is a double stack again: the car behind on track at pit
+  entry queues for the D model's time. When Leclerc is ahead, Sainz queues
+  (Sainz's points are not the metric).
+- **D2 alternatives** keep the inters stop at 18.
+- **Each "one lap earlier" stop is judged at its own cutoff** (one lap
+  before), because at the main cutoff that lap has already been run.
+
+**Amendment (approved after Part A, before any counterfactual was computed).**
+- **"Slicks at 21 with no queue" is not a D2 alternative.** Pitting both cars
+  on lap 21 meant one waited, so Ferrari could not take it at lap 20. It is
+  reported as a **diagnostic: what the double stack cost.**
+- **D2's verdict** compares the actual double stack at 21 (the call) with
+  **Leclerc staying out to lap 22** (slicks at 22). The team's late "stay
+  out" radio call suggests that was what it wanted. **Slicks at 20** are
+  judged at cutoff 19.
+- **Too close to call.**
+  - If a counterfactual's position rests on a gap smaller than the lap-time
+    noise, its position is reported as **too close to call**, not forced.
+    The gap is the median, over draws, of Leclerc's gap at the end of lap 23
+    to the car directly ahead or behind. The noise is the residual standard
+    deviation of that version's lap model.
+  - A verdict whose call or best alternative is too close to call at the
+    deciding place is reported as **too close to call**, not as a band.
+
+**Track-position accounting.**
+- **Cars:** all cars running and on the lead lap at the cutoff.
+- **Laps:** rebuilt from the cutoff to the **end of lap 23**, the first lap
+  by whose end every Ferrari and Red Bull had completed its slick out lap.
+- **Each car's lap time:**
+  - **its actual lap** where nothing changes for it (hindsight version), or
+    its forecast lap (cutoff version, below);
+  - for Leclerc's changed laps, **a car-plus-compound-lap model**:
+    `lap = a[car] + b[compound, lap] + e`.
+    - Least squares on the eligible laps of all cars: track status green or
+      yellow only (codes 1/2), not an in or out lap, laps 3 onward.
+    - `a` is the car's pace; `b` is the compound's lap time on that lap of
+      the drying track, identified from cars on that compound on that lap.
+      That is how "other cars' actual lap times on the same compound and
+      lap" enter.
+    - A `b[compound, lap]` needs **2 or more cars** on that compound on that
+      lap; otherwise it is unidentified.
+- **Stops:**
+  - **cost** = in-lap excess + out-lap excess, each against the model's lap
+    for that car, compound and lap;
+  - **counterfactual stops** draw their cost from the race's eligible stops
+    (green-coded in and out laps, not the second car of a double stack);
+  - **queue:** a second car of a same-lap team stop waits
+    `max(0, D − arrival gap)`. The arrival gap is the race-time gap at the
+    end of the in lap before the pit loss.
+    - **Cutoff version:** the season `D` (green 7.15 s).
+    - **Hindsight version:** D = 5.5 s, the implied value for Leclerc's
+      actual stack; Leclerc's actual stack keeps its measured 2.45 s.
+- **No passing on track:**
+  - Each lap, cars are processed in order. A car whose arrival is within
+    0.68 s (the 2022 held-gap median) of the car ahead is held there, unless
+    either car is on an in or out lap; in and out laps are pit-lane moves.
+  - Leclerc can hold up rivals, and they him.
+- **Outcome:** Leclerc's position at the end of lap 23 among those cars, and
+  the **points it implies if the order holds to the flag** (2022 table).
+  Order held in 2022 for every top-8 car (above).
+
+**Leakage.**
+- **Cutoff version:**
+  - The model is fitted only on laps completed by the cutoff (lap number
+    ≤ cutoff).
+  - Future `b[compound, lap]` are forecast by a **linear trend over that
+    compound's last 3 identified laps** (the track was drying lap on lap).
+    The sensitivity check holds the last identified value (persistence).
+  - A counterfactual that needs a compound with fewer than 2 identified laps
+    by the cutoff is **"not assessable at that cutoff"**, reported only in
+    hindsight.
+  - Every car's laps after the cutoff are forecast (`a + b̂`), and stops after
+    the cutoff take costs drawn from the stops known by the cutoff. So rivals
+    run their actual plans at forecast pace.
+- **Hindsight version (kept separate):** the model is fitted on laps 3–26,
+  and actual lap times are used wherever a car's laps are unchanged. A cell
+  no car ran (e.g. wets on lap 22) is forecast by the same trend rule and
+  flagged.
+
+**Uncertainty and the verdict** (the committed rule, adapted to accounting):
+- **Draws:** each draw resamples cars within every compound-lap cell
+  (refitting `a`, `b`), Leclerc's lap residuals (from his own eligible
+  laps), and the stop costs.
+- **Common random numbers:** every counterfactual of a decision shares each
+  draw.
+- **Choosing the best plan:** the call and every alternative are scored on
+  1,000 draws (selection). The best alternative overall is chosen there and
+  measured on a fresh 2,000 (measurement), as in the rule.
+- **Bands (committed):**
+  - loss = best − call, in Leclerc's points;
+  - **within** ≤ 1 point;
+  - **outside** > 3 points and the call level with or ahead of the best in
+    under 25% of draws;
+  - **marginal** otherwise.
+- **Also reported:** each counterfactual's position distribution, the
+  hindsight version, and the trend-vs-persistence sensitivity.
+
+**Pre-registered limits.**
+- **No wet or crossover pace model.** Compound pace on the drying track comes
+  only from other cars on that compound that lap. Early on, those are mostly
+  backmarkers (Latifi ran hards from lap 4). The model's car terms carry the
+  pace difference, and assume it is the same on every compound.
+- **No passing modelled.** Order changes only through stops. 2022 shows no
+  top-8 pass outside the stops, but a counterfactual that puts Leclerc on a
+  slower compound in front of a faster car assumes he holds it.
+- **The red flag's free tyre change.** It erased tyre differences after
+  lap 29. So the end-of-lap-23 order is taken as final, and plans are not
+  judged on tyre wear after lap 29.
+- **Rivals keep their actual stop laps.** Red Bull's lap-22 stop may have
+  depended on Ferrari's lap-21 stops; that interaction is not modelled.
+- **The SC (laps 26/27–29) and red flag are after the outcome lap,** and are
+  taken as given (the pit wall did not know of them at either cutoff).
+- **Lap-number cutoff:** lapped cars' laps with the same number end later in
+  time (as in every case study).
+- **Yellow-flag laps** (code 2) are kept as eligible: the lap-18 and lap-21
+  yellows affected nearly every car.
