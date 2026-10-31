@@ -348,7 +348,25 @@ Open issues for Phase 6:
   - The points were lost at lap 54. About 4 more points lost in hindsight
     at lap 38 came from what the pit wall could not know (Verstappen's stop
     phase and pace).
-- [ ] Silverstone
+- [x] Silverstone (`docs/case_studies.md`): **stay out at lap 39: within
+  range, robust.**
+  - It is the model's best plan at lap 38 (23.3 points against 21.4 for new
+    softs at 39). Within range under all 13 checks (committed checks plus SC
+    length 4/6 laps, double-stack loss ×0.5/×2, and the new hard removed).
+    The best call-family plan is no further stop, not a lap-40 stop.
+  - Ferrari's combined points: the actual split was the best joint option,
+    level with leaving both out; the double stack was the worst (−3.0).
+  - **Fragile:** staying out stops being best if Leclerc's hards were
+    0.25–0.5 s/lap worse than modelled. The real extra deficit was about
+    0.3–0.5 s/lap.
+  - **Reality check:** 9 passes in the first three laps after the restart,
+    against 3.1 forecast. Leclerc lost P1 on the restart lap and finished
+    P4. The simulator has no restart effects (cold tyres, restart passing),
+    so the hindsight replay does not reproduce the race (P1 in 95%).
+- **Restart laps are normal green laps** (found at Silverstone): no
+  cold-tyre penalty and green-flag pass rates. Silverstone had 9 passes in
+  the first three restart laps against 3.1 simulated. State it for any
+  verdict that turns on a restart.
 - [ ] Monaco (wet crossover; state limitations)
 
 **Done when:** each case study has a verdict on whether the call was within the range of good options, backed by leakage-free simulations.
