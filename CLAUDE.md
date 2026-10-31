@@ -32,13 +32,15 @@ src/f1strat/        Package code. All logic lives here.
   restart.py        Restart layer (Silverstone v2): pace offset and pass multiplier
   monaco.py         Monaco track-position accounting (wet crossover; no simulator)
   cli.py            `pitwall` command line (data, clean, fit, thin, backtest, case-study, figures)
-  figures.py        Redraw every figure from committed result files
+  figure_data.py    The data behind every figure (data/figures), extract and load
+  figures.py        Draw every figure from data/figures (no fits or simulations)
   readme_assets.py  README banner, verdict cards, animation, light/dark figures
 models/             Posteriors; only thinned fits are committed (full fit and held-out splits)
 docs/               model.md, simulator.md, validation.md, case_studies.md (verdict rule, results)
 notebooks/          Exploration and plots only. Imports from f1strat.
 tests/              pytest tests
 data/processed/     Processed parquet per race (committed). Schema: data/processed/README.md
+data/figures/       The exact data each figure plots (committed); see its README.md
 reports/figures/    Saved figures and result files (committed)
 assets/readme/      README images, light and dark (from `pitwall figures`)
 .github/workflows/  CI: ruff and the fast tests
@@ -48,7 +50,10 @@ ROADMAP.md          Phase checklist with "done when" criteria
 
 ## Environment
 - Python 3.11+, managed with `uv`. Run things with `uv run ...` (e.g. `uv run pytest`).
-- Commands: `uv run pitwall --help`. Quick path: `uv run pitwall figures`.
+- Commands: `uv run pitwall --help`. Quick path: `uv run pitwall figures` (draws every
+  figure from `data/figures`). After a full-path step: `uv run pitwall figures --export`.
+- Every new figure gets its table in `data/figures` (`f1strat.figure_data`) and is drawn
+  only from it, so no figure ever needs a refit to redraw.
 - Tests: `uv run pytest` is fast; `uv run pytest -m ""` adds the slow (PyMC) and network tests.
 - Lint: `uvx ruff check src tests notebooks` and `uvx ruff format src tests`.
 - Modelling stack (Phase 3): PyMC sampled with nutpie, ArviZ, XGBoost, scikit-learn.

@@ -163,7 +163,7 @@ Full write-up: [docs/case_studies.md, Monaco](docs/case_studies.md#monaco-2022-t
 
 ## Quick start
 
-Redraw every figure from the committed data, the committed thinned posteriors and the saved results. No refits; about 5 minutes. Needs [uv](https://docs.astral.sh/uv/).
+Redraw every figure in the docs, the notebooks and this page from the committed tables in [`data/figures/`](data/figures/README.md): no fits, simulations or downloads, about a minute. Needs [uv](https://docs.astral.sh/uv/).
 
 ```bash
 git clone https://github.com/tinySage/what-the-pit-wall-knew.git
@@ -197,7 +197,8 @@ From raw FastF1 downloads to every result. Times are wall-clock on a 4-core mach
 | Hungary: two cutoff refits, verdicts, sensitivities | `uv run pitwall case-study hungary` | ~3 h |
 | Silverstone: cutoff refit, v1, restart layer, v2 | `uv run pitwall case-study silverstone` | ~2.5 h |
 | Monaco: reconstruction and accounting | `uv run pitwall case-study monaco` | ~2 min |
-| Every figure and the notebooks | `uv run pitwall figures` | ~5 min |
+| Rebuild the figure tables and redraw every figure | `uv run pitwall figures --export` | ~3 min |
+| Execute the notebooks top to bottom | `uv run pitwall figures --notebooks` | ~4 min |
 
 Cutoff fits are saved in `models/` (gitignored) and reused; a case study refits them only if they are missing. `uv run pitwall --help` lists every command.
 
@@ -212,6 +213,7 @@ src/f1strat/         the package: data, cleaning, lap model, simulator, case stu
   monaco.py          Monaco track-position accounting
 docs/                model, simulator, validation and case-study write-ups
 data/processed/      cleaned 2022 parquet per race (committed)
+data/figures/        the exact data each figure plots (committed)
 models/              thinned posteriors (committed)
 reports/figures/     results (JSON, CSV) and figures
 notebooks/           exploration: EDA, lap model, simulator demo
