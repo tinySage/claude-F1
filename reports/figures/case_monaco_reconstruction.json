@@ -1,0 +1,604 @@
+{
+ "stops": [
+  {
+   "driver": "PER",
+   "in_lap": 16,
+   "off": "WET",
+   "on": "INTERMEDIATE",
+   "on_tyre_life": null,
+   "pit_entry": "02:31:29.73",
+   "lane_s": 24.271,
+   "team_stops_on_lap": 1
+  },
+  {
+   "driver": "LEC",
+   "in_lap": 18,
+   "off": "WET",
+   "on": "INTERMEDIATE",
+   "on_tyre_life": null,
+   "pit_entry": "02:34:26.70",
+   "lane_s": 25.676,
+   "team_stops_on_lap": 1
+  },
+  {
+   "driver": "VER",
+   "in_lap": 18,
+   "off": "WET",
+   "on": "INTERMEDIATE",
+   "on_tyre_life": null,
+   "pit_entry": "02:34:33.97",
+   "lane_s": 26.772,
+   "team_stops_on_lap": 1
+  },
+  {
+   "driver": "SAI",
+   "in_lap": 21,
+   "off": "WET",
+   "on": "HARD",
+   "on_tyre_life": null,
+   "pit_entry": "02:39:06.16",
+   "lane_s": 24.604,
+   "team_stops_on_lap": 2
+  },
+  {
+   "driver": "LEC",
+   "in_lap": 21,
+   "off": "INTERMEDIATE",
+   "on": "HARD",
+   "on_tyre_life": 1,
+   "pit_entry": "02:39:09.22",
+   "lane_s": 28.045,
+   "team_stops_on_lap": 2
+  },
+  {
+   "driver": "PER",
+   "in_lap": 22,
+   "off": "INTERMEDIATE",
+   "on": "HARD",
+   "on_tyre_life": 1,
+   "pit_entry": "02:40:35.53",
+   "lane_s": 24.552,
+   "team_stops_on_lap": 2
+  },
+  {
+   "driver": "VER",
+   "in_lap": 22,
+   "off": "INTERMEDIATE",
+   "on": "HARD",
+   "on_tyre_life": 1,
+   "pit_entry": "02:40:39.26",
+   "lane_s": 26.895,
+   "team_stops_on_lap": 2
+  }
+ ],
+ "positions": {
+  "12": {
+   "PER": 3.0,
+   "SAI": 2.0,
+   "VER": 4.0,
+   "LEC": 1.0,
+   "RUS": 6.0,
+   "NOR": 5.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "13": {
+   "PER": 3.0,
+   "SAI": 2.0,
+   "VER": 4.0,
+   "LEC": 1.0,
+   "RUS": 6.0,
+   "NOR": 5.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "14": {
+   "PER": 3.0,
+   "SAI": 2.0,
+   "VER": 4.0,
+   "LEC": 1.0,
+   "RUS": 6.0,
+   "NOR": 5.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "15": {
+   "PER": 3.0,
+   "SAI": 2.0,
+   "VER": 4.0,
+   "LEC": 1.0,
+   "RUS": 6.0,
+   "NOR": 5.0,
+   "ALO": 7.0,
+   "HAM": 9.0
+  },
+  "16": {
+   "PER": 5.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 1.0,
+   "RUS": 6.0,
+   "NOR": 4.0,
+   "ALO": 7.0,
+   "HAM": 9.0
+  },
+  "17": {
+   "PER": 4.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 1.0,
+   "RUS": 5.0,
+   "NOR": 7.0,
+   "ALO": 6.0,
+   "HAM": 9.0
+  },
+  "18": {
+   "PER": 2.0,
+   "SAI": 1.0,
+   "VER": 4.0,
+   "LEC": 3.0,
+   "RUS": 5.0,
+   "NOR": 7.0,
+   "ALO": 6.0,
+   "HAM": 9.0
+  },
+  "19": {
+   "PER": 2.0,
+   "SAI": 1.0,
+   "VER": 4.0,
+   "LEC": 3.0,
+   "RUS": 5.0,
+   "NOR": 7.0,
+   "ALO": 6.0,
+   "HAM": 9.0
+  },
+  "20": {
+   "PER": 2.0,
+   "SAI": 1.0,
+   "VER": 4.0,
+   "LEC": 3.0,
+   "RUS": 5.0,
+   "NOR": 7.0,
+   "ALO": 6.0,
+   "HAM": 9.0
+  },
+  "21": {
+   "PER": 1.0,
+   "SAI": 3.0,
+   "VER": 2.0,
+   "LEC": 4.0,
+   "RUS": 6.0,
+   "NOR": 5.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "22": {
+   "PER": 1.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 4.0,
+   "RUS": 6.0,
+   "NOR": 5.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "23": {
+   "PER": 1.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 4.0,
+   "RUS": 5.0,
+   "NOR": 6.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "24": {
+   "PER": 1.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 4.0,
+   "RUS": 5.0,
+   "NOR": 6.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "25": {
+   "PER": 1.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 4.0,
+   "RUS": 5.0,
+   "NOR": 6.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "26": {
+   "PER": 1.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 4.0,
+   "RUS": 5.0,
+   "NOR": 6.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "27": {
+   "PER": 1.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 4.0,
+   "RUS": 5.0,
+   "NOR": 6.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "28": {
+   "PER": 1.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 4.0,
+   "RUS": 5.0,
+   "NOR": 6.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "29": {
+   "PER": 1.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 4.0,
+   "RUS": 5.0,
+   "NOR": 6.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "30": {
+   "PER": 1.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 4.0,
+   "RUS": 5.0,
+   "NOR": 6.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "31": {
+   "PER": 1.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 4.0,
+   "RUS": 5.0,
+   "NOR": 6.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  },
+  "32": {
+   "PER": 1.0,
+   "SAI": 2.0,
+   "VER": 3.0,
+   "LEC": 4.0,
+   "RUS": 5.0,
+   "NOR": 6.0,
+   "ALO": 7.0,
+   "HAM": 8.0
+  }
+ },
+ "gaps": {
+  "12": {
+   "PER": 7.0,
+   "SAI": 5.02,
+   "VER": 8.33,
+   "LEC": 0.0,
+   "RUS": 20.11,
+   "NOR": 17.33,
+   "ALO": 23.92,
+   "HAM": 26.52
+  },
+  "13": {
+   "PER": 7.43,
+   "SAI": 5.04,
+   "VER": 8.92,
+   "LEC": 0.0,
+   "RUS": 22.24,
+   "NOR": 18.29,
+   "ALO": 25.41,
+   "HAM": 29.61
+  },
+  "14": {
+   "PER": 7.37,
+   "SAI": 4.72,
+   "VER": 9.64,
+   "LEC": 0.0,
+   "RUS": 23.75,
+   "NOR": 19.28,
+   "ALO": 26.23,
+   "HAM": 31.12
+  },
+  "15": {
+   "PER": 8.08,
+   "SAI": 5.23,
+   "VER": 10.24,
+   "LEC": 0.0,
+   "RUS": 25.45,
+   "NOR": 21.49,
+   "ALO": 27.62,
+   "HAM": 49.41
+  },
+  "16": {
+   "PER": 24.06,
+   "SAI": 5.4,
+   "VER": 10.22,
+   "LEC": 0.0,
+   "RUS": 26.98,
+   "NOR": 23.05,
+   "ALO": 29.66,
+   "HAM": 49.43
+  },
+  "17": {
+   "PER": 24.71,
+   "SAI": 6.27,
+   "VER": 10.11,
+   "LEC": 0.0,
+   "RUS": 29.06,
+   "NOR": 40.92,
+   "ALO": 31.52,
+   "HAM": 48.18
+  },
+  "18": {
+   "PER": 11.65,
+   "SAI": 0.0,
+   "VER": 20.96,
+   "LEC": 12.58,
+   "RUS": 23.76,
+   "NOR": 33.85,
+   "ALO": 25.6,
+   "HAM": 44.46
+  },
+  "19": {
+   "PER": 6.84,
+   "SAI": 0.0,
+   "VER": 17.85,
+   "LEC": 10.95,
+   "RUS": 24.22,
+   "NOR": 28.38,
+   "ALO": 25.9,
+   "HAM": 45.25
+  },
+  "20": {
+   "PER": 3.99,
+   "SAI": 0.0,
+   "VER": 11.01,
+   "LEC": 7.46,
+   "RUS": 24.08,
+   "NOR": 26.31,
+   "ALO": 25.69,
+   "HAM": 45.1
+  },
+  "21": {
+   "PER": 0.0,
+   "SAI": 14.2,
+   "VER": 4.91,
+   "LEC": 20.66,
+   "RUS": 38.74,
+   "NOR": 23.31,
+   "ALO": 41.97,
+   "HAM": 42.82
+  },
+  "22": {
+   "PER": 0.0,
+   "SAI": 4.83,
+   "VER": 6.16,
+   "LEC": 9.81,
+   "RUS": 27.22,
+   "NOR": 24.0,
+   "ALO": 31.99,
+   "HAM": 44.44
+  },
+  "23": {
+   "PER": 0.0,
+   "SAI": 0.84,
+   "VER": 3.29,
+   "LEC": 4.44,
+   "RUS": 16.7,
+   "NOR": 19.11,
+   "ALO": 26.01,
+   "HAM": 40.02
+  },
+  "24": {
+   "PER": 0.0,
+   "SAI": 1.45,
+   "VER": 2.34,
+   "LEC": 3.06,
+   "RUS": 15.09,
+   "NOR": 16.42,
+   "ALO": 26.51,
+   "HAM": 37.31
+  },
+  "25": {
+   "PER": 0.0,
+   "SAI": 1.94,
+   "VER": 3.1,
+   "LEC": 3.99,
+   "RUS": 13.92,
+   "NOR": 16.64,
+   "ALO": 29.11,
+   "HAM": 37.09
+  },
+  "26": {
+   "PER": 0.0,
+   "SAI": 1.51,
+   "VER": 1.71,
+   "LEC": 2.66,
+   "RUS": 16.39,
+   "NOR": 26.07,
+   "ALO": 41.03,
+   "HAM": 49.15
+  },
+  "27": {
+   "PER": 0.0,
+   "SAI": 2.39,
+   "VER": 4.63,
+   "LEC": 7.88,
+   "RUS": 17.47,
+   "NOR": 23.62,
+   "ALO": 40.09,
+   "HAM": 48.24
+  },
+  "28": {
+   "PER": 0.0,
+   "SAI": 1.07,
+   "VER": 2.76,
+   "LEC": 6.72,
+   "RUS": 12.15,
+   "NOR": 16.29,
+   "ALO": 27.58,
+   "HAM": 34.95
+  },
+  "29": {
+   "PER": 0.0,
+   "SAI": 1.53,
+   "VER": 2.52,
+   "LEC": 5.43,
+   "RUS": 11.66,
+   "NOR": 14.03,
+   "ALO": 18.12,
+   "HAM": 21.28
+  },
+  "30": {
+   "PER": 0.0,
+   "SAI": 3.77,
+   "VER": 6.17,
+   "LEC": 11.46,
+   "RUS": 19.24,
+   "NOR": 26.22,
+   "ALO": 30.13,
+   "HAM": 35.99
+  },
+  "31": {
+   "PER": 0.0,
+   "SAI": 1.31,
+   "VER": 2.42,
+   "LEC": 5.49,
+   "RUS": 7.77,
+   "NOR": 10.41,
+   "ALO": 12.57,
+   "HAM": 15.72
+  },
+  "32": {
+   "PER": 0.0,
+   "SAI": 0.66,
+   "VER": 1.42,
+   "LEC": 2.7,
+   "RUS": 3.69,
+   "NOR": 4.85,
+   "ALO": 5.22,
+   "HAM": 6.4
+  }
+ },
+ "queue": {
+  "driver": "LEC",
+  "lap": 21,
+  "behind": "SAI",
+  "lane_s": 28.045,
+  "teammate_lane_s": 24.604,
+  "solo_green_median_s": 25.6,
+  "n_solo_green": 23,
+  "queue_vs_solo_s": 2.445,
+  "queue_vs_own_other_stop_s": 2.369,
+  "arrival_gap_s": 3.06,
+  "implied_D_s": 5.505,
+  "season_D_s": 7.15,
+  "season_model_queue_s": 4.09
+ },
+ "queue_red_bull": {
+  "driver": "VER",
+  "lap": 22,
+  "behind": "PER",
+  "lane_s": 26.895,
+  "teammate_lane_s": 24.552,
+  "solo_green_median_s": 25.6,
+  "n_solo_green": 23,
+  "queue_vs_solo_s": 1.295,
+  "queue_vs_own_other_stop_s": 0.123,
+  "arrival_gap_s": 3.724,
+  "implied_D_s": 5.019,
+  "season_D_s": 7.15,
+  "season_model_queue_s": 3.426
+ },
+ "passes": {
+  "n": 10,
+  "list": [
+   {
+    "lap": 11,
+    "passer": "GAS",
+    "passed": "ALB"
+   },
+   {
+    "lap": 11,
+    "passer": "VET",
+    "passed": "ALB"
+   },
+   {
+    "lap": 11,
+    "passer": "ZHO",
+    "passed": "ALB"
+   },
+   {
+    "lap": 12,
+    "passer": "GAS",
+    "passed": "ZHO"
+   },
+   {
+    "lap": 13,
+    "passer": "GAS",
+    "passed": "RIC"
+   },
+   {
+    "lap": 17,
+    "passer": "VET",
+    "passed": "ZHO"
+   },
+   {
+    "lap": 19,
+    "passer": "GAS",
+    "passed": "MAG"
+   },
+   {
+    "lap": 19,
+    "passer": "STR",
+    "passed": "TSU"
+   },
+   {
+    "lap": 21,
+    "passer": "ALB",
+    "passed": "ZHO"
+   },
+   {
+    "lap": 49,
+    "passer": "LAT",
+    "passed": "ZHO"
+   }
+  ],
+  "involving_top8": 0,
+  "after_lap_23": 1,
+  "finish_order": [
+   "PER",
+   "SAI",
+   "VER",
+   "LEC",
+   "RUS",
+   "NOR",
+   "ALO",
+   "HAM",
+   "OCO",
+   "BOT",
+   "VET",
+   "GAS",
+   "RIC",
+   "STR",
+   "LAT",
+   "ZHO",
+   "TSU"
+  ]
+ }
+}
