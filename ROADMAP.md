@@ -341,8 +341,9 @@ Open issues for Phase 6:
     checks.** Hards to the flag was better by 5.1 points with lap-53
     information.
     - Post-hoc pass-difficulty sensitivity: the switch was the worse option
-      in every setting, costing 3.6–5.1 points (outside range with the
-      relative method, marginal with average passing).
+      in every setting, costing 3.5–5.1 points (outside range with the
+      relative method; marginal with average passing and with the in-race
+      update).
     - Disclosed limitation: 2021 pass difficulty likely overstates 2022.
   - The points were lost at lap 54. About 4 more points lost in hindsight
     at lap 38 came from what the pit wall could not know (Verstappen's stop

@@ -787,8 +787,8 @@ checks.**
 
 **Summary.**
 - **The lap-54 switch was the worse option in every setting tested.** It
-  cost **3.6–5.1 points** with lap-53 information (average, relative and
-  committed pass difficulty; 5.7 in hindsight). The size of the loss depends
+  cost **3.5–5.1 points** with lap-53 information (average, relative,
+  relative + in-race and committed pass difficulty; 5.7 in hindsight). The size of the loss depends
   on how hard Hungary was to pass at.
 - **The hard-tyre call at lap 38 cost nothing with the information
   available.** The ~4 points it concedes in hindsight came from what the pit
