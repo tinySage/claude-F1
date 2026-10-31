@@ -1457,8 +1457,9 @@ SC/VSC and retirements; 300 simulations each):
   compound and tyre-age differentials do not generalise:** on the restart
   lap, later rounds had softs slower than hards, and the layer makes that
   error larger.
-- **For Silverstone:** the layer gives Leclerc's 18-lap hards about +0.2 to
-  +0.3 s/lap against Sainz's new softs on laps 43–45. That is far short of
+- **For Silverstone:** the layer puts Leclerc's hards (TyreLife 18–20)
+  behind Sainz's new softs (TyreLife 4–6) by +0.17, +0.07 and +0.26 s on laps
+  43–45 (+0.17 on average). That is far short of
   the +0.87 s/lap miss, and it lowers the pass probability.
 - **So the layer, estimated without leakage, is not expected to reproduce
   Silverstone's restart.** It is run as v2 anyway, as planned, under the same
