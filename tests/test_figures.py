@@ -9,7 +9,7 @@ import pytest
 
 from f1strat import figure_data as fd
 from f1strat.case_study import _merged
-from f1strat.figures import case_study_figures
+from f1strat.figures import backtest_figures, case_study_figures, notebook_figures
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "reports" / "figures"
@@ -35,6 +35,8 @@ def test_tables_round_trip_the_results_exactly(stem: str) -> None:
 
 def test_figures_draw_from_data_figures(tmp_path: Path) -> None:
     assert len(case_study_figures(tmp_path)) == 19
+    assert len(backtest_figures(tmp_path)) == 5
+    assert len(notebook_figures(tmp_path)) == 7
 
 
 def test_every_figure_in_the_docs_has_its_table() -> None:
