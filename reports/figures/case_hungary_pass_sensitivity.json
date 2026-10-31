@@ -1,0 +1,480 @@
+{
+ "hungary": {
+  "relative_detail": {
+   "intercept": -4.2277294811098045,
+   "shift": -1.4493594732021275,
+   "ref_circuit": -4.427281233560252,
+   "ref_average": -2.9779217603581243,
+   "ref_slope": 2.5574060418611855,
+   "ref_events": 3054,
+   "ref_year": 2021,
+   "ref_races_used": 20,
+   "ref_races_not_used": [
+    {
+     "EventName": "Belgian Grand Prix",
+     "status": "wet",
+     "detail": "dry share 0.00"
+    },
+    {
+     "EventName": "Turkish Grand Prix",
+     "status": "wet",
+     "detail": "dry share 0.00"
+    }
+   ]
+  },
+  "settings": {
+   "committed": {
+    "intercept": -4.614024500308108,
+    "band": "within range",
+    "primary": {
+     "mean_loss": 0.0,
+     "p10": 0.0,
+     "p50": 0.0,
+     "p90": 0.0,
+     "p_loss_pos": 0.0,
+     "p_loss_neg": 0.0,
+     "p_level_or_ahead": 1.0
+    },
+    "chosen": {
+     "best overall": "M \u2192 39 H(new)",
+     "call: hards at 39": "M \u2192 39 H(new)",
+     "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+     "used medium at 39": "M \u2192 39 M(used 22) \u2192 44 H(new)",
+     "stay out, then hards": "M \u2192 43 H(new)",
+     "stay out, then used softs": "M \u2192 50 S(used 4)",
+     "stay out, then used medium": "M \u2192 42 M(used 22) \u2192 47 H(new)",
+     "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+     "hards to the flag": "M \u2192 39 H(new)"
+    },
+    "measure": {
+     "best overall": {
+      "mean_points": 19.8655,
+      "mean_pos": 2.031,
+      "p_podium": 0.8635
+     },
+     "call: hards at 39": {
+      "mean_points": 19.8655,
+      "mean_pos": 2.031,
+      "p_podium": 0.8635
+     },
+     "used softs at 39": {
+      "mean_points": 12.064,
+      "mean_pos": 4.429,
+      "p_podium": 0.3265
+     },
+     "used medium at 39": {
+      "mean_points": 10.4995,
+      "mean_pos": 4.8795,
+      "p_podium": 0.1505
+     },
+     "stay out, then hards": {
+      "mean_points": 18.8275,
+      "mean_pos": 2.2165,
+      "p_podium": 0.8735
+     },
+     "stay out, then used softs": {
+      "mean_points": 17.2055,
+      "mean_pos": 2.669,
+      "p_podium": 0.815
+     },
+     "stay out, then used medium": {
+      "mean_points": 9.8625,
+      "mean_pos": 5.185,
+      "p_podium": 0.1175
+     },
+     "as run": {
+      "mean_points": 10.8505,
+      "mean_pos": 4.8715,
+      "p_podium": 0.211
+     },
+     "hards to the flag": {
+      "mean_points": 19.8655,
+      "mean_pos": 2.031,
+      "p_podium": 0.8635
+     }
+    }
+   },
+   "average": {
+    "intercept": -2.7783700079076765,
+    "band": "within range",
+    "primary": {
+     "mean_loss": 0.147,
+     "p10": -7.0,
+     "p50": 0.0,
+     "p90": 7.0,
+     "p_loss_pos": 0.305,
+     "p_loss_neg": 0.243,
+     "p_level_or_ahead": 0.695
+    },
+    "chosen": {
+     "best overall": "M \u2192 50 S(used 4)",
+     "call: hards at 39": "M \u2192 39 H(new)",
+     "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+     "used medium at 39": "M \u2192 39 M(used 22) \u2192 44 H(new)",
+     "stay out, then hards": "M \u2192 43 H(new)",
+     "stay out, then used softs": "M \u2192 50 S(used 4)",
+     "stay out, then used medium": "M \u2192 42 M(used 22) \u2192 47 H(new)",
+     "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+     "hards to the flag": "M \u2192 39 H(new)"
+    },
+    "measure": {
+     "best overall": {
+      "mean_points": 17.82,
+      "mean_pos": 2.506,
+      "p_podium": 0.8245
+     },
+     "call: hards at 39": {
+      "mean_points": 17.673,
+      "mean_pos": 2.5625,
+      "p_podium": 0.769
+     },
+     "used softs at 39": {
+      "mean_points": 13.4295,
+      "mean_pos": 3.9035,
+      "p_podium": 0.472
+     },
+     "used medium at 39": {
+      "mean_points": 10.728,
+      "mean_pos": 4.81,
+      "p_podium": 0.1805
+     },
+     "stay out, then hards": {
+      "mean_points": 17.7775,
+      "mean_pos": 2.477,
+      "p_podium": 0.8085
+     },
+     "stay out, then used softs": {
+      "mean_points": 17.82,
+      "mean_pos": 2.506,
+      "p_podium": 0.8245
+     },
+     "stay out, then used medium": {
+      "mean_points": 10.3075,
+      "mean_pos": 4.986,
+      "p_podium": 0.16
+     },
+     "as run": {
+      "mean_points": 12.0585,
+      "mean_pos": 4.3625,
+      "p_podium": 0.3385
+     },
+     "hards to the flag": {
+      "mean_points": 17.673,
+      "mean_pos": 2.5625,
+      "p_podium": 0.769
+     }
+    }
+   },
+   "relative": {
+    "intercept": -4.2277294811098045,
+    "band": "within range",
+    "primary": {
+     "mean_loss": 0.0,
+     "p10": 0.0,
+     "p50": 0.0,
+     "p90": 0.0,
+     "p_loss_pos": 0.0,
+     "p_loss_neg": 0.0,
+     "p_level_or_ahead": 1.0
+    },
+    "chosen": {
+     "best overall": "M \u2192 39 H(new)",
+     "call: hards at 39": "M \u2192 39 H(new)",
+     "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+     "used medium at 39": "M \u2192 39 M(used 22) \u2192 44 H(new)",
+     "stay out, then hards": "M \u2192 43 H(new)",
+     "stay out, then used softs": "M \u2192 50 S(used 4)",
+     "stay out, then used medium": "M \u2192 42 M(used 22) \u2192 47 H(new)",
+     "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+     "hards to the flag": "M \u2192 39 H(new)"
+    },
+    "measure": {
+     "best overall": {
+      "mean_points": 19.309,
+      "mean_pos": 2.1585,
+      "p_podium": 0.842
+     },
+     "call: hards at 39": {
+      "mean_points": 19.309,
+      "mean_pos": 2.1585,
+      "p_podium": 0.842
+     },
+     "used softs at 39": {
+      "mean_points": 12.338,
+      "mean_pos": 4.311,
+      "p_podium": 0.3565
+     },
+     "used medium at 39": {
+      "mean_points": 10.5695,
+      "mean_pos": 4.859,
+      "p_podium": 0.16
+     },
+     "stay out, then hards": {
+      "mean_points": 18.5885,
+      "mean_pos": 2.2695,
+      "p_podium": 0.862
+     },
+     "stay out, then used softs": {
+      "mean_points": 17.3465,
+      "mean_pos": 2.633,
+      "p_podium": 0.816
+     },
+     "stay out, then used medium": {
+      "mean_points": 9.9785,
+      "mean_pos": 5.1345,
+      "p_podium": 0.1285
+     },
+     "as run": {
+      "mean_points": 11.1465,
+      "mean_pos": 4.743,
+      "p_podium": 0.2375
+     },
+     "hards to the flag": {
+      "mean_points": 19.309,
+      "mean_pos": 2.1585,
+      "p_podium": 0.842
+     }
+    }
+   }
+  }
+ },
+ "hungary54": {
+  "relative_detail": {
+   "intercept": -4.223203343238699,
+   "shift": -1.4493594732021275,
+   "ref_circuit": -4.427281233560252,
+   "ref_average": -2.9779217603581243,
+   "ref_slope": 2.5574060418611855,
+   "ref_events": 3054,
+   "ref_year": 2021,
+   "ref_races_used": 20,
+   "ref_races_not_used": [
+    {
+     "EventName": "Belgian Grand Prix",
+     "status": "wet",
+     "detail": "dry share 0.00"
+    },
+    {
+     "EventName": "Turkish Grand Prix",
+     "status": "wet",
+     "detail": "dry share 0.00"
+    }
+   ]
+  },
+  "settings": {
+   "committed": {
+    "intercept": -4.601398775270747,
+    "band": "outside range",
+    "primary": {
+     "mean_loss": 5.139,
+     "p10": 0.0,
+     "p50": 6.0,
+     "p90": 10.0,
+     "p_loss_pos": 0.873,
+     "p_loss_neg": 0.027,
+     "p_level_or_ahead": 0.127
+    },
+    "chosen": {
+     "best overall": "H",
+     "call: used softs at 54": "H \u2192 54 S(used 4)",
+     "hards to the flag": "H",
+     "new hard at 54": "H \u2192 54 H(new)",
+     "used medium at 54": "H \u2192 54 M(used 19)",
+     "stay out, then used softs": "H \u2192 57 S(used 4)",
+     "stay out, then new hard": "H \u2192 55 H(new)",
+     "stay out, then used medium": "H \u2192 59 M(used 19)",
+     "as run": "H \u2192 54 S(used 4)"
+    },
+    "measure": {
+     "best overall": {
+      "mean_points": 18.2375,
+      "mean_pos": 1.9955,
+      "p_podium": 0.998
+     },
+     "call: used softs at 54": {
+      "mean_points": 13.0985,
+      "mean_pos": 3.786,
+      "p_podium": 0.41
+     },
+     "hards to the flag": {
+      "mean_points": 18.2375,
+      "mean_pos": 1.9955,
+      "p_podium": 0.998
+     },
+     "new hard at 54": {
+      "mean_points": 10.736,
+      "mean_pos": 4.722,
+      "p_podium": 0.1405
+     },
+     "used medium at 54": {
+      "mean_points": 9.534,
+      "mean_pos": 5.257,
+      "p_podium": 0.0455
+     },
+     "stay out, then used softs": {
+      "mean_points": 13.452,
+      "mean_pos": 3.658,
+      "p_podium": 0.4615
+     },
+     "stay out, then new hard": {
+      "mean_points": 10.871,
+      "mean_pos": 4.6615,
+      "p_podium": 0.1495
+     },
+     "stay out, then used medium": {
+      "mean_points": 9.7325,
+      "mean_pos": 5.189,
+      "p_podium": 0.051
+     },
+     "as run": {
+      "mean_points": 13.0985,
+      "mean_pos": 3.786,
+      "p_podium": 0.41
+     }
+    }
+   },
+   "average": {
+    "intercept": -2.773843870036571,
+    "band": "marginal",
+    "primary": {
+     "mean_loss": 3.6265,
+     "p10": 0.0,
+     "p50": 3.0,
+     "p90": 8.0,
+     "p_loss_pos": 0.728,
+     "p_loss_neg": 0.06,
+     "p_level_or_ahead": 0.272
+    },
+    "chosen": {
+     "best overall": "H",
+     "call: used softs at 54": "H \u2192 54 S(used 4)",
+     "hards to the flag": "H",
+     "new hard at 54": "H \u2192 54 H(new)",
+     "used medium at 54": "H \u2192 54 M(used 19)",
+     "stay out, then used softs": "H \u2192 55 S(used 4)",
+     "stay out, then new hard": "H \u2192 55 H(new)",
+     "stay out, then used medium": "H \u2192 59 M(used 19)",
+     "as run": "H \u2192 54 S(used 4)"
+    },
+    "measure": {
+     "best overall": {
+      "mean_points": 17.768,
+      "mean_pos": 2.168,
+      "p_podium": 0.973
+     },
+     "call: used softs at 54": {
+      "mean_points": 14.1415,
+      "mean_pos": 3.439,
+      "p_podium": 0.561
+     },
+     "hards to the flag": {
+      "mean_points": 17.768,
+      "mean_pos": 2.168,
+      "p_podium": 0.973
+     },
+     "new hard at 54": {
+      "mean_points": 11.309,
+      "mean_pos": 4.508,
+      "p_podium": 0.2165
+     },
+     "used medium at 54": {
+      "mean_points": 9.706,
+      "mean_pos": 5.2015,
+      "p_podium": 0.0755
+     },
+     "stay out, then used softs": {
+      "mean_points": 14.357,
+      "mean_pos": 3.3605,
+      "p_podium": 0.587
+     },
+     "stay out, then new hard": {
+      "mean_points": 11.4205,
+      "mean_pos": 4.4635,
+      "p_podium": 0.2215
+     },
+     "stay out, then used medium": {
+      "mean_points": 9.894,
+      "mean_pos": 5.1235,
+      "p_podium": 0.074
+     },
+     "as run": {
+      "mean_points": 14.1415,
+      "mean_pos": 3.439,
+      "p_podium": 0.561
+     }
+    }
+   },
+   "relative": {
+    "intercept": -4.223203343238699,
+    "band": "outside range",
+    "primary": {
+     "mean_loss": 4.788,
+     "p10": 0.0,
+     "p50": 6.0,
+     "p90": 10.0,
+     "p_loss_pos": 0.841,
+     "p_loss_neg": 0.0345,
+     "p_level_or_ahead": 0.159
+    },
+    "chosen": {
+     "best overall": "H",
+     "call: used softs at 54": "H \u2192 54 S(used 4)",
+     "hards to the flag": "H",
+     "new hard at 54": "H \u2192 54 H(new)",
+     "used medium at 54": "H \u2192 54 M(used 19)",
+     "stay out, then used softs": "H \u2192 56 S(used 4)",
+     "stay out, then new hard": "H \u2192 55 H(new)",
+     "stay out, then used medium": "H \u2192 59 M(used 19)",
+     "as run": "H \u2192 54 S(used 4)"
+    },
+    "measure": {
+     "best overall": {
+      "mean_points": 18.1685,
+      "mean_pos": 2.0225,
+      "p_podium": 0.9945
+     },
+     "call: used softs at 54": {
+      "mean_points": 13.3805,
+      "mean_pos": 3.691,
+      "p_podium": 0.453
+     },
+     "hards to the flag": {
+      "mean_points": 18.1685,
+      "mean_pos": 2.0225,
+      "p_podium": 0.9945
+     },
+     "new hard at 54": {
+      "mean_points": 10.8565,
+      "mean_pos": 4.6755,
+      "p_podium": 0.155
+     },
+     "used medium at 54": {
+      "mean_points": 9.54,
+      "mean_pos": 5.259,
+      "p_podium": 0.0545
+     },
+     "stay out, then used softs": {
+      "mean_points": 13.7075,
+      "mean_pos": 3.5675,
+      "p_podium": 0.494
+     },
+     "stay out, then new hard": {
+      "mean_points": 10.9865,
+      "mean_pos": 4.617,
+      "p_podium": 0.167
+     },
+     "stay out, then used medium": {
+      "mean_points": 9.794,
+      "mean_pos": 5.166,
+      "p_podium": 0.0595
+     },
+     "as run": {
+      "mean_points": 13.3805,
+      "mean_pos": 3.691,
+      "p_podium": 0.453
+     }
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,2440 @@
+{
+ "notes": {
+  "total_laps": 70,
+  "outlap_loss_s": 19.5,
+  "focal_sets": [
+   [
+    "HARD",
+    1
+   ],
+   [
+    "HARD",
+    1
+   ],
+   [
+    "SOFT",
+    4
+   ],
+   [
+    "SOFT",
+    6
+   ],
+   [
+    "MEDIUM",
+    22
+   ]
+  ],
+  "known_stops": {
+   "VER": [
+    "MEDIUM",
+    1
+   ]
+  }
+ },
+ "cap": {
+  "HARD": 63,
+  "MEDIUM": 35,
+  "SOFT": 24
+ },
+ "n_pit_losses": 22,
+ "params": {
+  "dry_rounds_before": [
+   1,
+   2,
+   3,
+   5,
+   6,
+   8,
+   9,
+   10,
+   11,
+   12
+  ],
+  "replay_rounds": [
+   1,
+   2,
+   3,
+   5,
+   6,
+   8,
+   9,
+   12
+  ],
+  "previous_running": 2021,
+  "previous_running_note": null,
+  "previous_events": 130,
+  "previous_passes": 14,
+  "circuit_intercept": -4.614,
+  "pooled_intercept": -2.778,
+  "slope": 2.74,
+  "pass_events_before": 2133,
+  "shift": 0.908,
+  "sc_close_ratio": 0.6600000000000004,
+  "p_sc_per_lap": 0.0154,
+  "p_vsc_per_lap": 0.0154
+ },
+ "fit_diagnostics": {
+  "max_r_hat": 1.0025356905514686,
+  "min_ess_bulk": 2001.8110365578682,
+  "min_ess_tail": 3194.340214365634,
+  "divergences": 0.0
+ },
+ "ferrari_hard": {
+  "wear": {
+   "0.1": 0.013672441623639316,
+   "0.9": 0.039466216564178466
+  },
+  "pace": {
+   "0.1": -0.15044113844633103,
+   "0.9": 0.1686018168926239
+  },
+  "wear_mean": 0.02697719047506689,
+  "pace_mean": 0.010561148639553722
+ },
+ "checks": [
+  {
+   "check": "main",
+   "band": "within range",
+   "primary": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "as_run": {
+    "mean_loss": 9.015,
+    "p10": 0.0,
+    "p50": 9.0,
+    "p90": 17.0,
+    "p_loss_pos": 0.889,
+    "p_loss_neg": 0.012,
+    "p_level_or_ahead": 0.111
+   },
+   "hards_to_flag": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "chosen": {
+    "best overall": "M \u2192 39 H(new)",
+    "call: hards at 39": "M \u2192 39 H(new)",
+    "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+    "used medium at 39": "M \u2192 39 M(used 22) \u2192 44 H(new)",
+    "stay out, then hards": "M \u2192 43 H(new)",
+    "stay out, then used softs": "M \u2192 50 S(used 4)",
+    "stay out, then used medium": "M \u2192 42 M(used 22) \u2192 47 H(new)",
+    "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+    "hards to the flag": "M \u2192 39 H(new)"
+   },
+   "measure": {
+    "best overall": {
+     "mean_points": 19.8655,
+     "mean_pos": 2.031,
+     "p_win": 0.4705,
+     "p_podium": 0.8635,
+     "points_dist": {
+      "6": 0.0015,
+      "8": 0.014,
+      "10": 0.044,
+      "12": 0.077,
+      "15": 0.152,
+      "18": 0.241,
+      "25": 0.4705
+     }
+    },
+    "call: hards at 39": {
+     "mean_points": 19.8655,
+     "mean_pos": 2.031,
+     "p_win": 0.4705,
+     "p_podium": 0.8635,
+     "points_dist": {
+      "6": 0.0015,
+      "8": 0.014,
+      "10": 0.044,
+      "12": 0.077,
+      "15": 0.152,
+      "18": 0.241,
+      "25": 0.4705
+     }
+    },
+    "used softs at 39": {
+     "mean_points": 12.064,
+     "mean_pos": 4.429,
+     "p_win": 0.053,
+     "p_podium": 0.3265,
+     "points_dist": {
+      "0": 0.0305,
+      "1": 0.005,
+      "2": 0.002,
+      "4": 0.009,
+      "6": 0.0305,
+      "8": 0.156,
+      "10": 0.206,
+      "12": 0.2345,
+      "15": 0.178,
+      "18": 0.0955,
+      "25": 0.053
+     }
+    },
+    "used medium at 39": {
+     "mean_points": 10.4995,
+     "mean_pos": 4.8795,
+     "p_win": 0.011,
+     "p_podium": 0.1505,
+     "points_dist": {
+      "0": 0.0015,
+      "1": 0.002,
+      "2": 0.001,
+      "4": 0.005,
+      "6": 0.042,
+      "8": 0.2965,
+      "10": 0.315,
+      "12": 0.1865,
+      "15": 0.1075,
+      "18": 0.032,
+      "25": 0.011
+     }
+    },
+    "stay out, then hards": {
+     "mean_points": 18.8275,
+     "mean_pos": 2.2165,
+     "p_win": 0.352,
+     "p_podium": 0.8735,
+     "points_dist": {
+      "0": 0.0005,
+      "6": 0.0025,
+      "8": 0.0105,
+      "10": 0.036,
+      "12": 0.077,
+      "15": 0.2475,
+      "18": 0.274,
+      "25": 0.352
+     }
+    },
+    "stay out, then used softs": {
+     "mean_points": 17.2055,
+     "mean_pos": 2.669,
+     "p_win": 0.2425,
+     "p_podium": 0.815,
+     "points_dist": {
+      "0": 0.006,
+      "1": 0.0025,
+      "2": 0.0035,
+      "4": 0.004,
+      "6": 0.0075,
+      "8": 0.019,
+      "10": 0.0485,
+      "12": 0.094,
+      "15": 0.3325,
+      "18": 0.24,
+      "25": 0.2425
+     }
+    },
+    "stay out, then used medium": {
+     "mean_points": 9.8625,
+     "mean_pos": 5.185,
+     "p_win": 0.004,
+     "p_podium": 0.1175,
+     "points_dist": {
+      "0": 0.012,
+      "1": 0.0065,
+      "2": 0.009,
+      "4": 0.009,
+      "6": 0.0535,
+      "8": 0.3225,
+      "10": 0.303,
+      "12": 0.167,
+      "15": 0.092,
+      "18": 0.0215,
+      "25": 0.004
+     }
+    },
+    "as run": {
+     "mean_points": 10.8505,
+     "mean_pos": 4.8715,
+     "p_win": 0.021,
+     "p_podium": 0.211,
+     "points_dist": {
+      "0": 0.031,
+      "1": 0.0045,
+      "2": 0.0065,
+      "4": 0.009,
+      "6": 0.0385,
+      "8": 0.2185,
+      "10": 0.2575,
+      "12": 0.2235,
+      "15": 0.128,
+      "18": 0.062,
+      "25": 0.021
+     }
+    },
+    "hards to the flag": {
+     "mean_points": 19.8655,
+     "mean_pos": 2.031,
+     "p_win": 0.4705,
+     "p_podium": 0.8635,
+     "points_dist": {
+      "6": 0.0015,
+      "8": 0.014,
+      "10": 0.044,
+      "12": 0.077,
+      "15": 0.152,
+      "18": 0.241,
+      "25": 0.4705
+     }
+    }
+   },
+   "n_candidates": 164,
+   "capped": {
+    "n_capped": 2753,
+    "best_removed": [
+     {
+      "plan": "M \u2192 48 S(used 4)",
+      "plan_cost_s": 66.5
+     },
+     {
+      "plan": "M \u2192 47 S(used 4)",
+      "plan_cost_s": 67.3
+     },
+     {
+      "plan": "M \u2192 46 S(used 4)",
+      "plan_cost_s": 68.3
+     },
+     {
+      "plan": "M \u2192 57 S(used 4)",
+      "plan_cost_s": 68.7
+     },
+     {
+      "plan": "M \u2192 45 S(used 4)",
+      "plan_cost_s": 69.5
+     }
+    ]
+   }
+  },
+  {
+   "check": "widening x1.188",
+   "band": "within range",
+   "primary": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "as_run": {
+    "mean_loss": 8.476,
+    "p10": 0.0,
+    "p50": 8.0,
+    "p90": 15.0,
+    "p_loss_pos": 0.866,
+    "p_loss_neg": 0.022,
+    "p_level_or_ahead": 0.134
+   },
+   "hards_to_flag": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "chosen": {
+    "best overall": "M \u2192 39 H(new)",
+    "call: hards at 39": "M \u2192 39 H(new)",
+    "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+    "used medium at 39": "M \u2192 39 M(used 22) \u2192 44 H(new)",
+    "stay out, then hards": "M \u2192 43 H(new)",
+    "stay out, then used softs": "M \u2192 50 S(used 4)",
+    "stay out, then used medium": "M \u2192 42 M(used 22) \u2192 47 H(new)",
+    "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+    "hards to the flag": "M \u2192 39 H(new)"
+   },
+   "measure": {
+    "best overall": {
+     "mean_points": 19.4915,
+     "mean_pos": 2.124,
+     "p_win": 0.4415,
+     "p_podium": 0.84,
+     "points_dist": {
+      "6": 0.0025,
+      "8": 0.0195,
+      "10": 0.051,
+      "12": 0.087,
+      "15": 0.148,
+      "18": 0.2505,
+      "25": 0.4415
+     }
+    },
+    "call: hards at 39": {
+     "mean_points": 19.4915,
+     "mean_pos": 2.124,
+     "p_win": 0.4415,
+     "p_podium": 0.84,
+     "points_dist": {
+      "6": 0.0025,
+      "8": 0.0195,
+      "10": 0.051,
+      "12": 0.087,
+      "15": 0.148,
+      "18": 0.2505,
+      "25": 0.4415
+     }
+    },
+    "used softs at 39": {
+     "mean_points": 12.2,
+     "mean_pos": 4.396,
+     "p_win": 0.0585,
+     "p_podium": 0.3405,
+     "points_dist": {
+      "0": 0.03,
+      "1": 0.005,
+      "2": 0.004,
+      "4": 0.0075,
+      "6": 0.0315,
+      "8": 0.1555,
+      "10": 0.1985,
+      "12": 0.2275,
+      "15": 0.1765,
+      "18": 0.1055,
+      "25": 0.0585
+     }
+    },
+    "used medium at 39": {
+     "mean_points": 10.6015,
+     "mean_pos": 4.8495,
+     "p_win": 0.013,
+     "p_podium": 0.1725,
+     "points_dist": {
+      "0": 0.002,
+      "1": 0.0015,
+      "2": 0.0015,
+      "4": 0.0045,
+      "6": 0.049,
+      "8": 0.2935,
+      "10": 0.301,
+      "12": 0.1745,
+      "15": 0.121,
+      "18": 0.0385,
+      "25": 0.013
+     }
+    },
+    "stay out, then hards": {
+     "mean_points": 18.6995,
+     "mean_pos": 2.2515,
+     "p_win": 0.343,
+     "p_podium": 0.8585,
+     "points_dist": {
+      "0": 0.0005,
+      "6": 0.0045,
+      "8": 0.0105,
+      "10": 0.043,
+      "12": 0.083,
+      "15": 0.2305,
+      "18": 0.285,
+      "25": 0.343
+     }
+    },
+    "stay out, then used softs": {
+     "mean_points": 17.219,
+     "mean_pos": 2.6765,
+     "p_win": 0.245,
+     "p_podium": 0.809,
+     "points_dist": {
+      "0": 0.006,
+      "1": 0.004,
+      "2": 0.0025,
+      "4": 0.005,
+      "6": 0.0085,
+      "8": 0.02,
+      "10": 0.051,
+      "12": 0.094,
+      "15": 0.312,
+      "18": 0.252,
+      "25": 0.245
+     }
+    },
+    "stay out, then used medium": {
+     "mean_points": 10.01,
+     "mean_pos": 5.1295,
+     "p_win": 0.006,
+     "p_podium": 0.1365,
+     "points_dist": {
+      "0": 0.0125,
+      "1": 0.0065,
+      "2": 0.008,
+      "4": 0.0085,
+      "6": 0.0545,
+      "8": 0.3125,
+      "10": 0.2985,
+      "12": 0.1625,
+      "15": 0.1025,
+      "18": 0.028,
+      "25": 0.006
+     }
+    },
+    "as run": {
+     "mean_points": 11.0155,
+     "mean_pos": 4.8175,
+     "p_win": 0.0265,
+     "p_podium": 0.225,
+     "points_dist": {
+      "0": 0.031,
+      "1": 0.0055,
+      "2": 0.0055,
+      "4": 0.01,
+      "6": 0.0375,
+      "8": 0.212,
+      "10": 0.2455,
+      "12": 0.228,
+      "15": 0.1295,
+      "18": 0.069,
+      "25": 0.0265
+     }
+    },
+    "hards to the flag": {
+     "mean_points": 19.4915,
+     "mean_pos": 2.124,
+     "p_win": 0.4415,
+     "p_podium": 0.84,
+     "points_dist": {
+      "6": 0.0025,
+      "8": 0.0195,
+      "10": 0.051,
+      "12": 0.087,
+      "15": 0.148,
+      "18": 0.2505,
+      "25": 0.4415
+     }
+    }
+   },
+   "n_candidates": 164,
+   "capped": {
+    "n_capped": 2753,
+    "best_removed": [
+     {
+      "plan": "M \u2192 48 S(used 4)",
+      "plan_cost_s": 66.5
+     },
+     {
+      "plan": "M \u2192 47 S(used 4)",
+      "plan_cost_s": 67.2
+     },
+     {
+      "plan": "M \u2192 46 S(used 4)",
+      "plan_cost_s": 68.2
+     },
+     {
+      "plan": "M \u2192 57 S(used 4)",
+      "plan_cost_s": 68.7
+     },
+     {
+      "plan": "M \u2192 45 S(used 4)",
+      "plan_cost_s": 69.4
+     }
+    ]
+   }
+  },
+  {
+   "check": "Ferrari hard wear p10",
+   "band": "within range",
+   "primary": {
+    "mean_loss": -0.08,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0465,
+    "p_loss_neg": 0.052,
+    "p_level_or_ahead": 0.9535
+   },
+   "as_run": {
+    "mean_loss": 9.923,
+    "p10": 3.0,
+    "p50": 10.0,
+    "p90": 17.0,
+    "p_loss_pos": 0.929,
+    "p_loss_neg": 0.0045,
+    "p_level_or_ahead": 0.071
+   },
+   "hards_to_flag": {
+    "mean_loss": -0.08,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0465,
+    "p_loss_neg": 0.052,
+    "p_level_or_ahead": 0.9535
+   },
+   "chosen": {
+    "best overall": "M \u2192 40 H(new)",
+    "call: hards at 39": "M \u2192 39 H(new)",
+    "used softs at 39": "M \u2192 39 S(used 4) \u2192 50 H(new)",
+    "used medium at 39": "M \u2192 39 M(used 22) \u2192 44 H(new)",
+    "stay out, then hards": "M \u2192 40 H(new)",
+    "stay out, then used softs": "M \u2192 50 S(used 4)",
+    "stay out, then used medium": "M \u2192 40 M(used 22) \u2192 45 H(new)",
+    "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+    "hards to the flag": "M \u2192 39 H(new)"
+   },
+   "measure": {
+    "best overall": {
+     "mean_points": 21.0125,
+     "mean_pos": 1.7595,
+     "p_win": 0.564,
+     "p_podium": 0.923,
+     "points_dist": {
+      "8": 0.0035,
+      "10": 0.028,
+      "12": 0.0455,
+      "15": 0.1345,
+      "18": 0.2245,
+      "25": 0.564
+     }
+    },
+    "call: hards at 39": {
+     "mean_points": 21.0925,
+     "mean_pos": 1.749,
+     "p_win": 0.5755,
+     "p_podium": 0.919,
+     "points_dist": {
+      "8": 0.0055,
+      "10": 0.0265,
+      "12": 0.049,
+      "15": 0.125,
+      "18": 0.2185,
+      "25": 0.5755
+     }
+    },
+    "used softs at 39": {
+     "mean_points": 12.3035,
+     "mean_pos": 4.223,
+     "p_win": 0.039,
+     "p_podium": 0.337,
+     "points_dist": {
+      "0": 0.0155,
+      "1": 0.0055,
+      "2": 0.006,
+      "4": 0.005,
+      "6": 0.0255,
+      "8": 0.1145,
+      "10": 0.202,
+      "12": 0.289,
+      "15": 0.21,
+      "18": 0.088,
+      "25": 0.039
+     }
+    },
+    "used medium at 39": {
+     "mean_points": 10.767,
+     "mean_pos": 4.7395,
+     "p_win": 0.0075,
+     "p_podium": 0.15,
+     "points_dist": {
+      "0": 0.001,
+      "1": 0.002,
+      "2": 0.001,
+      "4": 0.004,
+      "6": 0.0285,
+      "8": 0.2465,
+      "10": 0.3255,
+      "12": 0.2415,
+      "15": 0.1005,
+      "18": 0.042,
+      "25": 0.0075
+     }
+    },
+    "stay out, then hards": {
+     "mean_points": 21.0125,
+     "mean_pos": 1.7595,
+     "p_win": 0.564,
+     "p_podium": 0.923,
+     "points_dist": {
+      "8": 0.0035,
+      "10": 0.028,
+      "12": 0.0455,
+      "15": 0.1345,
+      "18": 0.2245,
+      "25": 0.564
+     }
+    },
+    "stay out, then used softs": {
+     "mean_points": 16.7765,
+     "mean_pos": 2.818,
+     "p_win": 0.233,
+     "p_podium": 0.7505,
+     "points_dist": {
+      "0": 0.007,
+      "1": 0.004,
+      "2": 0.003,
+      "4": 0.0055,
+      "6": 0.0115,
+      "8": 0.0295,
+      "10": 0.0485,
+      "12": 0.1405,
+      "15": 0.2905,
+      "18": 0.227,
+      "25": 0.233
+     }
+    },
+    "stay out, then used medium": {
+     "mean_points": 10.5885,
+     "mean_pos": 4.8185,
+     "p_win": 0.006,
+     "p_podium": 0.1335,
+     "points_dist": {
+      "0": 0.003,
+      "1": 0.003,
+      "2": 0.004,
+      "4": 0.0045,
+      "6": 0.0315,
+      "8": 0.248,
+      "10": 0.3285,
+      "12": 0.244,
+      "15": 0.0905,
+      "18": 0.037,
+      "25": 0.006
+     }
+    },
+    "as run": {
+     "mean_points": 11.0895,
+     "mean_pos": 4.7685,
+     "p_win": 0.027,
+     "p_podium": 0.223,
+     "points_dist": {
+      "0": 0.027,
+      "1": 0.0055,
+      "2": 0.005,
+      "4": 0.007,
+      "6": 0.04,
+      "8": 0.1975,
+      "10": 0.259,
+      "12": 0.236,
+      "15": 0.133,
+      "18": 0.063,
+      "25": 0.027
+     }
+    },
+    "hards to the flag": {
+     "mean_points": 21.0925,
+     "mean_pos": 1.749,
+     "p_win": 0.5755,
+     "p_podium": 0.919,
+     "points_dist": {
+      "8": 0.0055,
+      "10": 0.0265,
+      "12": 0.049,
+      "15": 0.125,
+      "18": 0.2185,
+      "25": 0.5755
+     }
+    }
+   },
+   "n_candidates": 164,
+   "capped": {
+    "n_capped": 2753,
+    "best_removed": [
+     {
+      "plan": "M \u2192 48 S(used 4)",
+      "plan_cost_s": 66.5
+     },
+     {
+      "plan": "M \u2192 47 S(used 4)",
+      "plan_cost_s": 67.3
+     },
+     {
+      "plan": "M \u2192 46 S(used 4)",
+      "plan_cost_s": 68.3
+     },
+     {
+      "plan": "M \u2192 57 S(used 4)",
+      "plan_cost_s": 68.7
+     },
+     {
+      "plan": "M \u2192 45 S(used 4)",
+      "plan_cost_s": 69.5
+     }
+    ]
+   }
+  },
+  {
+   "check": "Ferrari hard wear p90",
+   "band": "within range",
+   "primary": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "as_run": {
+    "mean_loss": 7.773,
+    "p10": 0.0,
+    "p50": 7.0,
+    "p90": 15.0,
+    "p_loss_pos": 0.8415,
+    "p_loss_neg": 0.027,
+    "p_level_or_ahead": 0.1585
+   },
+   "hards_to_flag": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "chosen": {
+    "best overall": "M \u2192 39 H(new)",
+    "call: hards at 39": "M \u2192 39 H(new)",
+    "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+    "used medium at 39": "M \u2192 39 M(used 22) \u2192 46 H(new)",
+    "stay out, then hards": "M \u2192 46 H(new)",
+    "stay out, then used softs": "M \u2192 50 S(used 4)",
+    "stay out, then used medium": "M \u2192 47 M(used 22) \u2192 53 S(used 4)",
+    "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+    "hards to the flag": "M \u2192 39 H(new)"
+   },
+   "measure": {
+    "best overall": {
+     "mean_points": 18.2615,
+     "mean_pos": 2.4345,
+     "p_win": 0.3525,
+     "p_podium": 0.776,
+     "points_dist": {
+      "6": 0.0025,
+      "8": 0.0385,
+      "10": 0.0705,
+      "12": 0.1125,
+      "15": 0.184,
+      "18": 0.2395,
+      "25": 0.3525
+     }
+    },
+    "call: hards at 39": {
+     "mean_points": 18.2615,
+     "mean_pos": 2.4345,
+     "p_win": 0.3525,
+     "p_podium": 0.776,
+     "points_dist": {
+      "6": 0.0025,
+      "8": 0.0385,
+      "10": 0.0705,
+      "12": 0.1125,
+      "15": 0.184,
+      "18": 0.2395,
+      "25": 0.3525
+     }
+    },
+    "used softs at 39": {
+     "mean_points": 12.016,
+     "mean_pos": 4.4455,
+     "p_win": 0.0525,
+     "p_podium": 0.321,
+     "points_dist": {
+      "0": 0.03,
+      "1": 0.005,
+      "2": 0.002,
+      "4": 0.009,
+      "6": 0.03,
+      "8": 0.156,
+      "10": 0.211,
+      "12": 0.236,
+      "15": 0.1815,
+      "18": 0.087,
+      "25": 0.0525
+     }
+    },
+    "used medium at 39": {
+     "mean_points": 9.4415,
+     "mean_pos": 5.3645,
+     "p_win": 0.002,
+     "p_podium": 0.0845,
+     "points_dist": {
+      "0": 0.013,
+      "1": 0.0045,
+      "2": 0.005,
+      "4": 0.0065,
+      "6": 0.07,
+      "8": 0.3915,
+      "10": 0.2865,
+      "12": 0.1385,
+      "15": 0.071,
+      "18": 0.0115,
+      "25": 0.002
+     }
+    },
+    "stay out, then hards": {
+     "mean_points": 16.57,
+     "mean_pos": 2.7865,
+     "p_win": 0.1795,
+     "p_podium": 0.7865,
+     "points_dist": {
+      "0": 0.0035,
+      "1": 0.0035,
+      "2": 0.002,
+      "4": 0.002,
+      "6": 0.0065,
+      "8": 0.0215,
+      "10": 0.0585,
+      "12": 0.116,
+      "15": 0.349,
+      "18": 0.258,
+      "25": 0.1795
+     }
+    },
+    "stay out, then used softs": {
+     "mean_points": 17.33,
+     "mean_pos": 2.626,
+     "p_win": 0.245,
+     "p_podium": 0.8335,
+     "points_dist": {
+      "0": 0.0065,
+      "1": 0.003,
+      "2": 0.0025,
+      "4": 0.0035,
+      "6": 0.0065,
+      "8": 0.0175,
+      "10": 0.0405,
+      "12": 0.0865,
+      "15": 0.344,
+      "18": 0.2445,
+      "25": 0.245
+     }
+    },
+    "stay out, then used medium": {
+     "mean_points": 9.345,
+     "mean_pos": 5.6965,
+     "p_win": 0.0085,
+     "p_podium": 0.112,
+     "points_dist": {
+      "0": 0.069,
+      "1": 0.008,
+      "2": 0.0135,
+      "4": 0.0115,
+      "6": 0.0545,
+      "8": 0.2775,
+      "10": 0.284,
+      "12": 0.17,
+      "15": 0.0795,
+      "18": 0.024,
+      "25": 0.0085
+     }
+    },
+    "as run": {
+     "mean_points": 10.4885,
+     "mean_pos": 5.0285,
+     "p_win": 0.0185,
+     "p_podium": 0.176,
+     "points_dist": {
+      "0": 0.032,
+      "1": 0.005,
+      "2": 0.007,
+      "4": 0.011,
+      "6": 0.044,
+      "8": 0.238,
+      "10": 0.28,
+      "12": 0.207,
+      "15": 0.108,
+      "18": 0.0495,
+      "25": 0.0185
+     }
+    },
+    "hards to the flag": {
+     "mean_points": 18.2615,
+     "mean_pos": 2.4345,
+     "p_win": 0.3525,
+     "p_podium": 0.776,
+     "points_dist": {
+      "6": 0.0025,
+      "8": 0.0385,
+      "10": 0.0705,
+      "12": 0.1125,
+      "15": 0.184,
+      "18": 0.2395,
+      "25": 0.3525
+     }
+    }
+   },
+   "n_candidates": 163,
+   "capped": {
+    "n_capped": 2753,
+    "best_removed": [
+     {
+      "plan": "M \u2192 48 S(used 4)",
+      "plan_cost_s": 66.5
+     },
+     {
+      "plan": "M \u2192 47 S(used 4)",
+      "plan_cost_s": 67.3
+     },
+     {
+      "plan": "M \u2192 46 S(used 4)",
+      "plan_cost_s": 68.3
+     },
+     {
+      "plan": "M \u2192 57 S(used 4)",
+      "plan_cost_s": 68.7
+     },
+     {
+      "plan": "M \u2192 45 S(used 4)",
+      "plan_cost_s": 69.5
+     }
+    ]
+   }
+  },
+  {
+   "check": "Ferrari hard pace p10",
+   "band": "within range",
+   "primary": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "as_run": {
+    "mean_loss": 9.8435,
+    "p10": 2.0,
+    "p50": 10.0,
+    "p90": 17.0,
+    "p_loss_pos": 0.916,
+    "p_loss_neg": 0.009,
+    "p_level_or_ahead": 0.084
+   },
+   "hards_to_flag": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "chosen": {
+    "best overall": "M \u2192 39 H(new)",
+    "call: hards at 39": "M \u2192 39 H(new)",
+    "used softs at 39": "M \u2192 39 S(used 4) \u2192 50 H(new)",
+    "used medium at 39": "M \u2192 39 M(used 22) \u2192 44 H(new)",
+    "stay out, then hards": "M \u2192 42 H(new)",
+    "stay out, then used softs": "M \u2192 50 S(used 4)",
+    "stay out, then used medium": "M \u2192 40 M(used 22) \u2192 45 H(new)",
+    "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+    "hards to the flag": "M \u2192 39 H(new)"
+   },
+   "measure": {
+    "best overall": {
+     "mean_points": 21.188,
+     "mean_pos": 1.727,
+     "p_win": 0.5835,
+     "p_podium": 0.923,
+     "points_dist": {
+      "8": 0.0035,
+      "10": 0.028,
+      "12": 0.0455,
+      "15": 0.1215,
+      "18": 0.218,
+      "25": 0.5835
+     }
+    },
+    "call: hards at 39": {
+     "mean_points": 21.188,
+     "mean_pos": 1.727,
+     "p_win": 0.5835,
+     "p_podium": 0.923,
+     "points_dist": {
+      "8": 0.0035,
+      "10": 0.028,
+      "12": 0.0455,
+      "15": 0.1215,
+      "18": 0.218,
+      "25": 0.5835
+     }
+    },
+    "used softs at 39": {
+     "mean_points": 12.3915,
+     "mean_pos": 4.188,
+     "p_win": 0.037,
+     "p_podium": 0.355,
+     "points_dist": {
+      "0": 0.0145,
+      "1": 0.0055,
+      "2": 0.006,
+      "4": 0.0065,
+      "6": 0.0245,
+      "8": 0.11,
+      "10": 0.196,
+      "12": 0.282,
+      "15": 0.224,
+      "18": 0.094,
+      "25": 0.037
+     }
+    },
+    "used medium at 39": {
+     "mean_points": 10.819,
+     "mean_pos": 4.712,
+     "p_win": 0.007,
+     "p_podium": 0.157,
+     "points_dist": {
+      "0": 0.001,
+      "1": 0.001,
+      "2": 0.0005,
+      "4": 0.003,
+      "6": 0.027,
+      "8": 0.24,
+      "10": 0.3295,
+      "12": 0.241,
+      "15": 0.113,
+      "18": 0.037,
+      "25": 0.007
+     }
+    },
+    "stay out, then hards": {
+     "mean_points": 20.359,
+     "mean_pos": 1.8755,
+     "p_win": 0.4885,
+     "p_podium": 0.9165,
+     "points_dist": {
+      "6": 0.0005,
+      "8": 0.003,
+      "10": 0.024,
+      "12": 0.056,
+      "15": 0.1655,
+      "18": 0.2625,
+      "25": 0.4885
+     }
+    },
+    "stay out, then used softs": {
+     "mean_points": 16.866,
+     "mean_pos": 2.793,
+     "p_win": 0.238,
+     "p_podium": 0.762,
+     "points_dist": {
+      "0": 0.0075,
+      "1": 0.0035,
+      "2": 0.003,
+      "4": 0.0045,
+      "6": 0.0125,
+      "8": 0.0285,
+      "10": 0.045,
+      "12": 0.1335,
+      "15": 0.2995,
+      "18": 0.2245,
+      "25": 0.238
+     }
+    },
+    "stay out, then used medium": {
+     "mean_points": 10.6085,
+     "mean_pos": 4.8095,
+     "p_win": 0.007,
+     "p_podium": 0.1385,
+     "points_dist": {
+      "0": 0.0025,
+      "1": 0.002,
+      "2": 0.002,
+      "4": 0.0055,
+      "6": 0.033,
+      "8": 0.249,
+      "10": 0.327,
+      "12": 0.2405,
+      "15": 0.1025,
+      "18": 0.029,
+      "25": 0.007
+     }
+    },
+    "as run": {
+     "mean_points": 11.3445,
+     "mean_pos": 4.6765,
+     "p_win": 0.035,
+     "p_podium": 0.2515,
+     "points_dist": {
+      "0": 0.026,
+      "1": 0.0055,
+      "2": 0.004,
+      "4": 0.009,
+      "6": 0.0335,
+      "8": 0.19,
+      "10": 0.251,
+      "12": 0.2295,
+      "15": 0.154,
+      "18": 0.0625,
+      "25": 0.035
+     }
+    },
+    "hards to the flag": {
+     "mean_points": 21.188,
+     "mean_pos": 1.727,
+     "p_win": 0.5835,
+     "p_podium": 0.923,
+     "points_dist": {
+      "8": 0.0035,
+      "10": 0.028,
+      "12": 0.0455,
+      "15": 0.1215,
+      "18": 0.218,
+      "25": 0.5835
+     }
+    }
+   },
+   "n_candidates": 164,
+   "capped": {
+    "n_capped": 2753,
+    "best_removed": [
+     {
+      "plan": "M \u2192 48 S(used 4)",
+      "plan_cost_s": 66.5
+     },
+     {
+      "plan": "M \u2192 47 S(used 4)",
+      "plan_cost_s": 67.3
+     },
+     {
+      "plan": "M \u2192 46 S(used 4)",
+      "plan_cost_s": 68.3
+     },
+     {
+      "plan": "M \u2192 57 S(used 4)",
+      "plan_cost_s": 68.7
+     },
+     {
+      "plan": "M \u2192 45 S(used 4)",
+      "plan_cost_s": 69.5
+     }
+    ]
+   }
+  },
+  {
+   "check": "Ferrari hard pace p90",
+   "band": "within range",
+   "primary": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "as_run": {
+    "mean_loss": 8.2405,
+    "p10": 0.0,
+    "p50": 8.0,
+    "p90": 15.100000000000136,
+    "p_loss_pos": 0.8725,
+    "p_loss_neg": 0.019,
+    "p_level_or_ahead": 0.1275
+   },
+   "hards_to_flag": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "chosen": {
+    "best overall": "M \u2192 39 H(new)",
+    "call: hards at 39": "M \u2192 39 H(new)",
+    "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+    "used medium at 39": "M \u2192 39 M(used 22) \u2192 44 H(new)",
+    "stay out, then hards": "M \u2192 45 H(new)",
+    "stay out, then used softs": "M \u2192 50 S(used 4)",
+    "stay out, then used medium": "M \u2192 47 M(used 22) \u2192 53 S(used 4)",
+    "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+    "hards to the flag": "M \u2192 39 H(new)"
+   },
+   "measure": {
+    "best overall": {
+     "mean_points": 18.4775,
+     "mean_pos": 2.3655,
+     "p_win": 0.361,
+     "p_podium": 0.797,
+     "points_dist": {
+      "6": 0.002,
+      "8": 0.0265,
+      "10": 0.071,
+      "12": 0.1035,
+      "15": 0.1905,
+      "18": 0.2455,
+      "25": 0.361
+     }
+    },
+    "call: hards at 39": {
+     "mean_points": 18.4775,
+     "mean_pos": 2.3655,
+     "p_win": 0.361,
+     "p_podium": 0.797,
+     "points_dist": {
+      "6": 0.002,
+      "8": 0.0265,
+      "10": 0.071,
+      "12": 0.1035,
+      "15": 0.1905,
+      "18": 0.2455,
+      "25": 0.361
+     }
+    },
+    "used softs at 39": {
+     "mean_points": 12.0095,
+     "mean_pos": 4.4445,
+     "p_win": 0.051,
+     "p_podium": 0.321,
+     "points_dist": {
+      "0": 0.03,
+      "1": 0.005,
+      "2": 0.002,
+      "4": 0.009,
+      "6": 0.0305,
+      "8": 0.155,
+      "10": 0.211,
+      "12": 0.2365,
+      "15": 0.1805,
+      "18": 0.0895,
+      "25": 0.051
+     }
+    },
+    "used medium at 39": {
+     "mean_points": 9.957,
+     "mean_pos": 5.105,
+     "p_win": 0.005,
+     "p_podium": 0.107,
+     "points_dist": {
+      "0": 0.0015,
+      "1": 0.0025,
+      "2": 0.0025,
+      "4": 0.0045,
+      "6": 0.055,
+      "8": 0.3505,
+      "10": 0.3125,
+      "12": 0.164,
+      "15": 0.0855,
+      "18": 0.0165,
+      "25": 0.005
+     }
+    },
+    "stay out, then hards": {
+     "mean_points": 17.166,
+     "mean_pos": 2.627,
+     "p_win": 0.2215,
+     "p_podium": 0.804,
+     "points_dist": {
+      "0": 0.003,
+      "1": 0.0025,
+      "2": 0.0005,
+      "4": 0.001,
+      "6": 0.0055,
+      "8": 0.016,
+      "10": 0.048,
+      "12": 0.1195,
+      "15": 0.313,
+      "18": 0.2695,
+      "25": 0.2215
+     }
+    },
+    "stay out, then used softs": {
+     "mean_points": 17.319,
+     "mean_pos": 2.631,
+     "p_win": 0.245,
+     "p_podium": 0.832,
+     "points_dist": {
+      "0": 0.0065,
+      "1": 0.003,
+      "2": 0.0025,
+      "4": 0.0035,
+      "6": 0.0065,
+      "8": 0.0175,
+      "10": 0.0415,
+      "12": 0.087,
+      "15": 0.344,
+      "18": 0.243,
+      "25": 0.245
+     }
+    },
+    "stay out, then used medium": {
+     "mean_points": 9.335,
+     "mean_pos": 5.6975,
+     "p_win": 0.008,
+     "p_podium": 0.111,
+     "points_dist": {
+      "0": 0.069,
+      "1": 0.008,
+      "2": 0.0135,
+      "4": 0.0115,
+      "6": 0.0545,
+      "8": 0.2785,
+      "10": 0.2845,
+      "12": 0.1695,
+      "15": 0.078,
+      "18": 0.025,
+      "25": 0.008
+     }
+    },
+    "as run": {
+     "mean_points": 10.237,
+     "mean_pos": 5.1215,
+     "p_win": 0.013,
+     "p_podium": 0.151,
+     "points_dist": {
+      "0": 0.033,
+      "1": 0.0055,
+      "2": 0.007,
+      "4": 0.0105,
+      "6": 0.048,
+      "8": 0.251,
+      "10": 0.284,
+      "12": 0.21,
+      "15": 0.0965,
+      "18": 0.0415,
+      "25": 0.013
+     }
+    },
+    "hards to the flag": {
+     "mean_points": 18.4775,
+     "mean_pos": 2.3655,
+     "p_win": 0.361,
+     "p_podium": 0.797,
+     "points_dist": {
+      "6": 0.002,
+      "8": 0.0265,
+      "10": 0.071,
+      "12": 0.1035,
+      "15": 0.1905,
+      "18": 0.2455,
+      "25": 0.361
+     }
+    }
+   },
+   "n_candidates": 163,
+   "capped": {
+    "n_capped": 2753,
+    "best_removed": [
+     {
+      "plan": "M \u2192 48 S(used 4)",
+      "plan_cost_s": 66.5
+     },
+     {
+      "plan": "M \u2192 47 S(used 4)",
+      "plan_cost_s": 67.3
+     },
+     {
+      "plan": "M \u2192 46 S(used 4)",
+      "plan_cost_s": 68.3
+     },
+     {
+      "plan": "M \u2192 57 S(used 4)",
+      "plan_cost_s": 68.7
+     },
+     {
+      "plan": "M \u2192 45 S(used 4)",
+      "plan_cost_s": 69.5
+     }
+    ]
+   }
+  },
+  {
+   "check": "SC/VSC rate x0.5",
+   "band": "within range",
+   "primary": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "as_run": {
+    "mean_loss": 8.6455,
+    "p10": 0.0,
+    "p50": 8.0,
+    "p90": 15.0,
+    "p_loss_pos": 0.89,
+    "p_loss_neg": 0.0145,
+    "p_level_or_ahead": 0.11
+   },
+   "hards_to_flag": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "chosen": {
+    "best overall": "M \u2192 39 H(new)",
+    "call: hards at 39": "M \u2192 39 H(new)",
+    "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+    "used medium at 39": "M \u2192 39 M(used 22) \u2192 44 H(new)",
+    "stay out, then hards": "M \u2192 43 H(new)",
+    "stay out, then used softs": "M \u2192 50 S(used 4)",
+    "stay out, then used medium": "M \u2192 42 M(used 22) \u2192 47 H(new)",
+    "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+    "hards to the flag": "M \u2192 39 H(new)"
+   },
+   "measure": {
+    "best overall": {
+     "mean_points": 19.7645,
+     "mean_pos": 2.055,
+     "p_win": 0.462,
+     "p_podium": 0.8685,
+     "points_dist": {
+      "6": 0.001,
+      "8": 0.0195,
+      "10": 0.0395,
+      "12": 0.0715,
+      "15": 0.1725,
+      "18": 0.234,
+      "25": 0.462
+     }
+    },
+    "call: hards at 39": {
+     "mean_points": 19.7645,
+     "mean_pos": 2.055,
+     "p_win": 0.462,
+     "p_podium": 0.8685,
+     "points_dist": {
+      "6": 0.001,
+      "8": 0.0195,
+      "10": 0.0395,
+      "12": 0.0715,
+      "15": 0.1725,
+      "18": 0.234,
+      "25": 0.462
+     }
+    },
+    "used softs at 39": {
+     "mean_points": 12.487,
+     "mean_pos": 4.1695,
+     "p_win": 0.0535,
+     "p_podium": 0.353,
+     "points_dist": {
+      "0": 0.0075,
+      "1": 0.0035,
+      "2": 0.0025,
+      "4": 0.006,
+      "6": 0.0265,
+      "8": 0.1525,
+      "10": 0.219,
+      "12": 0.2295,
+      "15": 0.199,
+      "18": 0.1005,
+      "25": 0.0535
+     }
+    },
+    "used medium at 39": {
+     "mean_points": 10.3025,
+     "mean_pos": 4.949,
+     "p_win": 0.008,
+     "p_podium": 0.1255,
+     "points_dist": {
+      "0": 0.0005,
+      "1": 0.0005,
+      "2": 0.0015,
+      "4": 0.004,
+      "6": 0.0455,
+      "8": 0.3055,
+      "10": 0.3355,
+      "12": 0.1815,
+      "15": 0.094,
+      "18": 0.0235,
+      "25": 0.008
+     }
+    },
+    "stay out, then hards": {
+     "mean_points": 18.9035,
+     "mean_pos": 2.1785,
+     "p_win": 0.345,
+     "p_podium": 0.89,
+     "points_dist": {
+      "2": 0.001,
+      "6": 0.001,
+      "8": 0.009,
+      "10": 0.033,
+      "12": 0.066,
+      "15": 0.2445,
+      "18": 0.3005,
+      "25": 0.345
+     }
+    },
+    "stay out, then used softs": {
+     "mean_points": 17.6675,
+     "mean_pos": 2.4875,
+     "p_win": 0.246,
+     "p_podium": 0.865,
+     "points_dist": {
+      "0": 0.0035,
+      "1": 0.002,
+      "2": 0.0005,
+      "4": 0.001,
+      "6": 0.0055,
+      "8": 0.0125,
+      "10": 0.03,
+      "12": 0.08,
+      "15": 0.3415,
+      "18": 0.2775,
+      "25": 0.246
+     }
+    },
+    "stay out, then used medium": {
+     "mean_points": 9.9905,
+     "mean_pos": 5.101,
+     "p_win": 0.006,
+     "p_podium": 0.104,
+     "points_dist": {
+      "0": 0.0045,
+      "1": 0.0015,
+      "2": 0.003,
+      "4": 0.0045,
+      "6": 0.0535,
+      "8": 0.333,
+      "10": 0.3245,
+      "12": 0.1715,
+      "15": 0.079,
+      "18": 0.019,
+      "25": 0.006
+     }
+    },
+    "as run": {
+     "mean_points": 11.119,
+     "mean_pos": 4.6745,
+     "p_win": 0.022,
+     "p_podium": 0.2165,
+     "points_dist": {
+      "0": 0.01,
+      "1": 0.0025,
+      "2": 0.003,
+      "4": 0.0025,
+      "6": 0.039,
+      "8": 0.2305,
+      "10": 0.2825,
+      "12": 0.2135,
+      "15": 0.1385,
+      "18": 0.056,
+      "25": 0.022
+     }
+    },
+    "hards to the flag": {
+     "mean_points": 19.7645,
+     "mean_pos": 2.055,
+     "p_win": 0.462,
+     "p_podium": 0.8685,
+     "points_dist": {
+      "6": 0.001,
+      "8": 0.0195,
+      "10": 0.0395,
+      "12": 0.0715,
+      "15": 0.1725,
+      "18": 0.234,
+      "25": 0.462
+     }
+    }
+   },
+   "n_candidates": 164,
+   "capped": {
+    "n_capped": 2753,
+    "best_removed": [
+     {
+      "plan": "M \u2192 48 S(used 4)",
+      "plan_cost_s": 66.5
+     },
+     {
+      "plan": "M \u2192 47 S(used 4)",
+      "plan_cost_s": 67.3
+     },
+     {
+      "plan": "M \u2192 46 S(used 4)",
+      "plan_cost_s": 68.3
+     },
+     {
+      "plan": "M \u2192 57 S(used 4)",
+      "plan_cost_s": 68.7
+     },
+     {
+      "plan": "M \u2192 45 S(used 4)",
+      "plan_cost_s": 69.5
+     }
+    ]
+   }
+  },
+  {
+   "check": "SC/VSC rate x2",
+   "band": "within range",
+   "primary": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "as_run": {
+    "mean_loss": 9.5725,
+    "p10": 2.0,
+    "p50": 10.0,
+    "p90": 17.0,
+    "p_loss_pos": 0.905,
+    "p_loss_neg": 0.011,
+    "p_level_or_ahead": 0.095
+   },
+   "hards_to_flag": {
+    "mean_loss": 0.0,
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.0,
+    "p_loss_pos": 0.0,
+    "p_loss_neg": 0.0,
+    "p_level_or_ahead": 1.0
+   },
+   "chosen": {
+    "best overall": "M \u2192 39 H(new)",
+    "call: hards at 39": "M \u2192 39 H(new)",
+    "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+    "used medium at 39": "M \u2192 39 M(used 22) \u2192 44 H(new)",
+    "stay out, then hards": "M \u2192 43 H(new)",
+    "stay out, then used softs": "M \u2192 50 S(used 4)",
+    "stay out, then used medium": "M \u2192 42 M(used 22) \u2192 47 H(new)",
+    "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+    "hards to the flag": "M \u2192 39 H(new)"
+   },
+   "measure": {
+    "best overall": {
+     "mean_points": 19.9025,
+     "mean_pos": 2.0205,
+     "p_win": 0.473,
+     "p_podium": 0.867,
+     "points_dist": {
+      "8": 0.017,
+      "10": 0.038,
+      "12": 0.078,
+      "15": 0.1555,
+      "18": 0.2385,
+      "25": 0.473
+     }
+    },
+    "call: hards at 39": {
+     "mean_points": 19.9025,
+     "mean_pos": 2.0205,
+     "p_win": 0.473,
+     "p_podium": 0.867,
+     "points_dist": {
+      "8": 0.017,
+      "10": 0.038,
+      "12": 0.078,
+      "15": 0.1555,
+      "18": 0.2385,
+      "25": 0.473
+     }
+    },
+    "used softs at 39": {
+     "mean_points": 11.507,
+     "mean_pos": 4.71,
+     "p_win": 0.046,
+     "p_podium": 0.3115,
+     "points_dist": {
+      "0": 0.0375,
+      "1": 0.0115,
+      "2": 0.011,
+      "4": 0.024,
+      "6": 0.048,
+      "8": 0.1475,
+      "10": 0.211,
+      "12": 0.198,
+      "15": 0.1685,
+      "18": 0.097,
+      "25": 0.046
+     }
+    },
+    "used medium at 39": {
+     "mean_points": 10.9605,
+     "mean_pos": 4.693,
+     "p_win": 0.0115,
+     "p_podium": 0.213,
+     "points_dist": {
+      "0": 0.003,
+      "1": 0.002,
+      "2": 0.0055,
+      "4": 0.0045,
+      "6": 0.046,
+      "8": 0.2415,
+      "10": 0.274,
+      "12": 0.2105,
+      "15": 0.153,
+      "18": 0.0485,
+      "25": 0.0115
+     }
+    },
+    "stay out, then hards": {
+     "mean_points": 18.8195,
+     "mean_pos": 2.2365,
+     "p_win": 0.361,
+     "p_podium": 0.8675,
+     "points_dist": {
+      "0": 0.0005,
+      "1": 0.001,
+      "2": 0.001,
+      "6": 0.002,
+      "8": 0.013,
+      "10": 0.0365,
+      "12": 0.0785,
+      "15": 0.2495,
+      "18": 0.257,
+      "25": 0.361
+     }
+    },
+    "stay out, then used softs": {
+     "mean_points": 16.6025,
+     "mean_pos": 2.8935,
+     "p_win": 0.2235,
+     "p_podium": 0.759,
+     "points_dist": {
+      "0": 0.01,
+      "1": 0.0015,
+      "2": 0.004,
+      "4": 0.01,
+      "6": 0.0185,
+      "8": 0.032,
+      "10": 0.0565,
+      "12": 0.1085,
+      "15": 0.3025,
+      "18": 0.233,
+      "25": 0.2235
+     }
+    },
+    "stay out, then used medium": {
+     "mean_points": 9.986,
+     "mean_pos": 5.178,
+     "p_win": 0.007,
+     "p_podium": 0.151,
+     "points_dist": {
+      "0": 0.0205,
+      "1": 0.019,
+      "2": 0.014,
+      "4": 0.0125,
+      "6": 0.053,
+      "8": 0.27,
+      "10": 0.273,
+      "12": 0.187,
+      "15": 0.11,
+      "18": 0.034,
+      "25": 0.007
+     }
+    },
+    "as run": {
+     "mean_points": 10.33,
+     "mean_pos": 5.1905,
+     "p_win": 0.023,
+     "p_podium": 0.1935,
+     "points_dist": {
+      "0": 0.046,
+      "1": 0.0095,
+      "2": 0.0105,
+      "4": 0.018,
+      "6": 0.0655,
+      "8": 0.2125,
+      "10": 0.25,
+      "12": 0.1945,
+      "15": 0.1145,
+      "18": 0.056,
+      "25": 0.023
+     }
+    },
+    "hards to the flag": {
+     "mean_points": 19.9025,
+     "mean_pos": 2.0205,
+     "p_win": 0.473,
+     "p_podium": 0.867,
+     "points_dist": {
+      "8": 0.017,
+      "10": 0.038,
+      "12": 0.078,
+      "15": 0.1555,
+      "18": 0.2385,
+      "25": 0.473
+     }
+    }
+   },
+   "n_candidates": 164,
+   "capped": {
+    "n_capped": 2753,
+    "best_removed": [
+     {
+      "plan": "M \u2192 48 S(used 4)",
+      "plan_cost_s": 66.5
+     },
+     {
+      "plan": "M \u2192 47 S(used 4)",
+      "plan_cost_s": 67.3
+     },
+     {
+      "plan": "M \u2192 46 S(used 4)",
+      "plan_cost_s": 68.3
+     },
+     {
+      "plan": "M \u2192 57 S(used 4)",
+      "plan_cost_s": 68.7
+     },
+     {
+      "plan": "M \u2192 45 S(used 4)",
+      "plan_cost_s": 69.5
+     }
+    ]
+   }
+  }
+ ],
+ "hindsight": {
+  "best overall": {
+   "plan": "M \u2192 39 H(new)",
+   "mean_points": 15.747,
+   "mean_pos": 2.915,
+   "p_win": 0.075,
+   "points_dist": {
+    "8": 0.06,
+    "10": 0.072,
+    "12": 0.147,
+    "15": 0.24,
+    "18": 0.406,
+    "25": 0.075
+   }
+  },
+  "call: hards at 39": {
+   "plan": "M \u2192 39 H(new)",
+   "mean_points": 15.747,
+   "mean_pos": 2.915,
+   "p_win": 0.075,
+   "points_dist": {
+    "8": 0.06,
+    "10": 0.072,
+    "12": 0.147,
+    "15": 0.24,
+    "18": 0.406,
+    "25": 0.075
+   }
+  },
+  "used softs at 39": {
+   "plan": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+   "mean_points": 12.478,
+   "mean_pos": 4.127,
+   "p_win": 0.045,
+   "points_dist": {
+    "8": 0.233,
+    "10": 0.213,
+    "12": 0.224,
+    "15": 0.153,
+    "18": 0.132,
+    "25": 0.045
+   }
+  },
+  "used medium at 39": {
+   "plan": "M \u2192 39 M(used 22) \u2192 44 H(new)",
+   "mean_points": 9.138,
+   "mean_pos": 5.475,
+   "p_win": 0.003,
+   "points_dist": {
+    "4": 0.001,
+    "6": 0.003,
+    "8": 0.667,
+    "10": 0.204,
+    "12": 0.07,
+    "15": 0.037,
+    "18": 0.015,
+    "25": 0.003
+   }
+  },
+  "stay out, then hards": {
+   "plan": "M \u2192 43 H(new)",
+   "mean_points": 18.101,
+   "mean_pos": 2.412,
+   "p_win": 0.294,
+   "points_dist": {
+    "8": 0.056,
+    "10": 0.049,
+    "12": 0.086,
+    "15": 0.163,
+    "18": 0.352,
+    "25": 0.294
+   }
+  },
+  "stay out, then used softs": {
+   "plan": "M \u2192 50 S(used 4)",
+   "mean_points": 19.697,
+   "mean_pos": 1.975,
+   "p_win": 0.389,
+   "points_dist": {
+    "8": 0.017,
+    "10": 0.032,
+    "12": 0.049,
+    "15": 0.102,
+    "18": 0.411,
+    "25": 0.389
+   }
+  },
+  "stay out, then used medium": {
+   "plan": "M \u2192 42 M(used 22) \u2192 47 H(new)",
+   "mean_points": 9.125,
+   "mean_pos": 5.469,
+   "p_win": 0.001,
+   "points_dist": {
+    "6": 0.003,
+    "8": 0.65,
+    "10": 0.219,
+    "12": 0.083,
+    "15": 0.032,
+    "18": 0.012,
+    "25": 0.001
+   }
+  },
+  "as run": {
+   "plan": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+   "mean_points": 10.319,
+   "mean_pos": 4.896,
+   "p_win": 0.0,
+   "points_dist": {
+    "8": 0.324,
+    "10": 0.359,
+    "12": 0.217,
+    "15": 0.089,
+    "18": 0.011
+   }
+  },
+  "hards to the flag": {
+   "plan": "M \u2192 39 H(new)",
+   "mean_points": 15.747,
+   "mean_pos": 2.915,
+   "p_win": 0.075,
+   "points_dist": {
+    "8": 0.06,
+    "10": 0.072,
+    "12": 0.147,
+    "15": 0.24,
+    "18": 0.406,
+    "25": 0.075
+   }
+  },
+  "best in hindsight": {
+   "plan": "M \u2192 52 S(used 4)",
+   "mean_points": 19.887,
+   "mean_pos": 1.925,
+   "p_win": 0.402,
+   "points_dist": {
+    "8": 0.013,
+    "10": 0.028,
+    "12": 0.05,
+    "15": 0.091,
+    "18": 0.416,
+    "25": 0.402
+   }
+  },
+  "actual result": {
+   "position": 6,
+   "points": 8
+  },
+  "stints_attached": {
+   "LEC": 2,
+   "RUS": 1,
+   "SAI": 1,
+   "VER": 1,
+   "HAM": 1,
+   "PER": 1,
+   "NOR": 1,
+   "RIC": 1,
+   "STR": 1,
+   "VET": 1,
+   "OCO": 0,
+   "ALO": 0,
+   "GAS": 1,
+   "BOT": 0,
+   "ZHO": 1,
+   "MSC": 1,
+   "LAT": 2,
+   "ALB": 1,
+   "MAG": 0,
+   "TSU": 1
+  }
+ },
+ "reality_check": {
+  "laps": [
+   39,
+   40,
+   41,
+   42,
+   43,
+   44,
+   45,
+   46,
+   47,
+   48,
+   49,
+   50,
+   51,
+   52,
+   53
+  ],
+  "real_lap_s": [
+   86.324,
+   105.325,
+   85.755,
+   83.462,
+   82.456,
+   82.839,
+   84.3,
+   83.335,
+   83.158,
+   83.163,
+   83.509,
+   84.334,
+   84.152,
+   83.544,
+   84.154
+  ],
+  "real_rival_lap_s": [
+   99.455,
+   82.789,
+   86.874,
+   83.031,
+   82.128,
+   82.65,
+   82.126,
+   82.754,
+   82.646,
+   83.177,
+   83.373,
+   83.098,
+   82.846,
+   82.586,
+   82.708
+  ],
+  "real_gap_s": [
+   -22.88,
+   -0.344,
+   -1.463,
+   -1.032,
+   -0.704,
+   -0.515,
+   1.659,
+   2.24,
+   2.752,
+   2.738,
+   2.874,
+   4.11,
+   5.416,
+   6.374,
+   7.82
+  ],
+  "real_rival_ahead_laps": [
+   45,
+   46,
+   47,
+   48,
+   49,
+   50,
+   51,
+   52,
+   53
+  ],
+  "forecast": {
+   "lap_mean": [
+    106.95,
+    83.404,
+    83.402,
+    83.336,
+    83.453,
+    83.478,
+    83.366,
+    83.418,
+    83.431,
+    83.465,
+    83.482,
+    83.412,
+    83.368,
+    83.382,
+    83.363
+   ],
+   "lap_p10": [
+    104.126,
+    82.601,
+    82.523,
+    82.451,
+    82.557,
+    82.606,
+    82.566,
+    82.623,
+    82.618,
+    82.602,
+    82.674,
+    82.54,
+    82.571,
+    82.567,
+    82.563
+   ],
+   "lap_p90": [
+    109.144,
+    84.2,
+    84.578,
+    84.448,
+    84.529,
+    84.551,
+    84.234,
+    84.249,
+    84.349,
+    84.426,
+    84.403,
+    84.285,
+    84.315,
+    84.337,
+    84.213
+   ],
+   "rival_lap_median": [
+    82.3,
+    82.259,
+    82.72,
+    83.005,
+    82.929,
+    82.86,
+    82.743,
+    82.842,
+    82.946,
+    83.087,
+    83.156,
+    83.134,
+    83.162,
+    83.15,
+    83.203
+   ],
+   "share_green": [
+    0.97,
+    0.941,
+    0.92,
+    0.898,
+    0.891,
+    0.886,
+    0.893,
+    0.911,
+    0.919,
+    0.913,
+    0.907,
+    0.907,
+    0.892,
+    0.899,
+    0.905
+   ],
+   "gap_mean": [
+    -4.346,
+    -3.291,
+    -2.633,
+    -2.28,
+    -1.896,
+    -1.444,
+    -0.94,
+    -0.441,
+    -0.064,
+    0.241,
+    0.493,
+    0.708,
+    0.836,
+    0.996,
+    1.068
+   ],
+   "gap_p10": [
+    -7.62,
+    -6.782,
+    -6.256,
+    -6.221,
+    -6.354,
+    -6.376,
+    -6.058,
+    -5.673,
+    -5.554,
+    -5.338,
+    -4.978,
+    -4.984,
+    -5.192,
+    -5.259,
+    -5.519
+   ],
+   "gap_p90": [
+    -2.119,
+    -0.377,
+    0.495,
+    1.488,
+    2.626,
+    3.838,
+    4.948,
+    6.021,
+    7.089,
+    7.712,
+    7.991,
+    8.847,
+    9.381,
+    9.97,
+    10.593
+   ],
+   "p_VER_ahead_within_5": 0.211,
+   "p_VER_ahead_at_lap_44": 0.211,
+   "p_VER_ahead_at_lap_53": 0.373
+  },
+  "hindsight": {
+   "lap_mean": [
+    107.538,
+    83.658,
+    83.583,
+    83.521,
+    83.619,
+    83.61,
+    83.58,
+    83.568,
+    83.574,
+    83.592,
+    83.549,
+    83.578,
+    83.556,
+    83.529,
+    83.537
+   ],
+   "lap_p10": [
+    104.978,
+    83.036,
+    82.919,
+    82.936,
+    83.044,
+    83.054,
+    82.935,
+    83.003,
+    82.969,
+    82.988,
+    82.979,
+    82.996,
+    82.934,
+    82.94,
+    82.91
+   ],
+   "lap_p90": [
+    112.657,
+    84.298,
+    84.343,
+    84.187,
+    84.217,
+    84.252,
+    84.189,
+    84.216,
+    84.248,
+    84.205,
+    84.216,
+    84.178,
+    84.223,
+    84.209,
+    84.228
+   ],
+   "rival_lap_median": [
+    82.367,
+    82.355,
+    82.668,
+    82.588,
+    82.626,
+    82.667,
+    82.696,
+    82.676,
+    82.747,
+    82.783,
+    82.805,
+    82.865,
+    82.869,
+    82.826,
+    82.909
+   ],
+   "share_green": [
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "gap_mean": [
+    -3.483,
+    -2.196,
+    -1.452,
+    -0.571,
+    0.337,
+    1.203,
+    2.021,
+    2.881,
+    3.651,
+    4.42,
+    5.133,
+    5.785,
+    6.497,
+    7.201,
+    7.818
+   ],
+   "gap_p10": [
+    -6.725,
+    -5.53,
+    -5.088,
+    -4.453,
+    -3.613,
+    -2.805,
+    -2.144,
+    -1.595,
+    -1.2,
+    -0.937,
+    -0.719,
+    -0.606,
+    -0.555,
+    -0.21,
+    0.339
+   ],
+   "gap_p90": [
+    0.989,
+    2.201,
+    3.215,
+    4.195,
+    5.278,
+    6.317,
+    7.469,
+    8.496,
+    9.357,
+    10.287,
+    11.153,
+    12.11,
+    13.035,
+    13.99,
+    15.066
+   ],
+   "p_VER_ahead_within_5": 0.526,
+   "p_VER_ahead_at_lap_44": 0.526,
+   "p_VER_ahead_at_lap_53": 0.905
+  },
+  "post_stop": {
+   "posterior_mean": -0.13823690384440124,
+   "p10": -0.18165813088417054,
+   "p90": -0.0957464188337326,
+   "resid_first_two_flying": 1.2394999999999996,
+   "resid_later": 0.12054545454545265
+  }
+ }
+}

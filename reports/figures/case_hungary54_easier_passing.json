@@ -1,0 +1,72 @@
+{
+ "intercept_used": -2.773843870036571,
+ "hungary_2021_intercept": -4.601,
+ "band": "marginal",
+ "primary": {
+  "mean_loss": 3.6265,
+  "p10": 0.0,
+  "p50": 3.0,
+  "p90": 8.0,
+  "p_loss_pos": 0.728,
+  "p_loss_neg": 0.06,
+  "p_level_or_ahead": 0.272
+ },
+ "chosen": {
+  "best overall": "H",
+  "call: used softs at 54": "H \u2192 54 S(used 4)",
+  "hards to the flag": "H",
+  "new hard at 54": "H \u2192 54 H(new)",
+  "used medium at 54": "H \u2192 54 M(used 19)",
+  "stay out, then used softs": "H \u2192 55 S(used 4)",
+  "stay out, then new hard": "H \u2192 55 H(new)",
+  "stay out, then used medium": "H \u2192 59 M(used 19)",
+  "as run": "H \u2192 54 S(used 4)"
+ },
+ "measure": {
+  "best overall": {
+   "mean_points": 17.768,
+   "mean_pos": 2.168,
+   "p_podium": 0.973
+  },
+  "call: used softs at 54": {
+   "mean_points": 14.1415,
+   "mean_pos": 3.439,
+   "p_podium": 0.561
+  },
+  "hards to the flag": {
+   "mean_points": 17.768,
+   "mean_pos": 2.168,
+   "p_podium": 0.973
+  },
+  "new hard at 54": {
+   "mean_points": 11.309,
+   "mean_pos": 4.508,
+   "p_podium": 0.2165
+  },
+  "used medium at 54": {
+   "mean_points": 9.706,
+   "mean_pos": 5.2015,
+   "p_podium": 0.0755
+  },
+  "stay out, then used softs": {
+   "mean_points": 14.357,
+   "mean_pos": 3.3605,
+   "p_podium": 0.587
+  },
+  "stay out, then new hard": {
+   "mean_points": 11.4205,
+   "mean_pos": 4.4635,
+   "p_podium": 0.2215
+  },
+  "stay out, then used medium": {
+   "mean_points": 9.894,
+   "mean_pos": 5.1235,
+   "p_podium": 0.074
+  },
+  "as run": {
+   "mean_points": 14.1415,
+   "mean_pos": 3.439,
+   "p_podium": 0.561
+  }
+ }
+}

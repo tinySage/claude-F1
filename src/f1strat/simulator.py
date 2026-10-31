@@ -44,7 +44,7 @@ from __future__ import annotations
 
 import itertools
 from collections import Counter
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Collection, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field, replace
 
 import numpy as np
@@ -299,6 +299,10 @@ class CarModel:
     final_mean: np.ndarray    # mu_final + final_race (prior draw widened if no data)
     sigma_stint_final: np.ndarray  # already multiplied by the widening factor
     current_stint: np.ndarray | None  # fitted effect of the stint in progress
+    #: Hindsight replays (Phase 6): fitted effects of stints that actually
+    #: happened, keyed by (first lap, compound, TyreLife on that lap). A plan
+    #: stint with the same key uses it for all its laps instead of a draw.
+    known_stints: dict[tuple[int, str, int], np.ndarray] = field(default_factory=dict)
 
 
 def car_model(
@@ -466,6 +470,10 @@ def _stint_effect(model: CarModel, draws: Draws, stint: _Stint) -> np.ndarray:
     """One draw per stint (shared by its laps), per simulation."""
     if stint.kind.startswith("current") and model.current_stint is not None:
         return model.current_stint
+    if model.known_stints and not stint.kind.startswith("current"):
+        known = model.known_stints.get((stint.first_lap, COMPOUNDS[stint.compound], stint.life0))
+        if known is not None:
+            return known
     if stint.kind in ("final", "current_final"):
         return model.final_mean + model.sigma_stint_final * draws.z_final
     if stint.kind == "current":
@@ -538,6 +546,10 @@ class SearchResult:
     totals: np.ndarray          # (n_plans, n_sims), seconds
     n_legal: int                # legal plans scored on expected time
     labels: list[str] = field(default_factory=list)
+    #: Plans removed by the tyre-age cap (otherwise legal), and the best few
+    #: of them as (mean race time, plan), best first.
+    n_capped: int = 0
+    capped: list[tuple[float, Plan]] = field(default_factory=list)
 
     def table(self, reference: Plan | None = None) -> pd.DataFrame:
         """Ranked summary: mean, spread, quantiles, P(fastest), gap to best mean.
@@ -624,6 +636,10 @@ def search(
     per_stratum: int = 3,
     include: Sequence[Plan] = (),
     allowed_sets: Sequence[tuple[str, int]] | None = None,
+    max_age: dict[str, int] | None = None,
+    first_laps: tuple[int, int] | None = None,
+    first_sets: Collection[tuple[str, int]] | None = None,
+    n_capped_kept: int = 5,
 ) -> SearchResult:
     """Score every legal plan on expected race time, then Monte Carlo a
     stratified shortlist.
@@ -640,6 +656,12 @@ def search(
       no-traffic ranking cannot crowd out whole strategy families.
     - The shortlist, plus any ``include`` plans (e.g. what the team actually
       did), gets full distributions under common random numbers.
+    - **Tyre-age cap** (``max_age``, Phase 6): no stint, including the one on
+      the car, may reach a TyreLife above the cap for its compound. Removed
+      plans are counted (``n_capped``) and the best few kept (``capped``).
+    - **Family filters** (Phase 6): ``first_laps`` (inclusive lap range of the
+      first stop) and ``first_sets`` ((compound, out-lap TyreLife) allowed at
+      the first stop) restrict the search to plans with at least one stop.
     """
     if max_stops > draws.z_stint.shape[1]:
         raise ValueError("draws were made for fewer stops than max_stops")
@@ -660,6 +682,8 @@ def search(
 
     strata: dict[tuple, list[tuple[float, tuple]]] = {}
     n_legal = 0
+    n_capped = 0
+    capped: list[tuple[float, tuple]] = []
     for k in range(max_stops + 1):
         combos = (np.array(list(itertools.combinations(laps, k)), dtype=int)
                   if k else np.zeros((1, 0), dtype=int))
@@ -672,6 +696,16 @@ def search(
         ends = np.column_stack([combos, np.full(len(combos), state.total_laps)])
         firsts = np.column_stack([np.full(len(combos), state.lap + 1), combos + 1])
         n_laps = ends - firsts + 1
+        if first_laps is not None:
+            if k == 0:
+                continue
+            keep = (combos[:, 0] >= first_laps[0]) & (combos[:, 0] <= first_laps[1])
+            combos, n_laps = combos[keep], n_laps[keep]
+            if len(combos) == 0:
+                continue
+        cur_ok = np.ones(len(combos), dtype=bool)
+        if max_age is not None:
+            cur_ok = car.tyre_life + n_laps[:, 0] <= max_age.get(car.compound, 10**6)
         cur_kind = "current_final" if k == 0 else "current"
         cur = _stint_mean_cost(n_laps[:, 0], car.laps_since_stop + 1,
                                float(car.stint_started_with_stop), car.tyre_life + 1,
@@ -683,13 +717,27 @@ def search(
             names = {COMPOUNDS[c] for c, _ in seq}
             if len((used_before | names) & set(DRY_COMPOUNDS)) < 2:
                 continue
+            if first_sets is not None and k > 0 and (COMPOUNDS[seq[0][0]], seq[0][1]) \
+                    not in set(first_sets):
+                continue
             total = base.copy()
+            age_ok = cur_ok.copy()
             for j, (c, life) in enumerate(seq):
                 kind = "final" if j == k - 1 else f"future{j}"
                 total += _stint_mean_cost(n_laps[:, j + 1], 0, 1.0, life,
                                           a[c], b[c], ps[c], e[kind])
-            n_legal += len(total)
-            best = np.argsort(total)[:per_stratum]
+                if max_age is not None:
+                    age_ok &= life + n_laps[:, j + 1] - 1 <= max_age.get(COMPOUNDS[c], 10**6)
+            if not age_ok.all():
+                n_capped += int((~age_ok).sum())
+                for i in np.argsort(np.where(age_ok, np.inf, total))[:n_capped_kept]:
+                    if not age_ok[i]:
+                        capped.append((float(total[i]), (tuple(combos[i]), seq)))
+                total = np.where(age_ok, total, np.inf)
+                if not age_ok.any():
+                    continue
+            n_legal += int(age_ok.sum())
+            best = [i for i in np.argsort(total)[:per_stratum] if np.isfinite(total[i])]
             key = (k, tuple(COMPOUNDS[c] for c, _ in seq))
             strata.setdefault(key, []).extend(
                 (float(total[i]), (tuple(combos[i]), seq)) for i in best)
@@ -702,7 +750,12 @@ def search(
               for _, (lps, seq) in candidates]
     chosen += [p for p in include if p not in chosen]
     totals = plan_totals(model, state, driver, chosen, draws)
-    return SearchResult(chosen, totals, n_legal, [p.label(car.compound) for p in chosen])
+    capped.sort(key=lambda x: x[0])
+    capped_plans = [(t, Plan(tuple(Stop(int(lap), COMPOUNDS[c], life)
+                                   for lap, (c, life) in zip(lps, seq))))
+                    for t, (lps, seq) in capped[:n_capped_kept]]
+    return SearchResult(chosen, totals, n_legal, [p.label(car.compound) for p in chosen],
+                        n_capped, capped_plans)
 
 
 # --- Part B: the whole field ----------------------------------------------------
@@ -753,6 +806,8 @@ class Field:
     choice_u: np.ndarray        # (n_sims, n_cars) uniforms for rival plan options
     params: "SimParams"
     pit_losses: np.ndarray
+    #: Posterior draw used by each simulation (Phase 6 sensitivity checks).
+    draw_index: np.ndarray | None = None
 
     @property
     def n_sims(self) -> int:
@@ -860,7 +915,7 @@ def build_field(
     pass_u = rng.random((n_sims, state.laps_remaining, len(drivers)))
     choice_u = rng.random((n_sims, len(drivers)))
     return Field(state, drivers, models, draws, status, pass_u, choice_u, params,
-                 np.asarray(pit_losses, float))
+                 np.asarray(pit_losses, float), idx)
 
 
 def _car_laps(field: Field, driver: str, plan: Plan) -> tuple[np.ndarray, np.ndarray]:
@@ -1121,14 +1176,15 @@ def field_search(field: Field, focal: str, candidates: Sequence[Plan],
 
 
 def rival_plan_options(field: Field, driver: str, top: int = 3, temperature_s: float = 3.0,
-                       max_stops: int = 3, min_stint: int = 5) -> list[tuple[Plan, float]]:
+                       max_stops: int = 3, min_stint: int = 5,
+                       max_age: dict[str, int] | None = None) -> list[tuple[Plan, float]]:
     """A rival's plan options from its own single-car search (no hindsight).
 
     The ``top`` plans by expected time (one per compound sequence, best
     first), weighted by ``exp(−(mean − best) / temperature_s)``.
     """
     res = search(field.models[driver], field.state, driver, field.draws[driver],
-                 max_stops=max_stops, min_stint=min_stint, per_stratum=1)
+                 max_stops=max_stops, min_stint=min_stint, per_stratum=1, max_age=max_age)
     means = res.totals.mean(axis=1)
     order = np.argsort(means)[:top]
     w = np.exp(-(means[order] - means[order[0]]) / temperature_s)

@@ -93,7 +93,8 @@ def clean_fit(raw: pd.DataFrame, round_number: int, lap: int, mode: str) -> Baye
 
 
 def leakage_free_params(fitted: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
-                        cleaned: pd.DataFrame, round_number: int, n_sims: int = 200):
+                        cleaned: pd.DataFrame, round_number: int, n_sims: int = 200,
+                        circuit_method: str = "previous"):
     """Passing and SC/VSC parameters known before the decision race.
 
     - Pass model (slope, pooled intercept, held gaps) from the pass events of
@@ -105,6 +106,11 @@ def leakage_free_params(fitted: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
     - SC/VSC rates, lengths and ratios from the rounds before it.
     - SC closing ratio and pass shift fitted on the earlier backtest-eligible
       rounds (replay), as in :mod:`f1strat.backtest`.
+
+    ``circuit_method`` (``docs/case_studies.md``, "Circuit pass difficulty"):
+    ``"previous"`` (Phase 5 and Hungary) as above; ``"relative"`` (Silverstone
+    and Monaco) is the pooled intercept shifted by the circuit's 2021 intercept
+    minus the 2021 season average (:func:`race_events.relative_circuit_intercept`).
 
     Returns:
         ``(params, info)``: the :class:`SimParams` and a dict for the report.
@@ -123,21 +129,31 @@ def leakage_free_params(fitted: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
     race_before = race[race["RoundNumber"] < round_number]
     passing = fit_pass_model(pass_events(before, fitted))
     event = str(race.loc[race["RoundNumber"] == round_number, "EventName"].iloc[0])
-    try:
-        year, prev = previous_race(2022, event)
-    except ValueError as err:
-        # No downloadable previous running (e.g. Canada: 2020-21 cancelled, 2019
-        # needs an F1 account): fall back to the pooled intercept.
-        year, prev_events, why = None, pd.DataFrame(columns=["passed"]), str(err)
-        passing.circuit[round_number] = passing.intercept
+    relative, why = None, None
+    prev_events = pd.DataFrame(columns=["passed"])
+    if circuit_method == "relative":
+        from f1strat.race_events import relative_circuit_intercept
+
+        relative = relative_circuit_intercept(event, passing.intercept, 2021)
+        passing.circuit[round_number] = relative["intercept"]
+        year = None
+    elif circuit_method == "previous":
+        try:
+            year, prev = previous_race(2022, event)
+        except ValueError as err:
+            # No downloadable previous running (e.g. Canada: 2020-21 cancelled,
+            # 2019 needs an F1 account): fall back to the pooled intercept.
+            year, why = None, str(err)
+            passing.circuit[round_number] = passing.intercept
+        else:
+            feats = lap_features(prev[~prev["EventName"].isin(list(MIXED_CONDITIONS_2022))])
+            feats = feats[feats["Compound"].isin(["SOFT", "MEDIUM", "HARD"])].copy()
+            feats["pace"] = stint_line_pace(prev).loc[feats.index]
+            prev_events = pair_events(feats)
+            passing.circuit[round_number] = circuit_intercept_from(prev_events, passing.slope,
+                                                                   passing.intercept)
     else:
-        feats = lap_features(prev[~prev["EventName"].isin(list(MIXED_CONDITIONS_2022))])
-        feats = feats[feats["Compound"].isin(["SOFT", "MEDIUM", "HARD"])].copy()
-        feats["pace"] = stint_line_pace(prev).loc[feats.index]
-        prev_events = pair_events(feats)
-        passing.circuit[round_number] = circuit_intercept_from(prev_events, passing.slope,
-                                                               passing.intercept)
-        why = None
+        raise ValueError(f"unknown circuit_method {circuit_method!r}")
     neutral = fit_neutralisations(before, race_before)
     params = SimParams(passing, neutral)
     replay_rounds = [r for r in BACKTEST_ROUNDS if r < round_number]
@@ -147,7 +163,8 @@ def leakage_free_params(fitted: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
                             n_sims=n_sims)
     params = with_passing(params, round(shift, 3))
     dry_before = race_before[~race_before["EventName"].isin(list(MIXED_CONDITIONS_2022))]
-    info = {"dry_rounds_before": sorted(int(r) for r in dry_before["RoundNumber"].unique()),
+    info = {"circuit_method": circuit_method, "relative": relative,
+            "dry_rounds_before": sorted(int(r) for r in dry_before["RoundNumber"].unique()),
             "replay_rounds": replay_rounds, "previous_running": year,
             "previous_running_note": why,
             "previous_events": len(prev_events),

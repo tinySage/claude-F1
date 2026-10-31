@@ -1,0 +1,98 @@
+[
+ {
+  "check": "Ferrari hard pace +0.25 s/lap",
+  "band": "within range",
+  "primary": {
+   "mean_loss": 0.0,
+   "p10": 0.0,
+   "p50": 0.0,
+   "p90": 0.0,
+   "p_loss_pos": 0.0,
+   "p_loss_neg": 0.0,
+   "p_level_or_ahead": 1.0
+  },
+  "chosen": {
+   "best overall": "M \u2192 39 H(new)",
+   "call: hards at 39": "M \u2192 39 H(new)",
+   "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+   "used medium at 39": "M \u2192 39 M(used 22) \u2192 45 H(new)",
+   "stay out, then hards": "M \u2192 46 H(new)",
+   "stay out, then used softs": "M \u2192 50 S(used 4)",
+   "stay out, then used medium": "M \u2192 47 M(used 22) \u2192 53 S(used 4)",
+   "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+   "hards to the flag": "M \u2192 39 H(new)"
+  }
+ },
+ {
+  "check": "Ferrari hard pace +0.50 s/lap",
+  "band": "marginal",
+  "primary": {
+   "mean_loss": 2.441,
+   "p10": -6.0,
+   "p50": 3.0,
+   "p90": 10.0,
+   "p_loss_pos": 0.5475,
+   "p_loss_neg": 0.173,
+   "p_level_or_ahead": 0.4525
+  },
+  "chosen": {
+   "best overall": "M \u2192 50 S(used 4)",
+   "call: hards at 39": "M \u2192 39 H(new)",
+   "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+   "used medium at 39": "M \u2192 39 M(used 22) \u2192 50 S(used 4)",
+   "stay out, then hards": "M \u2192 49 H(new)",
+   "stay out, then used softs": "M \u2192 50 S(used 4)",
+   "stay out, then used medium": "M \u2192 47 M(used 22) \u2192 53 S(used 4)",
+   "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+   "hards to the flag": "M \u2192 39 H(new)"
+  }
+ },
+ {
+  "check": "Ferrari hard pace +0.75 s/lap",
+  "band": "marginal",
+  "primary": {
+   "mean_loss": 4.656,
+   "p10": -2.0,
+   "p50": 5.0,
+   "p90": 13.0,
+   "p_loss_pos": 0.7155,
+   "p_loss_neg": 0.1005,
+   "p_level_or_ahead": 0.2845
+  },
+  "chosen": {
+   "best overall": "M \u2192 50 S(used 4)",
+   "call: hards at 39": "M \u2192 39 H(new)",
+   "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+   "used medium at 39": "M \u2192 39 M(used 22) \u2192 50 S(used 4)",
+   "stay out, then hards": "M \u2192 51 H(new)",
+   "stay out, then used softs": "M \u2192 50 S(used 4)",
+   "stay out, then used medium": "M \u2192 47 M(used 22) \u2192 53 S(used 4)",
+   "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+   "hards to the flag": "M \u2192 39 H(new)"
+  }
+ },
+ {
+  "check": "Ferrari hard pace +1.00 s/lap",
+  "band": "outside range",
+  "primary": {
+   "mean_loss": 6.6505,
+   "p10": 0.0,
+   "p50": 7.0,
+   "p90": 15.0,
+   "p_loss_pos": 0.836,
+   "p_loss_neg": 0.058,
+   "p_level_or_ahead": 0.164
+  },
+  "chosen": {
+   "best overall": "M \u2192 50 S(used 4)",
+   "call: hards at 39": "M \u2192 39 H(new)",
+   "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+   "used medium at 39": "M \u2192 39 M(used 22) \u2192 50 S(used 4)",
+   "stay out, then hards": "M \u2192 54 H(new)",
+   "stay out, then used softs": "M \u2192 50 S(used 4)",
+   "stay out, then used medium": "M \u2192 47 M(used 22) \u2192 53 S(used 4)",
+   "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+   "hards to the flag": "M \u2192 39 H(new)"
+  }
+ }
+]

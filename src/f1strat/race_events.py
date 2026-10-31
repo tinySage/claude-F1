@@ -224,6 +224,96 @@ def previous_race(year: int, event_name: str, back: int = 4) -> tuple[int, pd.Da
     raise ValueError(f"no earlier {event_name} in the last {back} seasons")
 
 
+#: A race counts as dry for a season's pass model if at least this share of
+#: its laps with a compound are on dry compounds.
+DRY_SHARE = 0.5
+
+
+def season_pass_events(year: int, refresh: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Pass events for every dry race of a season, with a stint-line pace proxy.
+
+    The same events and pace as :func:`previous_race` + :func:`pair_events`
+    (no lap model is needed for a past season), for every race, so circuits
+    and the season average are estimated on one footing. Cached in
+    ``data/processed/<year>/pass_events.parquet`` with a per-race status table
+    (``pass_events_status.csv``: ``used``, ``wet`` or ``download failed``).
+
+    Returns:
+        ``(events, status)``; events carry ``EventName``.
+    """
+    import fastf1
+
+    from f1strat.clean import clean_laps
+    from f1strat.data import configure_cache, laps_table
+    from f1strat.deg_model import lap_features
+
+    out_dir = PROCESSED_DIR / str(year)
+    ev_path, st_path = out_dir / "pass_events.parquet", out_dir / "pass_events_status.csv"
+    if ev_path.exists() and st_path.exists() and not refresh:
+        return pd.read_parquet(ev_path), pd.read_csv(st_path)
+    configure_cache()
+    schedule = fastf1.get_event_schedule(year, include_testing=False)
+    frames, status = [], []
+    for _, ev in schedule.iterrows():
+        rnd, name = int(ev["RoundNumber"]), str(ev["EventName"])
+        try:
+            session = fastf1.get_session(year, rnd, "R")
+            session.load(laps=True, telemetry=False, weather=True, messages=False)
+            laps = clean_laps(laps_table(session), mixed_conditions=())
+        except Exception as err:  # noqa: BLE001 - record and move on
+            status.append({"RoundNumber": rnd, "EventName": name, "status": "download failed",
+                           "detail": f"{type(err).__name__}: {err}"[:200]})
+            continue
+        known = laps["Compound"].isin(["SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET"])
+        dry_share = float(laps.loc[known, "Compound"].isin(["SOFT", "MEDIUM", "HARD"]).mean()) \
+            if known.any() else 0.0
+        if dry_share < DRY_SHARE:
+            status.append({"RoundNumber": rnd, "EventName": name, "status": "wet",
+                           "detail": f"dry share {dry_share:.2f}"})
+            continue
+        feats = lap_features(laps)
+        feats = feats[feats["Compound"].isin(["SOFT", "MEDIUM", "HARD"])].copy()
+        feats["pace"] = stint_line_pace(laps).loc[feats.index]
+        events = pair_events(feats)
+        if len(events):
+            frames.append(events.assign(EventName=name))
+        status.append({"RoundNumber": rnd, "EventName": name, "status": "used",
+                       "detail": f"dry share {dry_share:.2f}; {len(events)} events, "
+                                 f"{int(events['passed'].sum()) if len(events) else 0} passes"})
+    events = pd.concat(frames, ignore_index=True)
+    status = pd.DataFrame(status)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    events.to_parquet(ev_path, index=False)
+    status.to_csv(st_path, index=False)
+    return events, status
+
+
+def relative_circuit_intercept(event_name: str, pooled_now: float, year_ref: int) -> dict:
+    """Phase 6 method for Silverstone and Monaco (``docs/case_studies.md``):
+    the current pooled intercept shifted by how much harder (or easier) the
+    circuit was than the average in ``year_ref``.
+
+    ``intercept = pooled_now + (c_ref[circuit] − a_ref)``, where ``a_ref`` and
+    ``c_ref`` come from one pass model fitted to every dry ``year_ref`` race
+    (:func:`season_pass_events`), so the circuit and the average share a pace
+    proxy, slope and shrinkage.
+    """
+    events, status = season_pass_events(year_ref)
+    ref = fit_pass_model(events.dropna(subset=["pace_gap_s"]))
+    rounds = events.groupby("RoundNumber")["EventName"].first()
+    by_name = {rounds[r]: v for r, v in ref.circuit.items() if r in rounds.index}
+    if event_name not in by_name:
+        raise ValueError(f"no dry {year_ref} {event_name} in the pass events")
+    shift = by_name[event_name] - ref.intercept
+    return {"intercept": pooled_now + shift, "shift": shift,
+            "ref_circuit": by_name[event_name], "ref_average": ref.intercept,
+            "ref_slope": ref.slope, "ref_events": ref.n_events, "ref_year": year_ref,
+            "ref_races_used": int((status["status"] == "used").sum()),
+            "ref_races_not_used": status.loc[status["status"] != "used",
+                                             ["EventName", "status", "detail"]
+                                             ].to_dict("records")}
+
+
 def fit_pass_model(events: pd.DataFrame, penalty: float = 1.0) -> PassModel:
     """Logistic regression with per-circuit intercepts shrunk to the pooled one."""
     from sklearn.linear_model import LogisticRegression

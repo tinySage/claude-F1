@@ -300,3 +300,42 @@ def test_safety_car_closes_gradually(fitted, raw, params, losses) -> None:
     expect1 = np.maximum(prm.sc_gap_s, gaps0)
     assert np.allclose(lap1, expect1[None, :])
     assert np.allclose(lap2, np.maximum(prm.sc_gap_s, 0.5 * expect1)[None, :])
+
+
+def test_tyre_age_cap_and_family_filters(spain_state, setup) -> None:
+    """Phase 6: a capped search never lets a stint pass its compound's cap and
+    reports what it removed; family filters fix the first stop."""
+    model, draws = setup
+    cap = {"SOFT": 15, "MEDIUM": 25, "HARD": 35}
+    res = search(model, spain_state, "VER", draws, max_stops=2, min_stint=5, max_age=cap)
+    car = spain_state.cars["VER"]
+    assert res.n_capped > 0 and res.capped
+    for plan in res.plans:
+        prev_lap, comp, life0 = spain_state.lap, car.compound, car.tyre_life + 1
+        for stop in [*plan.stops, None]:
+            end = stop.lap if stop else spain_state.total_laps
+            assert life0 + (end - prev_lap) - 1 <= cap[comp]
+            if stop:
+                prev_lap, comp, life0 = stop.lap, stop.compound, stop.tyre_life
+    fam = search(model, spain_state, "VER", draws, max_stops=2, min_stint=5,
+                 first_laps=(20, 22), first_sets=[("HARD", 1)])
+    assert fam.plans and all(p.stops and 20 <= p.stops[0].lap <= 22
+                             and p.stops[0].compound == "HARD" and p.stops[0].tyre_life == 1
+                             for p in fam.plans)
+
+
+def test_known_stint_effect_replaces_the_draw(spain_state, setup) -> None:
+    """Phase 6 hindsight: a plan stint matching a known stint (first lap,
+    compound, TyreLife) uses the known effect for all its laps."""
+    model, draws = setup
+    plan = Plan((Stop(30, "HARD", 1),))
+    base = simulate_laps(model, spain_state, "VER", plan, draws)
+    known = dataclasses.replace(model, known_stints={(31, "HARD", 1): np.full(draws.n_sims, 2.0)})
+    shifted = simulate_laps(known, spain_state, "VER", plan, draws)
+    final = model.final_mean + model.sigma_stint_final * draws.z_final
+    cols = np.arange(31, spain_state.total_laps + 1) - (spain_state.lap + 1)
+    assert np.allclose((shifted - base)[:, cols], (2.0 - final)[:, None])
+    assert np.allclose((shifted - base)[:, :cols[0]], 0.0)
+    # Totals agree with the lap-by-lap path.
+    tot = plan_totals(known, spain_state, "VER", [plan], draws)[0]
+    assert np.allclose(tot, spain_state.cars["VER"].race_time + shifted.sum(axis=1))

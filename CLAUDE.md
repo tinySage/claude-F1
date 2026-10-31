@@ -26,7 +26,7 @@ src/f1strat/        Package code. All logic lives here.
   practice.py       FP1-FP3 long runs for cutoff fits
   rehearsal.py      Cutoff pipeline: refit, leakage-free parameters, search, compare
 models/             Posteriors; only the thinned full fit is committed
-docs/               model.md (degradation model), simulator.md
+docs/               model.md, simulator.md, validation.md, case_studies.md (verdict rule, results)
 notebooks/          Exploration and plots only. Imports from f1strat.
 tests/              pytest tests
 data/processed/     Processed parquet per race (committed). Schema: data/processed/README.md
