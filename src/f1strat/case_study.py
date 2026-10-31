@@ -832,6 +832,9 @@ def main(argv: list[str] | None = None) -> None:
 
     logging.disable(logging.WARNING)
     args = argv if argv is not None else sys.argv[1:]
+    if args and args[0] == "pass-sensitivity":
+        pass_sensitivity()
+        return
     if not args or args[0] not in CALLS:
         raise SystemExit("usage: python -m f1strat.case_study <hungary|hungary54> "
                          "[--hindsight-only]")
@@ -899,3 +902,59 @@ def main(argv: list[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# --- Post-hoc pass-difficulty sensitivity (Hungary) ---------------------------------------
+
+
+def pass_sensitivity(names=("hungary", "hungary54")) -> dict:
+    """Post-hoc, labelled sensitivity (``docs/case_studies.md``): each decision's
+    verdict (main check) with the decision circuit's pass intercept set three
+    ways, everything else as committed:
+
+    - ``committed``: from the previous running (Hungary 2021);
+    - ``average``: the pooled 2022 intercept from the rounds before the race;
+    - ``relative``: the pooled 2022 intercept + (circuit 2021 − 2021 average).
+    """
+    import json
+    import logging
+
+    from f1strat.data import load_season
+    from f1strat.deg_model import Cutoff, cutoff_inputs, load_fit, thin_fit
+    from f1strat.race_events import relative_circuit_intercept
+    from f1strat.rehearsal import fit_path, leakage_free_params
+    from f1strat.simulator import observed_pit_losses
+
+    logging.disable(logging.WARNING)
+    raw, race = load_season(2022), load_season(2022, table="race")
+    out = {}
+    for name in names:
+        call = CALLS[name]()
+        rnd = call.round_number
+        cleaned, laps = cutoff_inputs(raw, Cutoff(rnd, call.cutoff))
+        fitted = thin_fit(load_fit(fit_path(rnd, call.cutoff, "cutoff")))
+        state, _ = decision_state(raw, race, call, cleaned)
+        losses = observed_pit_losses(cleaned, rnd)
+        params, info = leakage_free_params(fitted, raw, race, cleaned, rnd)
+        event = str(race.loc[race["RoundNumber"] == rnd, "EventName"].iloc[0])
+        rel = relative_circuit_intercept(event, params.passing.intercept, 2021)
+        settings = {"committed": params.passing.circuit[rnd],
+                    "average": params.passing.intercept,
+                    "relative": rel["intercept"]}
+        out[name] = {"relative_detail": rel, "settings": {}}
+        for label_, value in settings.items():
+            circ = {**params.passing.circuit, rnd: value}
+            prm = replace(params, passing=replace(params.passing, circuit=circ))
+            v = verdict(fitted, state, losses, prm, call, tyre_age_cap(laps), CHECKS[0])
+            out[name]["settings"][label_] = {
+                "intercept": value, "band": v["band"], "primary": v["primary"],
+                "chosen": v["chosen"],
+                "measure": {n: {k: m[k] for k in ("mean_points", "mean_pos", "p_podium")}
+                            for n, m in v["measure"].items()}}
+            print(name, label_, round(value, 3), v["band"],
+                  round(v["primary"]["mean_loss"], 2),
+                  round(v["primary"]["p_level_or_ahead"], 3), v["chosen"]["best overall"],
+                  flush=True)
+    (FIG_DIR / "case_hungary_pass_sensitivity.json").write_text(
+        json.dumps(out, indent=1, default=str))
+    return out
