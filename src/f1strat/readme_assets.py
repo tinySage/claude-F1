@@ -91,11 +91,19 @@ def _svg(w: int, h: int, body: list[str], title: str, desc: str) -> str:
     )
 
 
+#: First lap the simulated gap is drawn. The state at lap 38 already carries
+#: Verstappen's known out-lap loss and the simulator books Leclerc's whole pit
+#: loss on his in lap (39), so the simulated and real gaps are comparable only
+#: once both stops are done (as in the reality check, ``docs/case_studies.md``).
+FAN_FROM_LAP: int = 40
+
+
 def load_fan(fan_table: str = "hungary_fan") -> tuple[pd.DataFrame, pd.Series]:
-    """The lap-38 forecast (from lap 38) and the real race from lap 1, both as
+    """The lap-38 forecast (from lap :data:`FAN_FROM_LAP`) and the real race from lap 1, both as
     Leclerc's lead over Verstappen in seconds (positive = Leclerc ahead), from
     ``data/figures/hungary_fan.csv`` and ``hungary_trace.csv``."""
     fan = -fd.read(fan_table).set_index("lap")  # stored as the gap (positive = behind)
+    fan = fan.loc[FAN_FROM_LAP:]
     trace = fd.read("hungary_trace")
     real = pd.Series(-trace["gap_s"].to_numpy(float), index=trace["lap"].astype(int))
     return fan, real
@@ -635,6 +643,9 @@ def hero(theme: str, fan: pd.DataFrame, real: pd.Series) -> tuple[Path, Path]:
                 fontfamily="DejaVu Sans Mono",
                 fontsize=9,
             )
+            if upto >= 40:
+                ax.text(39.5, lo + 2.5, "laps 39–40:\nboth cars pit", ha="center",
+                        color=c["muted"], fontsize=8.5)
             if upto >= 54:
                 ax.annotate(
                     "lap 54: second stop\n(judged separately)",

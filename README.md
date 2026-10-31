@@ -40,11 +40,12 @@ Bands, fixed before any case-study simulation: **within range** if the best plan
   <source media="(prefers-color-scheme: dark) and (prefers-reduced-motion: reduce)" srcset="assets/readme/hero_dark.png">
   <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/hero_light.png">
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero_dark.gif">
-  <img alt="Animation: Leclerc's lead over Verstappen from lap 38 to 70. Grey lines are 300 futures simulated at lap 38 for new hards at lap 39; they build lap by lap while the real race is drawn over them in red. The real race stays inside the simulated spread, in its unfavourable tail, until Leclerc's second stop at lap 54." src="assets/readme/hero_light.gif" width="100%">
+  <img alt="Animation: Leclerc's lead over Verstappen from lap 38 to 70. Grey lines are 300 futures simulated at lap 38 for new hards at lap 39, drawn from lap 40 once both cars have stopped; they build lap by lap while the real race is drawn over them in red. The real race stays inside the simulated spread, in its unfavourable tail, until Leclerc's second stop at lap 54." src="assets/readme/hero_light.gif" width="100%">
 </picture>
 
-The real race ran inside the forecast's spread until lap 54, when Leclerc stopped again for used softs. That second stop is a separate decision with its own verdict (outside range).
-A still image: [`hero_dark.png`](assets/readme/hero_dark.png), [`hero_light.png`](assets/readme/hero_light.png).
+The simulated gap starts at lap 40, once both cars have stopped. From there the real race ran inside the forecast's spread, in its unfavourable tail, until lap 54, when Leclerc stopped again for used softs. That second stop is a separate decision with its own verdict (outside range).
+
+The animation's 300 futures come from a rerun of the lap-38 cutoff fit (same data and sampler settings, 0 divergences; Ferrari's hard wear 0.027 s/lap in both runs). The verdict numbers come from the committed original run. The data behind it is [`data/figures/hungary_fan.csv`](data/figures/hungary_fan.csv). Still images: [dark](assets/readme/hero_dark.png), [light](assets/readme/hero_light.png).
 
 ## How it works
 
