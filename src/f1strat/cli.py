@@ -22,7 +22,10 @@ from collections.abc import Callable
 
 #: Rough wall-clock times on a 4-core machine, shown in ``--help``.
 RUNTIMES: dict[str, str] = {
-    "data": "~25 min, network (FastF1 downloads; cached in cache/ afterwards)",
+    "data": (
+        "~5 min of downloads, but FastF1 allows 500 API calls an hour: from an empty "
+        "cache expect one rerun after the limit resets (cached in cache/)"
+    ),
     "clean": "~1 min",
     "fit": "~40 min for the full fit; ~60 min more for the two held-out splits",
     "thin": "~10 s",
@@ -60,9 +63,18 @@ def cmd_data(args: argparse.Namespace) -> None:
 
         season_pass_events(2021, refresh=True)
 
+    def races() -> None:
+        failed = data.build_season(2022)
+        if failed:
+            raise SystemExit(
+                f"rounds {failed} failed to download (see data/processed/2022/"
+                "load_failures.log). FastF1 allows 500 API calls an hour: rerun "
+                "`pitwall data` later; downloads so far are cached."
+            )
+
     _run(
         [
-            ("2022 races", data.main),
+            ("2022 races", races),
             ("practice long runs", practice),
             ("2021 pass events", pass_2021),
         ]

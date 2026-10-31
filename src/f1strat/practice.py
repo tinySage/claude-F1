@@ -135,6 +135,8 @@ def long_runs(
             try:
                 frames.append(_session_laps(year, round_number, name))
             except Exception as err:  # noqa: BLE001 - sprint weekends have no FP2/FP3 long runs
+                if type(err).__name__ == "RateLimitExceededError":
+                    raise  # transient: do not save a partial practice table
                 log.warning("no %s for round %s: %s", name, round_number, err)
         out = long_runs_from_laps(pd.concat(frames, ignore_index=True), drivers)
         # Race teams (FastF1 practice team names can differ in spelling).

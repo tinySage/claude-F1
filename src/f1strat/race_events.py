@@ -340,6 +340,13 @@ def season_pass_events(year: int, refresh: bool = False) -> tuple[pd.DataFrame, 
         )
     events = pd.concat(frames, ignore_index=True)
     status = pd.DataFrame(status)
+    limited = status["detail"].str.startswith("RateLimitExceeded", na=False)
+    if limited.any():
+        # Transient: never overwrite the saved table with a partial season.
+        raise RuntimeError(
+            f"{int(limited.sum())} races hit FastF1's API rate limit (500 calls/h); "
+            "nothing was written. Rerun after an hour: downloads so far are cached."
+        )
     out_dir.mkdir(parents=True, exist_ok=True)
     events.to_parquet(ev_path, index=False)
     status.to_csv(st_path, index=False)
