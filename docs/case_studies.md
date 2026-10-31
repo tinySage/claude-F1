@@ -948,9 +948,14 @@ same lap; see `docs/simulator.md`, "Phase 6 additions").
   - **Whole 2022 season: green `D` = 7.15 s (15 pairs, 5 arriving within D);
     SC `D` = 6.45 s (24 pairs, 4 within D).** VSC uses the SC value.
   - Rounds before Silverstone only: green 5.1 s (2 within D), SC 9.3 s (3).
-  - **The season values are used.** The pit crew's service time is not
-    information about this race, and the pre-race fit rests on 2–3 stacks.
-    Both pre-race values lie inside the ×0.5–×2 robustness range.
+  - **The season values are used (approved before simulating).**
+    - `D` is an operational constant (a crew's service time plus a release
+      margin), not information about how this race would unfold.
+    - Ferrari knew its own double-stack cost far better than any season
+      average. So using the whole season gives the model no information the
+      pit wall lacked, and the no-leakage rule is not breached.
+    - The pre-race fit rests on only 2–3 queued stacks. Both pre-race values
+      (5.1 s, 9.3 s) lie inside the ×0.5–×2 robustness range.
 - **What it means at lap 39:** Leclerc led Sainz by 4.2 s at the line. If both
   pit, Leclerc is served first and Sainz waits about 6.45 − 4.2 ≈ 2 s. That
   is enough to put Sainz behind Hamilton (6.1 s behind at lap 38, also
