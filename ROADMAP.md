@@ -324,9 +324,13 @@ Open issues for Phase 6:
 - [x] Hungary (`docs/case_studies.md`), two decisions:
   - **Hards at lap 39: within range, robust.** It is the model's best plan
     at lap 38.
-  - **Used softs at lap 54: outside range, robust.** Hards to the flag was
-    better by 5.1 points with lap-53 information; it becomes marginal only
-    with average pass difficulty.
+  - **Used softs at lap 54: outside range, robust under the committed
+    checks.** Hards to the flag was better by 5.1 points with lap-53
+    information.
+    - Post-hoc pass-difficulty sensitivity: the switch was the worse option
+      in every setting, costing 3.6–5.1 points (outside range with the
+      relative method, marginal with average passing).
+    - Disclosed limitation: 2021 pass difficulty likely overstates 2022.
   - The points were lost at lap 54. About 4 more points lost in hindsight
     at lap 38 came from what the pit wall could not know (Verstappen's stop
     phase and pace).

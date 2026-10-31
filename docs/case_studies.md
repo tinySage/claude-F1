@@ -687,6 +687,8 @@ flag** (`H`, no further stop) in every check.
   - hards to the flag is still the best plan (17.8 vs 14.1 points).
 - So the "outside" verdict depends on Hungary being hard to pass at. The
   direction does not: hards to the flag stays best either way.
+- See also the post-hoc pass-difficulty sensitivity below, which covers both
+  decisions.
 
 **Hindsight replay** (full fit, actual events, rivals' actual plans, fitted
 stint effects):
@@ -710,6 +712,49 @@ stint effects):
 
 ![Lap 53 vs hindsight](../reports/figures/case_hungary54_hindsight.png)
 
+### Post-hoc sensitivity: pass difficulty (disclosed limitation)
+
+**Limitation, found after the results.**
+- Hungary's pass difficulty came from the 2021 race (the committed method).
+- The 2022 cars were designed to follow more closely, so a 2021 value is
+  likely to overstate how hard Hungary 2022 was to pass at.
+- The committed verdicts are **not changed**. This is a labelled post-hoc
+  sensitivity, and Silverstone and Monaco use the relative method from the
+  start ("Circuit pass difficulty" above).
+
+**Three settings for Hungary's intercept;** everything else as committed,
+main check, same seeds (`case_hungary_pass_sensitivity.json`):
+- **Committed:** Hungary 2021, shrunk toward the 2022 pooled intercept:
+  **−4.60**.
+- **Average:** the 2022 pooled intercept from rounds 1–12: **−2.78**.
+- **Relative:** the 2022 pooled intercept + (Hungary 2021 − 2021 season
+  average) = −2.78 + (−4.43 − (−2.98)) = **−4.23**.
+  - Both 2021 terms come from one pass model over every dry 2021 race
+    (`data/processed/2021/pass_events.parquet`).
+  - All 22 races downloaded. 20 were used. **Belgium and Turkey were not
+    used** (wet: no laps on dry compounds).
+  - On this pace proxy the 2021 season average (−2.98) is close to 2022's
+    (−2.78). So the relative correction is smaller than the "2022 cars follow
+    more closely" argument suggests: 2021 was not much harder to pass in
+    overall, but Hungary was hard relative to its season.
+  - For reference, in hindsight Hungary 2022's own race gives −2.74.
+
+| Decision | Setting | Intercept | Band | Mean loss (points) | Call level or ahead | Best plan overall |
+|---|---|---|---|---|---|---|
+| Lap 38: hards at 39 | committed | −4.60 | within range | 0.0 | 100% | M → 39 H(new) (the call) |
+| | relative | −4.23 | within range | 0.0 | 100% | M → 39 H(new) (the call) |
+| | average | −2.78 | within range | 0.15 | 70% | M → 50 S(used 4) |
+| Lap 54: used softs | committed | −4.60 | outside range | 5.1 | 13% | H (hards to the flag) |
+| | relative | −4.22 | outside range | 4.8 | 16% | H (hards to the flag) |
+| | average | −2.77 | marginal | 3.6 | 27% | H (hards to the flag) |
+
+- **Lap 38:** within range in all three settings. With average passing, the
+  best plan becomes staying out to lap 50 and finishing on the 4-lap soft,
+  but the call loses only 0.15 points to it.
+- **Lap 54:** hards to the flag is the best plan in all three settings. The
+  loss is 3.6–5.1 points, and the band is outside range except with average
+  passing (marginal, at 27% just above the 25% line).
+
 ### Verdicts
 
 **Lap 38, hards at lap 39: within range, robust.**
@@ -718,22 +763,26 @@ stint effects):
 - It stops being the best plan only if Ferrari's hards were ≥ 0.5 s/lap slower
   than expected. The lap-53 data put that deficit at +0.08 s/lap, the full
   fit at +0.22.
+- Within range under all three pass-difficulty settings (post-hoc).
 
-**Lap 54, onto used softs: outside range, robust.**
+**Lap 54, onto used softs: outside range, robust under the committed
+checks.**
 - With the information at the end of lap 53, staying on the hards to the
   flag was better by **5.1 points** on average.
 - The call finished level or ahead in only 13% of simulations, under every
-  check.
-- It falls to **marginal** only if passing at Hungary is as easy as the
-  season average.
+  committed check.
+- Post-hoc: outside range with relative pass difficulty too (4.8 points),
+  marginal with average pass difficulty (3.6 points).
 
 **Summary.**
-- **The points were cost by the lap-54 switch** (about 5 points, with
-  information the pit wall had at lap 53; 5.7 in hindsight), not by the
-  hard tyre call.
-- **About 4 points** that the lap-38 call conceded in hindsight came from
-  what the pit wall could not know: Verstappen's quicker stop phase and pace
-  on new mediums.
+- **The lap-54 switch was the worse option in every setting tested.** It
+  cost **3.6–5.1 points** with lap-53 information (average, relative and
+  committed pass difficulty; 5.7 in hindsight). The size of the loss depends
+  on how hard Hungary was to pass at.
+- **The hard-tyre call at lap 38 cost nothing with the information
+  available.** The ~4 points it concedes in hindsight came from what the pit
+  wall could not know: Verstappen's quicker stop phase and pace on new
+  mediums.
 
 Limits specific to these verdicts:
 - They concern Leclerc's points only.
@@ -741,6 +790,6 @@ Limits specific to these verdicts:
   of Leclerc's at lap 53.
 - Wear is linear, so a temperature-driven hard problem would not be seen.
   Leclerc's lap times through lap 53 do not show one.
-- The lap-54 verdict leans on Hungary's pass difficulty from 2021 (see the
-  easier-passing check).
+- **Pass difficulty is from Hungary 2021** (committed). 2022 cars follow more
+  closely, so this likely overstates it (post-hoc sensitivity above).
 - Ferrari knew its own fuel loads and modes.
