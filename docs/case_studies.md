@@ -1341,3 +1341,126 @@ Limits specific to this verdict:
 - Ferrari had no hard practice run. Its hard pace rests on Sainz's and
   Leclerc's race laps and the season tendency.
 - Ferrari knew its own fuel loads, modes and tyre temperatures.
+
+### Diagnosis of v1 (before any fix)
+
+**1. Where the forecast pace miss sits.** Leclerc − Sainz lap time (s/lap),
+lap-model means (forecast = lap-38 cutoff fit; hindsight = full fit) against
+the real laps:
+
+| Laps | Real | Forecast | Miss (real − forecast) | Hindsight |
+|---|---|---|---|---|
+| 43–45 (the 3 laps after the restart) | **1.56** | 0.69 | **+0.87** | 0.44 |
+| 46–52 | 0.61 | 0.37 | +0.24 | 0.18 |
+| 46–52 without lap 48 (Hamilton passing him) | 0.40 | 0.36 | **+0.04** | 0.17 |
+
+- Per lap, the real gap was 1.73, 1.08 and 1.87 s on laps 43–45, against
+  0.66–0.81 forecast. From lap 46 it was 0.61, 0.73, (1.89 on lap 48), 0.41,
+  0.61, 0.30 and −0.24, against 0.76–0.16.
+- Before the SC (clean laps 26–38), Leclerc's residuals are −0.17 (hindsight)
+  and 0.00 (forecast), and the front-runners' are within ±0.15.
+- **So the forecast miss sits in the restart laps** plus one lap of being
+  passed (lap 48). It is not spread across the whole final stint: outside
+  those laps the forecast gap is right.
+- The hindsight model has a smaller tail (+0.23 s/lap on laps 46–52 without
+  lap 48). Leclerc's fitted stint effect averages his fast pre-SC laps with
+  his slower post-SC laps.
+
+**2. The late-restart rule.** It is not applied in the case-study hindsight
+replay (`final_race_prior` is off; the rule is used only in Phase 5
+random-mode backtests).
+- The replay uses the full fit's `final_race[Silverstone]` = +0.09 s (p10–p90
+  −0.09 to +0.26), the same for every car's final stint. Leclerc's current
+  stint uses its own fitted effect (−0.16 s), which already includes it.
+- **None of the hindsight miss comes from the rule.**
+
+**3. Did the lap model ever see restart laps?** Not the restart lap itself.
+- In 2022, all 454 first laps after an SC/VSC carry `exclude_reason =
+  restart_lap`, and 26 more are out laps. None reach the fit.
+- The second and third laps after a restart are mostly in the fit (419 and
+  432 clean laps).
+- So the lap model knows nothing about the first lap after a restart, and
+  the simulator ran it as a normal green lap.
+
+### Restart layer (v2 method; written and validated before rerunning Silverstone)
+
+`f1strat.restart`, on in the simulator through `SimParams.restart`; off by
+default, so v1, Hungary and Phase 5 are unchanged.
+- **Pace:** for the first 3 green laps after an SC/VSC (`k` = 1, 2, 3), each
+  car's lap gets
+  `a_k + s_k·[soft] + h_k·[hard] + g_k·TyreLife/10` (medium = baseline).
+  - Estimated by OLS on lap-model residuals (lap time − posterior mean) of
+    those laps.
+  - In and out laps, lap 1, deleted or inaccurate laps and wet races are
+    excluded.
+  - The offset changes the car's free-air lap, so it also enters the pass
+    probability through the pace gap.
+- **Passing:** pass probability × `m` on the same laps. `m` = observed passes
+  / passes expected by the pass model on restart-lap events (outcome lap
+  `k` = 1–3), pooled over `k`.
+- **Estimated from the dry rounds before Silverstone** (1, 2, 3, 5, 6, 8, 9)
+  with the Silverstone lap-38 cutoff fit, so no future information enters.
+
+**Estimates** (s per lap; standard errors in brackets; 208, 210 and 208 laps):
+
+| k | a (medium, new) | soft | hard | per 10 laps of tyre age |
+|---|---|---|---|---|
+| 1 (restart lap) | +0.82 (0.18) | −0.18 (0.30) | +0.12 (0.20) | −0.10 (0.10) |
+| 2 | +0.17 (0.11) | +0.02 (0.17) | +0.18 (0.12) | −0.06 (0.06) |
+| 3 | −0.12 (0.09) | −0.09 (0.14) | +0.12 (0.10) | +0.04 (0.05) |
+
+- **Pass multiplier `m` = 0.74:** 24 passes in 271 restart-lap events,
+  against 32.5 expected. Per lap, `k` = 1: 0.67, `k` = 2: 0.45, `k` = 3: 1.10.
+- **What the pre-Silverstone data say:**
+  - the restart lap is about 0.8 s slower for everyone;
+  - hards are about 0.1–0.2 s/lap worse than mediums on all three laps;
+  - **there is no sign that older tyres lose more** (the age terms are about
+    zero or negative);
+  - **passing is less likely, not more,** per close pair on restart laps.
+  - So the hypothesis "old tyres lose more heat behind the SC" is not
+    supported by the 2022 data available at Silverstone.
+
+**Validation on later dry rounds** (12, 14, 15, 16, 19, 20, 21, 22; case
+studies and Austria excluded; `reports/figures/restart_validation_*.csv`).
+
+Pace (full-fit residuals; the full fit includes the k = 2–3 laps of these
+rounds, so those are in-sample; k = 1 is out of sample):
+
+| k | Laps | Mean residual: before → after | MAE: before → after | Hard − soft residual: before → after |
+|---|---|---|---|---|
+| 1 | 175 | +0.65 → −0.03 | 0.91 → 0.85 | −0.57 → −0.84 |
+| 2 | 171 | +0.13 → −0.03 | 0.45 → 0.46 | +0.04 → −0.09 |
+| 3 | 173 | −0.09 → −0.03 | 0.39 → 0.37 | +0.40 → +0.17 |
+
+Passes in the first 3 laps after each restart, replay backtests (actual plans,
+SC/VSC and retirements; 300 simulations each):
+
+| Round | Actual | Without the layer | With the layer |
+|---|---|---|---|
+| 12 France | 5 | 6.1 | 4.8 |
+| 14 Belgium | 10 | 5.4 | 3.9 |
+| 15 Netherlands | 2 | 7.1 | 5.7 |
+| 16 Italy | 2 | 4.6 | 3.4 |
+| 19 United States | 2 | 3.8 | 3.0 |
+| 20 Mexico | 1 | 1.4 | 1.3 |
+| 21 São Paulo | 19 | 8.0 | 6.0 |
+| 22 Abu Dhabi | 0 | 0.0 | 0.0 |
+| **Total** | **41** | **36.3** | **28.0** |
+
+**What the validation shows.**
+- **Passes:** without the layer, the simulator already gets restart passes
+  about right in total (36 vs 41). Per race it is far off either way:
+  São Paulo 19 vs 8, Belgium 10 vs 5. The multiplier moves the total further
+  away (28). **The pass part fails validation.**
+- **Pace:** the layer removes the field-wide restart-lap bias (mean +0.65 →
+  −0.03). That is nearly a common offset, so it barely moves positions. **The
+  compound and tyre-age differentials do not generalise:** on the restart
+  lap, later rounds had softs slower than hards, and the layer makes that
+  error larger.
+- **For Silverstone:** the layer gives Leclerc's 18-lap hards about +0.2 to
+  +0.3 s/lap against Sainz's new softs on laps 43–45. That is far short of
+  the +0.87 s/lap miss, and it lowers the pass probability.
+- **So the layer, estimated without leakage, is not expected to reproduce
+  Silverstone's restart.** It is run as v2 anyway, as planned, under the same
+  committed rule and with the existing cutoff fit. The v2 hindsight test
+  decides whether the verdict stands.

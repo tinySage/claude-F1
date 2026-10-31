@@ -105,6 +105,10 @@ class SimParams:
     #: ``max(0, D − arrival gap)`` (:func:`double_stack_loss`). ``None``: no
     #: queue (Phases 4–5 and Hungary).
     double_stack: dict[str, float] | None = None
+    #: Phase 6 (after Silverstone v1): restart layer (:mod:`f1strat.restart`),
+    #: pace offsets and a pass multiplier on the first laps after an SC/VSC.
+    #: ``None``: restarts are normal green laps.
+    restart: "RestartModel | None" = None
 
     def save(self, path: Path = PARAMS_PATH) -> Path:
         path.write_text(json.dumps(asdict(self), indent=1))
@@ -115,8 +119,12 @@ class SimParams:
         d = json.loads(path.read_text())
         passing = d["passing"]
         passing["circuit"] = {int(k): v for k, v in passing["circuit"].items()}
+        from f1strat.restart import RestartModel
+
+        rs = d.get("restart")
         return cls(PassModel(**passing), Neutralisations(**d["neutral"]),
-                   d["sc_gap_s"], d.get("notes", []), d.get("double_stack"))
+                   d["sc_gap_s"], d.get("notes", []), d.get("double_stack"),
+                   RestartModel(**rs) if rs else None)
 
 
 def _dry(df: pd.DataFrame) -> pd.DataFrame:

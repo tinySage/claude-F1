@@ -950,14 +950,45 @@ def build_field(
                  np.asarray(pit_losses, float), idx)
 
 
+def plan_tyres(state: RaceState, car: CarState, plan: Plan) -> tuple[np.ndarray, np.ndarray]:
+    """(compound index, TyreLife) on every remaining lap under ``plan``."""
+    comp = np.empty(state.laps_remaining, dtype=int)
+    age = np.empty(state.laps_remaining, dtype=int)
+    for st in _stints(state, car, plan):
+        cols = np.arange(st.first_lap, st.first_lap + st.n_laps) - (state.lap + 1)
+        comp[cols] = st.compound
+        age[cols] = st.life0 + np.arange(st.n_laps)
+    return comp, age
+
+
+def restart_k(field: Field) -> np.ndarray:
+    """(n_sims, laps_remaining): green laps since an SC/VSC ended (1 = the
+    restart lap), 0 otherwise; cached on the field."""
+    k = getattr(field, "_restart_k", None)
+    if k is None or k.shape != field.status.shape:
+        from f1strat.restart import laps_since_restart_sim
+
+        k = laps_since_restart_sim(np.asarray(field.status),
+                                   field.state.track_status in ("sc", "vsc"))
+        field._restart_k = k
+    return k
+
+
 def _car_laps(field: Field, driver: str, plan: Plan) -> tuple[np.ndarray, np.ndarray]:
-    """(free-air lap times without pit loss, green pit loss on in laps)."""
+    """(free-air lap times without pit loss, green pit loss on in laps).
+
+    With a restart layer (``params.restart``), the first laps after each SC/VSC
+    carry its pace offset for this car's compound and tyre age (Phase 6)."""
     model, draws = field.models[driver], field.draws[driver]
     laps = simulate_laps(model, field.state, driver, plan, draws)
     pit = np.zeros_like(laps)
     for j, stop in enumerate(plan.stops):
         col = stop.lap - (field.state.lap + 1)
         pit[:, col] = draws.pit_loss[:, j]
+    rs = getattr(field.params, "restart", None)
+    if rs is not None:
+        comp, age = plan_tyres(field.state, field.state.cars[driver], plan)
+        laps = laps + rs.offset(restart_k(field), comp[None, :], age[None, :])
     return laps - pit, pit
 
 
@@ -1052,6 +1083,8 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions],
         teams.setdefault(st.cars[d].team, []).append(c)
     mates = [tuple(v) for v in teams.values() if len(v) == 2] if ds else []
     stacks = 0
+    rs = getattr(prm, "restart", None)
+    kk = restart_k(field) if rs is not None else None
     for j in range(L):
         F, P, s = free[:, j, :], pit[:, j, :], field.status[:, j]
         pace_mean = F - noise[:, j, :]
@@ -1083,6 +1116,10 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions],
                 close = (T[rows, car] - T[rows, tail_car]) < 1.0
                 pace = pace_mean[rows, tail_car] - pace_mean[rows, car]
                 p = 1.0 / (1.0 + np.exp(-(a_circ + b * pace)))
+                if kk is not None:
+                    # Restart layer: pass probability x pass_mult on restart laps.
+                    on = (kk[:, j] >= 1) & (kk[:, j] <= len(rs.pace))
+                    p = np.where(on, np.minimum(1.0, rs.pass_mult * p), p)
                 ok = cond & close & (field.pass_u[rows, j, car] < p)
                 held = cond & ~ok
                 attempts += int((cond & close).sum())

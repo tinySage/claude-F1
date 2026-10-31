@@ -418,3 +418,31 @@ def test_current_neutral_length_is_fixed(fitted, raw, params) -> None:
     status = neutral_schedule(state, params.neutral, 100, np.random.default_rng(0),
                               current_length=6)
     assert (status[:, :6] == SC).all() and (status[:, 6] != SC).all()
+
+
+def test_restart_layer_applies_only_after_neutral_laps(fitted, raw, params, losses) -> None:
+    """Restart layer: offsets on the first laps after the SC, by compound; none
+    elsewhere; laps_since_restart_sim counts from the first green lap."""
+    from f1strat.restart import RestartModel, laps_since_restart_sim
+
+    status = np.array([[1, 1, 0, 0, 0, 0, 2, 0, 0]])
+    np.testing.assert_array_equal(laps_since_restart_sim(status, False),
+                                  [[0, 0, 1, 2, 3, 4, 0, 1, 2]])
+    np.testing.assert_array_equal(laps_since_restart_sim(np.array([[0, 0]]), True), [[1, 2]])
+    rs = RestartModel(pace=[[1.0, 0.0, 0.5, 0.0], [0.3, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]],
+                      pace_se=[[0] * 4] * 3, pass_mult=1.0, n_laps=[1] * 3, n_events=0,
+                      n_passes=0, expected_passes=0.0, rounds=[])
+    prm = dataclasses.replace(params, neutral=dataclasses.replace(
+        params.neutral, sc_lengths=[2], p_sc_per_lap=0.0, p_vsc_per_lap=0.0))
+    state = dataclasses.replace(RaceState.from_laps(raw, SPAIN, lap=20, total_laps=30),
+                                track_status="sc", neutral_laps=0)
+    fld = build_field(fitted, state, losses, prm, n_sims=10, seed=9)
+    from f1strat.simulator import _car_laps
+    base, _ = _car_laps(fld, "VER", Plan())
+    fld_rs = dataclasses.replace(fld, params=dataclasses.replace(prm, restart=rs))
+    with_rs, _ = _car_laps(fld_rs, "VER", Plan())
+    hard = state.cars["VER"].compound == "HARD"
+    expect = np.zeros(state.laps_remaining)
+    expect[2] = 1.0 + (0.5 if hard else 0.0)      # SC laps 21-22, restart lap 23
+    expect[3] = 0.3
+    np.testing.assert_allclose(with_rs - base, np.broadcast_to(expect, base.shape))

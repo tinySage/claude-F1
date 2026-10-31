@@ -1069,7 +1069,8 @@ def main(argv: list[str] | None = None) -> None:
         silverstone_break_even()
         return
     if args and args[0] == "silverstone":
-        run_silverstone(hindsight_only="--hindsight-only" in args)
+        run_silverstone(hindsight_only="--hindsight-only" in args,
+                        version="v2" if "--v2" in args else "v1")
         return
     if args and args[0] == "pass-sensitivity-in-race":
         pass_sensitivity_in_race()
@@ -1463,10 +1464,15 @@ def silverstone_break_even(shifts=SILVERSTONE_BREAK_EVEN) -> list[dict]:
     return out
 
 
-def run_silverstone(hindsight_only: bool = False) -> dict:
-    """``python -m f1strat.case_study silverstone``: the verdict under every
-    Silverstone check, Ferrari's joint options, the hindsight replay and the
-    reality check (``docs/case_studies.md``)."""
+def run_silverstone(hindsight_only: bool = False, version: str = "v1") -> dict:
+    """``python -m f1strat.case_study silverstone [--v2]``: the verdict under
+    every Silverstone check, Ferrari's joint options, the hindsight replay and
+    the reality check (``docs/case_studies.md``).
+
+    ``version="v2"`` adds the restart layer (:mod:`f1strat.restart`),
+    estimated from the dry rounds before Silverstone with the cutoff fit, to
+    the decision simulations and the hindsight replay; outputs are
+    ``case_silverstone_v2_*`` (v1 files are kept)."""
     import json
     import time
 
@@ -1493,15 +1499,26 @@ def run_silverstone(hindsight_only: bool = False) -> dict:
     pinfo["sc_lengths"] = params.neutral.sc_lengths
     pinfo["sc_pit_ratio"] = params.neutral.sc_pit_ratio
     pinfo["neutral_pit_samples"] = neutral_pit_samples(cleaned[cleaned["RoundNumber"] < rnd])
+    if version == "v2":
+        from f1strat.clean import MIXED_CONDITIONS_2022
+        from f1strat.restart import estimate as estimate_restart
+
+        dry_before = sorted(int(r) for r in race.loc[
+            (race["RoundNumber"] < rnd) & ~race["EventName"].isin(list(MIXED_CONDITIONS_2022)),
+            "RoundNumber"].unique())
+        rs = estimate_restart(cleaned, fitted, dry_before)
+        params = replace(params, restart=rs)
+        pinfo["restart"] = rs.to_dict()
     state, notes = decision_state(raw, race, call, cleaned,
                                   outlap_scale=params.neutral.sc_pit_ratio)
     cap = tyre_age_cap(laps)
     losses = observed_pit_losses(cleaned, rnd)
-    stem = f"case_{call.name}"
+    stem = f"case_{call.name}" + ("" if version == "v1" else f"_{version}")
     path = FIG_DIR / f"{stem}_results.json"
     full_season = load_fit(THIN_FIT_PATH)
     cleaned_full = clean_laps(raw)
-    sim_h = replace(SimParams.load(), double_stack=params.double_stack)
+    sim_h = replace(SimParams.load(), double_stack=params.double_stack,
+                    restart=getattr(params, "restart", None))
     actual = {"LEC": call.as_run, "SAI": actual_plan(raw, rnd, "SAI", call.cutoff)}
 
     if hindsight_only:
