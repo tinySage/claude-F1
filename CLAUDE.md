@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+Repository: **what-the-pit-wall-knew** (Python distribution of the same name;
+the import package is `f1strat`).
+
 ## Project goal
 An F1 race strategy simulator that re-examines three of Ferrari's controversial
 2022 strategy calls:

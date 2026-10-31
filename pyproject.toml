@@ -1,8 +1,10 @@
 [project]
-name = "f1strat"
-version = "0.1.0"
-description = "F1 race strategy simulator re-examining Ferrari's 2022 strategy calls"
+name = "what-the-pit-wall-knew"
+version = "1.0.0"
+description = "Judging Ferrari's 2022 strategy calls using only what was known at the time"
 readme = "README.md"
+license = "MIT"
+authors = [{ name = "Muktanan Mohapatra" }]
 requires-python = ">=3.11"
 dependencies = [
     "arviz>=0.23.4",
@@ -19,6 +21,9 @@ dependencies = [
     "scikit-learn>=1.9.1",
     "xgboost>=3.2.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/tinySage/what-the-pit-wall-knew"
 
 [build-system]
 requires = ["hatchling"]
