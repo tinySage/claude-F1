@@ -6,6 +6,7 @@ Status: **done.**
 - Part B: Phase 6 dress rehearsal.
 - Part C: the rehearsal with practice long runs and leakage-free
   parameters.
+- Phase 7: an independent replication of the Hungary lap-39 verdict.
 
 Code:
 `src/f1strat/backtest.py`, `src/f1strat/rehearsal.py`. Rebuild everything with:
@@ -553,6 +554,52 @@ actual stop, and only one rival's top option fits a hard.
     downloads (Spain 2021 here, Monaco 2021 in Phase 2), but Phase 6 must
     confirm Hungary and Britain 2021 load.
   - Verdicts should show sensitivity to the SC rate.
+
+## Independent replication of a verdict (Phase 7)
+
+**Question:** does a committed verdict depend on the particular draws of its
+cutoff fit?
+
+- **A separate cutoff fit.** Hungary's lap-38 cutoff fit was refitted from
+  scratch: the same data (8,709 race laps from 11 races plus 233 Hungary
+  practice laps), the same sampler settings and seed. Sampling with nutpie is
+  not bit-reproducible between runs, so this is a second, independent fit of
+  the same posterior: 38.4 min, 0 divergences, max R-hat 1.002, min ESS
+  2,246 (bulk) / 3,822 (tail). The committed fit had 1.003 and 2,002 / 3,194.
+- **The committed procedure, unchanged.** It was rerun in a fresh clone of the
+  repository with that fit (`python -m f1strat.case_study hungary`, the same
+  simulation seeds). The leakage-free parameters were re-estimated from the new
+  fit: Hungary pass intercept −4.61 and pass shift +0.92 (committed: −4.61,
+  +0.91).
+
+Band, mean loss (points) and best plan overall, per check (measurement set):
+
+| Check | Committed | Replication |
+|---|---|---|
+| main | within range, 0.00, M → 39 H(new) | within range, 0.00, M → 39 H(new) |
+| widening x1.188 | within range, 0.00, M → 39 H(new) | within range, 0.00, M → 39 H(new) |
+| Ferrari hard wear p10 | within range, −0.08, M → 40 H(new) | within range, 0.00, M → 39 H(new) |
+| Ferrari hard wear p90 | within range, 0.00, M → 39 H(new) | within range, 0.00, M → 39 H(new) |
+| Ferrari hard pace p10 | within range, 0.00, M → 39 H(new) | within range, 0.00, M → 39 H(new) |
+| Ferrari hard pace p90 | within range, 0.00, M → 39 H(new) | within range, 0.00, M → 39 H(new) |
+| SC/VSC rate x0.5 | within range, 0.00, M → 39 H(new) | within range, 0.00, M → 39 H(new) |
+| SC/VSC rate x2 | within range, 0.00, M → 39 H(new) | within range, 0.00, M → 39 H(new) |
+
+- **The verdict reproduces: within range under all 8 checks.** The call is
+  the best plan, or loses nothing to it, in every check.
+- **Leclerc's mean points under the call:** 19.70 in the replication against
+  19.87 committed.
+- **One difference, inside the noise already reported:** under Ferrari hard
+  wear p10, the committed selection set picked hards one lap later (lap 40;
+  mean loss −0.08, described as selection noise in `docs/case_studies.md`).
+  The replication picks the call itself.
+- **The hindsight replay is identical** (the call 15.75 points; best in
+  hindsight `M → 52 S(used 4)`, 19.89), because it uses the committed full fit,
+  not the cutoff fit.
+- **Ferrari's hard terms at the cutoff:** wear 0.027 s/lap in both fits; pace
+  +0.016 s against +0.011 s.
+- Saved: `reports/figures/replication_hungary_lap38.json`. Not replicated:
+  Hungary's lap-53 decision, Silverstone and Monaco.
 
 ## Is calibration good enough for the case studies?
 
