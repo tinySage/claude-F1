@@ -195,6 +195,7 @@ class Check:
     sc_factor: float = 1.0
     hard_wear_q: float | None = None      # Ferrari deg[hard]+team_deg[hard] quantile
     hard_pace_q: float | None = None      # Ferrari team_compound[hard, r] quantile
+    hard_pace_add: float = 0.0            # exploratory: s/lap added to Ferrari's hard pace
 
 
 CHECKS: tuple[Check, ...] = (
@@ -236,11 +237,11 @@ def make_field(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, c
             p_vsc_per_lap=params.neutral.p_vsc_per_lap * check.sc_factor))
     fld = build_field(fitted, state, losses, params, n_sims=n_sims, seed=seed,
                       widening=check.widening, use_fitted_current_stint=True)
-    if check.hard_wear_q is None and check.hard_pace_q is None:
+    if check.hard_wear_q is None and check.hard_pace_q is None and not check.hard_pace_add:
         return fld
     q = ferrari_hard_quantiles(fitted, state.round_number, team,
                                qs=tuple(x for x in (check.hard_wear_q, check.hard_pace_q)
-                                        if x is not None))
+                                        if x is not None) or (0.5,))
     r, t = fitted.races.index(state.round_number), fitted.teams.index(team)
     tc = _flat(fitted, "team_compound")[fld.draw_index, HARD, r, t]
     for d in fld.drivers:
@@ -251,6 +252,7 @@ def make_field(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, c
             m.deg[:, HARD] = q["wear"][check.hard_wear_q]
         if check.hard_pace_q is not None:
             m.compound[:, HARD] = m.compound[:, HARD] - tc + q["pace"][check.hard_pace_q]
+        m.compound[:, HARD] = m.compound[:, HARD] + check.hard_pace_add
     return fld
 
 
@@ -545,6 +547,22 @@ def plot_hindsight(main: dict, hind: dict, path: Path) -> Path:
     fig.savefig(path, dpi=130)
     plt.close(fig)
     return path
+
+
+#: Exploratory, outside the committed rule: how much slower Ferrari's hards
+#: would have to be (s/lap, on top of the cutoff fit) before the band changes.
+BREAK_EVEN: tuple[float, ...] = (0.25, 0.5, 0.75, 1.0)
+
+
+def break_even(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, call: Call,
+               cap: dict[str, int], shifts=BREAK_EVEN) -> list[dict]:
+    """The verdict with Ferrari's hard pace shifted by each of ``shifts``."""
+    out = []
+    for x in shifts:
+        v = verdict(fitted, state, losses, params, call, cap,
+                    Check(f"Ferrari hard pace +{x:.2f} s/lap", hard_pace_add=x))
+        out.append({k: v[k] for k in ("check", "band", "primary", "chosen")})
+    return out
 
 
 def main(argv: list[str] | None = None) -> None:
