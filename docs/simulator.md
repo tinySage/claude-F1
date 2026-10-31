@@ -281,6 +281,11 @@ plans): 82 plans × 1,000 simulations in 43 s (0.52 s per plan).
 | S → 16 M(new) → 33 S(used) → 50 S(used) | 3 | 2.38 | 0.29 | 0.87 | 6,058.4 |
 | S → 33 M(new) | 1 | 3.58 | 0.06 | 0.56 | 6,080.7 |
 
+- **Rerun with the Phase 5 parameters** (passing calibration, SC queue
+  closing; `notebooks/04_simulator.ipynb` as executed in Phase 7): the best
+  two-stopper 1.96, the best three-stopper 2.02 (still the fastest on time),
+  the actual plan 2.20, the best one-stopper 3.55. The table above is the
+  Phase 4 run; the conclusions below hold for both.
 - **Traffic reverses the single-car ranking.** The best three-stopper is the
   fastest on time, but it finishes worse on average than the best
   two-stopper: the extra stop costs track position, and passing back is hard.
