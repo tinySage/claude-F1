@@ -900,9 +900,6 @@ def main(argv: list[str] | None = None) -> None:
                      indent=1, default=str))
 
 
-if __name__ == "__main__":
-    main()
-
 
 # --- Post-hoc pass-difficulty sensitivity (Hungary) ---------------------------------------
 
@@ -958,3 +955,7 @@ def pass_sensitivity(names=("hungary", "hungary54")) -> dict:
     (FIG_DIR / "case_hungary_pass_sensitivity.json").write_text(
         json.dumps(out, indent=1, default=str))
     return out
+
+
+if __name__ == "__main__":
+    main()
