@@ -11,11 +11,16 @@ Decisions log).
   Logistic regression with a pooled pace slope and per-circuit intercepts,
   shrunk toward the pooled intercept by an L2 penalty.
 - **Following gap** (:func:`fit_pass_model`): the median gap at the line when
-  a car within 1 s did not pass.
+  a car within 1 s did not pass, and the quantiles of those gaps (Phase 5: a
+  held car's gap is drawn from them).
+- **Passing calibration** (Phase 5, :mod:`f1strat.backtest`): a shift on every
+  circuit intercept, fitted so that replayed even-round races have the actual
+  number of on-track passes; ``main`` keeps the saved shift.
 - **Safety cars** (:func:`fit_neutralisations`):
   - per-lap probability that an SC or VSC starts on a green race lap after
     lap 1;
-  - each period's length in race laps;
+  - each period's length in race laps (a run of neutralised laps with no
+    green lap between is one period; it is an SC if any lap is under SC);
   - lap-time ratio under each (laps run entirely under SC or VSC, against the
     driver's median clean lap);
   - pit loss under each, relative to cars that stayed out on the same laps,
@@ -36,6 +41,7 @@ from f1strat.data import PROCESSED_DIR
 
 PARAMS_PATH = PROCESSED_DIR / "2022" / "sim_params.json"
 NEUTRAL = "4567"
+HELD_GAP_QUANTILES = 41
 
 
 @dataclass
@@ -48,9 +54,17 @@ class PassModel:
     follow_gap_s: float           # gap when held up
     n_events: int = 0
     n_passes: int = 0
+    #: Phase 5 calibration (:mod:`f1strat.backtest`): shift on every circuit
+    #: intercept, and the lap-time loss of a car that starts a green lap within
+    #: 1 s of the car directly ahead.
+    shift: float = 0.0
+    dirty_air_s: float = 0.0
+    #: Quantiles (0, 1/k, ..., 1) of the real next-lap gap of cars within 1 s
+    #: that did not pass. Empty: every held car sits at ``follow_gap_s``.
+    held_gaps: list[float] = field(default_factory=list)
 
     def p_pass(self, round_number: int, pace_gap: np.ndarray) -> np.ndarray:
-        a = self.circuit.get(round_number, self.intercept)
+        a = self.circuit.get(round_number, self.intercept) + self.shift
         return 1.0 / (1.0 + np.exp(-(a + self.slope * pace_gap)))
 
 
@@ -70,6 +84,11 @@ class Neutralisations:
     n_sc: int = 0
     n_vsc: int = 0
     green_laps: int = 0
+    #: Phase 5: on SC laps after the first, each gap to the car ahead shrinks
+    #: by this ratio per lap (down to ``sc_gap_s``); the first SC lap keeps the
+    #: gaps. ``None``: Phase 4 behaviour (the field bunches in one lap at
+    #: ``sc_catchup_ratio``).
+    sc_close_ratio: float | None = None
 
 
 @dataclass
@@ -107,6 +126,12 @@ def pass_events(cleaned: pd.DataFrame, fitted) -> pd.DataFrame:
     feats["dirty_air"] = False
     feats = feats[feats["RoundNumber"].isin(fitted.races)]
     feats["pace"] = predict(fitted, feats, n_draws=300).mean
+    return pair_events(feats)
+
+
+def pair_events(feats: pd.DataFrame) -> pd.DataFrame:
+    """The pass events of :func:`pass_events`, from laps with a ``pace`` column
+    (free-air lap time estimate) and ``gap_ahead_s``."""
     key = ["RoundNumber", "Driver", "LapNumber"]
     lap = feats.set_index(key)
     neutral = lap["TrackStatus"].fillna("").str.contains(f"[{NEUTRAL}]")
@@ -137,6 +162,68 @@ def pass_events(cleaned: pd.DataFrame, fitted) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def stint_line_pace(cleaned: pd.DataFrame) -> pd.Series:
+    """Free-air pace proxy without a lap model (e.g. a previous season's race).
+
+    Per driver stint, a straight line through its clean laps' times against
+    lap number (tyre age and fuel move together within a stint), evaluated on
+    every lap of the stint. Stints with fewer than 3 clean laps get NaN.
+    """
+    out = pd.Series(np.nan, index=cleaned.index)
+    lap_s = cleaned["LapTime"].dt.total_seconds()
+    clean = cleaned["exclude_reason"].isna() & lap_s.notna()
+    for _, g in cleaned.groupby(["RoundNumber", "Driver", "Stint"]):
+        c = g[clean.loc[g.index]]
+        if len(c) < 3:
+            continue
+        b, a = np.polyfit(c["LapNumber"].astype(float), lap_s.loc[c.index], 1)
+        out.loc[g.index] = a + b * g["LapNumber"].astype(float)
+    return out
+
+
+def circuit_intercept_from(events: pd.DataFrame, slope: float, intercept: float,
+                           penalty: float = 1.0) -> float:
+    """One circuit's pass intercept from its own events, with the slope fixed
+    and the deviation shrunk toward ``intercept`` (as in :func:`fit_pass_model`)."""
+    ev = events.dropna(subset=["pace_gap_s"])
+    if ev.empty:
+        return intercept
+    x = np.ones((len(ev), 1))
+    offset = intercept + slope * ev["pace_gap_s"].to_numpy()
+    dev = _penalised_offsets(x, ev["passed"].to_numpy(float), offset, penalty)
+    return intercept + float(dev[0])
+
+
+def previous_race(year: int, event_name: str, back: int = 4) -> tuple[int, pd.DataFrame]:
+    """The most recent earlier running of a Grand Prix, as cleaned laps.
+
+    Looks back up to ``back`` seasons for an event with exactly this name
+    (e.g. the 2022 Canadian GP's previous running is 2019: 2020 and 2021 were
+    cancelled). FastF1 fuzzy-matches event names, so the schedule is checked
+    for an exact match first.
+    """
+    import fastf1
+
+    from f1strat.clean import clean_laps
+    from f1strat.data import configure_cache, laps_table
+
+    configure_cache()
+    for y in range(year - 1, year - 1 - back, -1):
+        schedule = fastf1.get_event_schedule(y, include_testing=False)
+        hit = schedule[schedule["EventName"] == event_name]
+        if hit.empty:
+            continue
+        session = fastf1.get_session(y, int(hit["RoundNumber"].iloc[0]), "R")
+        session.load(laps=True, telemetry=False, weather=True, messages=False)
+        try:
+            laps = laps_table(session)
+        except fastf1.exceptions.DataNotLoadedError as err:
+            # 2019 and earlier timing now needs an F1 account (none used here).
+            raise ValueError(f"{y} {event_name} timing data cannot be downloaded") from err
+        return y, clean_laps(laps, mixed_conditions=())
+    raise ValueError(f"no earlier {event_name} in the last {back} seasons")
+
+
 def fit_pass_model(events: pd.DataFrame, penalty: float = 1.0) -> PassModel:
     """Logistic regression with per-circuit intercepts shrunk to the pooled one."""
     from sklearn.linear_model import LogisticRegression
@@ -150,9 +237,11 @@ def fit_pass_model(events: pd.DataFrame, penalty: float = 1.0) -> PassModel:
     dev = _penalised_offsets(x.to_numpy(), ev["passed"].to_numpy(float), offset, penalty)
     circuit = {int(r): a0 + float(d) for r, d in zip(x.columns, dev)}
     held = ev[~ev["passed"] & ev["gap_next_s"].notna()]
+    quantiles = np.quantile(held["gap_next_s"], np.linspace(0, 1, HELD_GAP_QUANTILES))
     return PassModel(slope=b, intercept=a0, circuit=circuit,
                      follow_gap_s=float(held["gap_next_s"].median()),
-                     n_events=len(ev), n_passes=int(ev["passed"].sum()))
+                     n_events=len(ev), n_passes=int(ev["passed"].sum()),
+                     held_gaps=[round(float(q), 3) for q in quantiles])
 
 
 def _penalised_offsets(x: np.ndarray, y: np.ndarray, offset: np.ndarray,
@@ -172,6 +261,30 @@ def _penalised_offsets(x: np.ndarray, y: np.ndarray, offset: np.ndarray,
     return w
 
 
+def neutral_runs(race_one: pd.DataFrame) -> list[tuple[str, int, int]]:
+    """Neutralised periods of one race as ``(kind, first lap, laps)``.
+
+    A period is a run of consecutive SC / VSC / red-flag laps with no green lap
+    in between. Its kind is ``"SafetyCar"`` if any lap of it is under SC (or
+    red flag), else ``"VSC"``. So a VSC that turns into an SC is one SC period,
+    not a VSC plus an SC (Phase 5 fix: the race table numbers them as two), and
+    SC periods split by a status blip with no green lap are one.
+    """
+    r = race_one.sort_values("LapNumber")
+    out: list[tuple[str, int, int]] = []
+    run: list[tuple[int, bool]] = []
+    for lap, sc, vsc, red in zip(r["LapNumber"], r["SafetyCar"], r["VSC"], r["RedFlag"]):
+        if sc or vsc or red:
+            run.append((int(lap), bool(sc or red)))
+            continue
+        if run:
+            out.append(("SafetyCar" if any(s for _, s in run) else "VSC", run[0][0], len(run)))
+            run = []
+    if run:
+        out.append(("SafetyCar" if any(s for _, s in run) else "VSC", run[0][0], len(run)))
+    return out
+
+
 def fit_neutralisations(cleaned: pd.DataFrame, race: pd.DataFrame) -> Neutralisations:
     """SC/VSC hazard, lengths, lap-time ratios and pit-loss ratios (dry races)."""
     race = _dry(race)
@@ -182,13 +295,10 @@ def fit_neutralisations(cleaned: pd.DataFrame, race: pd.DataFrame) -> Neutralisa
         r = r.sort_values("LapNumber")
         green += int(((~r["SafetyCar"]) & (~r["VSC"]) & (~r["RedFlag"])
                       & (r["LapNumber"] >= 2)).sum())
-        for kind in starts:
-            col = f"{kind}Period"
-            periods = r[r[col].notna()].groupby(col)["LapNumber"]
-            for _, laps in periods:
-                if laps.min() >= 2:
-                    starts[kind] += 1
-                    lengths[kind].append(int(laps.max() - laps.min() + 1))
+        for kind, first, n in neutral_runs(r):
+            if first >= 2:
+                starts[kind] += 1
+                lengths[kind].append(n)
 
     laps = _dry(cleaned)
     lap_s = laps["LapTime"].dt.total_seconds()
@@ -262,6 +372,10 @@ def main() -> None:
 
     raw = load_season(2022)
     params = estimate(load_fit(THIN_FIT_PATH), clean_laps(raw), load_season(2022, table="race"))
+    if PARAMS_PATH.exists():  # keep the Phase 5 calibration
+        old = SimParams.load().passing
+        params.passing.shift, params.passing.dirty_air_s = old.shift, old.dirty_air_s
+        params.neutral.sc_close_ratio = SimParams.load().neutral.sc_close_ratio
     print(json.dumps(asdict(params), indent=1)[:3000])
     print(f"wrote {params.save()}")
 

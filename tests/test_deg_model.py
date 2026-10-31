@@ -172,3 +172,50 @@ def test_unseen_stint_widens_interval() -> None:
     seen = predict(fitted, df[(df["RoundNumber"] == 1) & (df["Driver"] == "AAA") & (df["Stint"] == 2)])
     unseen = predict(fitted, df[held])
     assert (unseen.hi - unseen.lo).mean() > (seen.hi - seen.lo).mean()
+
+
+def test_cutoff_inputs_use_no_future_laps() -> None:
+    """Phase 6: cleaning for a cutoff refit must not change when laps after the
+    cutoff change, and no stint of the decision race is labelled final."""
+    from f1strat.clean import pit_stops
+    from f1strat.data import load_season
+    from f1strat.deg_model import Cutoff, cutoff_inputs
+
+    raw = load_season(2022)
+    raw = raw[raw["RoundNumber"].isin([5, 6])]
+    cut = Cutoff(6, 30)
+    cleaned, laps = cutoff_inputs(raw, cut)
+    # Make every later Spain lap absurdly slow: nothing known at lap 30 moves.
+    later = (raw["RoundNumber"] == 6) & (raw["LapNumber"] > 30)
+    raw2 = raw.copy()
+    raw2.loc[later, "LapTime"] = raw2.loc[later, "LapTime"] * 3
+    cleaned2, laps2 = cutoff_inputs(raw2, cut)
+    assert cleaned["LapNumber"][cleaned["RoundNumber"] == 6].max() == 30
+    assert cleaned["exclude_reason"].astype(str).equals(cleaned2["exclude_reason"].astype(str))
+    s1, s2 = pit_stops(cleaned), pit_stops(cleaned2)
+    assert np.allclose(s1["loss_s"].fillna(0), s2["loss_s"].fillna(0))
+    assert (s1.loc[s1["RoundNumber"] == 6, "InLap"] < 30).all()
+    assert not laps.loc[laps["RoundNumber"] == 6, "final_stint"].any()
+    assert laps.loc[laps["RoundNumber"] == 5, "final_stint"].any()
+    assert len(laps) == len(laps2)
+
+
+def test_practice_long_runs_join_the_model() -> None:
+    """Practice laps add their own likelihood and share the race's tyre terms;
+    without them the model is unchanged."""
+    from f1strat.data import load_season
+    from f1strat.deg_model import Cutoff, build_model, cutoff_inputs
+
+    raw = load_season(2022)
+    raw = raw[raw["RoundNumber"].isin([5, 6])]
+    _, laps = cutoff_inputs(raw, Cutoff(6, 20))
+    practice = pd.DataFrame({
+        "RoundNumber": 6, "session": "FP2", "Driver": "VER", "Team": "Red Bull Racing",
+        "Compound": "HARD", "TyreLife": np.arange(2, 10), "lap_s": 81.0 + 0.1 * np.arange(8),
+        "run": "FP2_VER_1", "lap_in_run": np.arange(8)})
+    base, _ = build_model(laps)
+    with_p, meta = build_model(laps, practice)
+    assert "practice_lap_time" in with_p.named_vars and "practice_lap_time" not in base.named_vars
+    assert {"practice_level", "fuel_practice", "z_run"} <= set(with_p.named_vars)
+    assert meta["practice_laps"] == 8
+    assert np.isfinite(with_p.point_logps()["practice_lap_time"])

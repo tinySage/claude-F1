@@ -202,7 +202,7 @@ def _no_passing(params: SimParams) -> SimParams:
 def test_no_passing_keeps_order_and_gap(fitted, spain_state, params, losses) -> None:
     """With passing impossible and no stops or SC, nobody passes through anybody:
     the order at the flag is the order at the start, and every car is at least
-    the following gap behind the car ahead."""
+    the smallest held gap behind the car ahead."""
     prm = _no_passing(_no_neutral(params))
     field = build_field(fitted, spain_state, losses, prm, n_sims=50, seed=3)
     res = simulate_field(field, {d: Plan() for d in field.drivers})
@@ -210,7 +210,7 @@ def test_no_passing_keeps_order_and_gap(fitted, spain_state, params, losses) -> 
     for i in range(field.n_sims):
         assert list(np.argsort(res.times[i])) == list(start)
         gaps = np.diff(np.sort(res.times[i]))
-        assert (gaps >= prm.passing.follow_gap_s - 1e-9).all()
+        assert (gaps >= min(prm.passing.held_gaps or [prm.passing.follow_gap_s]) - 1e-9).all()
     assert res.passes == 0
 
 
@@ -281,3 +281,22 @@ def test_rival_options_sampled_by_weight(fitted, spain_state, params, losses) ->
     assert share_stop == pytest.approx(0.25, abs=0.04)
     options = rival_plan_options(field, "PER", top=3)
     assert 1 <= len(options) <= 3 and options[0][1] == pytest.approx(1.0)
+
+
+def test_safety_car_closes_gradually(fitted, raw, params, losses) -> None:
+    """Phase 5: gaps are kept on the first SC lap, then shrink by
+    sc_close_ratio per lap, never below sc_gap_s."""
+    state = RaceState.from_laps(raw, SPAIN, lap=20, total_laps=66)
+    prm = dataclasses.replace(params, neutral=dataclasses.replace(
+        params.neutral, sc_lengths=[5], p_sc_per_lap=0.0, p_vsc_per_lap=0.0,
+        sc_close_ratio=0.5))
+    state_sc = dataclasses.replace(state, track_status="sc", neutral_laps=0, total_laps=22)
+    field = build_field(fitted, state_sc, losses, prm, n_sims=10, seed=4)
+    res = simulate_field(field, {d: Plan() for d in field.drivers}, record=True)
+    start = np.sort([state.cars[d].race_time for d in field.drivers])
+    gaps0 = np.diff(start)
+    lap1 = np.diff(np.sort(res.history[:, 0, :], axis=1), axis=1)
+    lap2 = np.diff(np.sort(res.history[:, 1, :], axis=1), axis=1)
+    expect1 = np.maximum(prm.sc_gap_s, gaps0)
+    assert np.allclose(lap1, expect1[None, :])
+    assert np.allclose(lap2, np.maximum(prm.sc_gap_s, 0.5 * expect1)[None, :])

@@ -109,6 +109,49 @@ Case studies (2022):
   can draw `final_race` from the prior (`final_race_prior=True`), so the
   simulator's own SCs are the only SC luck. Only Bahrain and São Paulo show the
   restart sprint in `final_race`.
+- **Backtest setup (Phase 5):** `docs/validation.md`.
+  - **Races:** the 15 dry races outside the case studies and Austria.
+  - **Start:** the actual state after lap 1 (lap 1 is not modelled).
+  - **Plans and retirements:** actual pit laps, compounds and retirements.
+  - **Pace:** the full posterior (the simulator layers are under test; lap
+    times were tested out of sample in Phase 3). Stint effects are drawn.
+  - **Modes:** replay (actual SC/VSC forced) and random (SC/VSC drawn).
+- **Passing calibration (Phase 5):**
+  - Held gaps are drawn from the 2022 gaps of cars that did not pass (no free
+    parameter).
+  - One intercept shift (+0.674), fitted so that replayed even-round races
+    match the actual number of on-track passes; checked on odd rounds (303 vs
+    318).
+  - The Phase 4 "2.5× too many passes" was mostly a counting mismatch.
+  - Shift refitted to +0.986 after the SC queue fix (was +0.674); odd-round
+    check 311 vs 318.
+- **SC queue closing (Phase 5, approved):** gaps are kept on the first SC lap,
+  then multiplied by a fixed ratio per SC lap, down to 0.8 s.
+  - The ratio is 0.58, fitted on even-round SC periods (squared error in
+    seconds, so large gaps count most; a log-error fit gives 0.64 and closes
+    large gaps too slowly) and checked on odd rounds.
+  - Replaces Phase 4's one-lap bunching.
+- **SC/VSC counting (Phase 5):** a VSC that turns into an SC counts as one SC
+  period, not as both. 13 SCs and 13 VSCs (were 14 and 18).
+- **Practice long runs in cutoff fits (Phase 5 Part C):**
+  - The decision race's FP1–FP3 long runs (6+ consecutive clean laps on one
+    set) join the cutoff refit (`docs/model.md`). They share that race's
+    deg, compound, team and driver terms; each run has its own offset, and
+    each session one fuel slope with a prior on the race trend.
+  - Practice is before the race, so this adds no leakage.
+- **Leakage-free simulator parameters for cutoff fits (Phase 5 Part C):**
+  - Passing (slope, intercepts, held gaps, shift), SC/VSC rates and the SC
+    closing ratio come from the dry rounds before the decision race.
+  - The decision circuit's pass intercept comes from its previous running,
+    or the pooled intercept if that cannot be downloaded (Canada 2019 needs
+    an F1 account).
+- **Divergence rule for result fits (Phase 5):** fits used for verdicts must
+  have 0 divergences. `rehearsal.clean_fit` reruns with a new seed, then
+  target acceptance 0.99.
+- **Final-stint widening in Phase 6: 1.0 (Phase 5).** The replay backtests
+  are better calibrated without the ×1.188 widening (fair position coverage
+  0.57 / 0.85 vs 0.60 / 0.87; gaps 0.54 / 0.82 vs 0.55 / 0.84). Phase 6 uses
+  1.0 and reports ×1.188 as a sensitivity check.
 - **Hungary confounding (Phase 3 → Phase 6):** Leclerc's stint 3 is Ferrari's
   only hard stint at Hungary. The data identify the sum of
   `team_compound[Ferrari, hard, Hungary]` and his stint effect, not the split,
@@ -176,13 +219,25 @@ Result:
 **Done when:** `src/f1strat/simulator.py` returns a distribution of finishing positions/times per strategy, with tests for each layer.
 
 ## Phase 5: Validation
-- [ ] Backtest on 2022 races outside the case studies (excluding Austria; see Decisions log)
-- [ ] Check interval calibration
-- [ ] Loop back to Phase 3/4 if needed
+- [x] Backtest on 2022 races outside the case studies (excluding Austria; see Decisions log): replay and random modes, `docs/validation.md`
+- [x] Check interval calibration (replay, widening 1.0: fair 50%/80% position coverage 0.57/0.85, gaps 0.54/0.82; Spearman 0.96 vs 0.76 naive; random-mode gaps too wide)
+- [x] Loop back to Phase 3/4 if needed: SC queue closing, VSC counting, passing calibration, widening choice
+- [x] Phase 6 dress rehearsal: Spain and Canada cut at mid-race, leakage-free cleaning, practice long runs and parameters (`docs/validation.md`, Part B)
+
+Result:
+- **Backtests** (15 races, replay, widening 1.0): fair 50%/80% position
+  coverage 0.57/0.85, gaps 0.54/0.82, Spearman 0.96 (naive lap-1 order
+  0.76).
+- **Passing** calibrated (odd-round check 2% low). SC queue closes
+  gradually; VSC counting fixed.
+- **Rehearsals:** with practice data and leakage-free parameters, Spain
+  ranks the actual call 0.05 places from the best plan. Canada's pick moves
+  to a 30-lap soft stint the race cannot check (see Phase 6 items).
 
 Watch items from Phase 4:
 - Passing: simulated passes per race are ~2.5× the 2022 rate. Backtest pass
   counts and position changes per race before relying on position verdicts.
+  **Done:** mostly a counting mismatch; calibrated (see Decisions log).
 
 Watch items from Phase 3 (if these races backtest badly, look here first):
 - Negative field hard degradation: Australia, Saudi Arabia, Miami.
@@ -194,9 +249,53 @@ Watch items from Phase 3 (if these races backtest badly, look here first):
 Refit using only data up to each decision lap (no future leakage).
 
 Open issues for Phase 6:
-- **Cleaning leaks future information into a cutoff refit.** The 107% outlier
-  median and the pit loss are computed from the whole race. A refit at a
-  decision lap must recompute both from laps up to that lap only.
+- **Cleaning leaks future information into a cutoff refit. Resolved in
+  Phase 5:** `deg_model.cutoff_inputs` recomputes cleaning from the laps
+  known at the cutoff.
+  - The 107% outlier median and the pit stops (and so the pit losses) come
+    from laps up to the cutoff only.
+  - No stint of the decision race is labelled final (on truncated data every
+    current stint would be).
+  - Tested by changing every later lap and checking nothing moves.
+- **Passing and SC/VSC parameters from the whole season. Resolved in
+  Phase 5:** `rehearsal.leakage_free_params` estimates them from earlier
+  rounds, and the circuit's pass difficulty from its previous running.
+  Phase 6 must confirm the 2021 Hungary and Britain races download.
+- **A compound not yet raced at the decision race takes its degradation from
+  the season pool (Phase 5 rehearsal).**
+  - Spain cut at lap 33 had 2 clean hard laps, so Spain's hard degradation
+    came out at 0.039 s/lap, against 0.123 s/lap in the full fit. The search
+    then sent Verstappen and most rivals onto hards, which almost nobody used.
+  - Hungary is the same situation (Leclerc onto hards).
+  - Partly resolved in Phase 5 Part C: practice long runs bring Spain's
+    hard to 0.116 s/lap (full fit 0.123).
+  - **But practice runs are short.** In Canada, ~12-lap soft runs made a
+    30-lap soft stint look best, where no team ran the soft (linear
+    degradation extrapolated).
+  - For Hungary, Phase 6 must report the practice run lengths on the hard
+    against the stint the verdict needs, and show sensitivity to the hard's
+    degradation.
+- **Pit losses at the cutoff can rest on few stops** (Canada lap 35: 3, the
+  rest were under VSC). Report the count; consider a fallback (previous
+  running or a prior).
+- **SC rates from early rounds are noisy** (Spain: 2.7% per lap from 4
+  races). Show verdict sensitivity to the SC rate.
+- **Cutoff by lap number:** a lapped car's lap `L` ends a little after the
+  leader's lap `L`, so it is a few seconds "in the future" at the cutoff.
+  Negligible, but state it.
+- **Monaco has no pass-difficulty estimate.** It currently gets the season
+  average (pooled) intercept, which is wrong for Monaco, where passing is
+  nearly impossible. Phase 6 must set it, e.g. from Monaco 2021
+  (downloadable).
+- **Hungary inventory mismatches.** Hungary's reconstructed inventory had 8
+  mismatches, including new softs that the "softs first" return assumption
+  sent back. Phase 6 must print Ferrari's reconstructed Hungary sets and
+  check them against Leclerc's actual fittings.
+- **SC timing verdicts (from Phase 5).** The SC queue now closes gradually
+  (fitted ratio 0.58 per lap), but small gaps close too fast and the ratio
+  rests on 3 SC periods. Silverstone's verdict depends on this
+  (`docs/validation.md`); state it as a limitation.
+- **Use widening 1.0** and report ×1.188 as a sensitivity check.
 - [ ] Hungary
 - [ ] Silverstone
 - [ ] Monaco (wet crossover; state limitations)

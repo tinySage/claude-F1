@@ -57,6 +57,38 @@ def apply_cutoff(laps: pd.DataFrame, cutoff: Cutoff | None) -> pd.DataFrame:
     return laps[earlier | same_race]
 
 
+def cutoff_inputs(raw: pd.DataFrame, cutoff: Cutoff) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Leakage-free cleaned laps and model laps for a cutoff refit (Phase 6).
+
+    Cleaning is recomputed from the laps known at ``cutoff`` only:
+
+    - the 107% outlier rule uses each driver's median clean lap **up to the
+      cutoff** in the decision race (not the whole race);
+    - pit stops, and so the pit losses the simulator resamples
+      (:func:`f1strat.simulator.observed_pit_losses`), come from stops whose in
+      and out laps are both at or before the cutoff, against those medians.
+
+    No stint of the decision race is labelled final: which stint is a car's
+    last is not known at the cutoff. (On truncated data :func:`lap_features`
+    would label every car's current stint final.) The decision race's
+    ``final_race`` therefore keeps its prior, as Phase 3 intended.
+
+    Args:
+        raw: ``load_season()`` laps (uncleaned).
+        cutoff: Decision race and last completed lap.
+
+    Returns:
+        ``(cleaned, laps)``: :func:`f1strat.clean.clean_laps` output on the
+        known laps, and :func:`prepare` output for :func:`fit`.
+    """
+    from f1strat.clean import clean_laps
+
+    cleaned = clean_laps(apply_cutoff(raw, cutoff))
+    laps = prepare(cleaned)
+    laps.loc[laps["RoundNumber"] == cutoff.round_number, "final_stint"] = False
+    return cleaned, laps
+
+
 def lap_features(cleaned: pd.DataFrame) -> pd.DataFrame:
     """Model features for every lap with a stint and tyre age, clean or not.
 
@@ -263,6 +295,11 @@ KEEP_VARS: tuple[str, ...] = (
 )
 
 
+#: Practice-likelihood variables kept when a fit has practice long runs.
+PRACTICE_VARS: tuple[str, ...] = ("practice_level", "sigma_run", "tau_fuel",
+                                  "fuel_practice", "sigma_practice")
+
+
 @dataclass
 class BayesFit:
     """A fitted hierarchical model: thinned posterior plus index metadata.
@@ -296,8 +333,16 @@ def _stint_keys(laps: pd.DataFrame) -> list[tuple[int, str, int]]:
     return list(zip(laps["RoundNumber"].astype(int), laps["Driver"], laps["Stint"].astype(int)))
 
 
-def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
+def build_model(laps: pd.DataFrame, practice: pd.DataFrame | None = None
+                ) -> tuple["pm.Model", dict]:
     """Build the PyMC model in ``docs/model.md`` for prepared laps.
+
+    Args:
+        laps: Prepared race laps.
+        practice: Optional practice long runs of races in ``laps``
+            (:func:`f1strat.practice.long_runs`); adds the practice likelihood
+            in ``docs/model.md`` ("Practice long runs in cutoff fits"). Laps of
+            drivers with no race laps at that race are dropped.
 
     Returns:
         The model and its index metadata (races, drivers, teams, driver-race
@@ -460,8 +505,45 @@ def build_model(laps: pd.DataFrame) -> tuple["pm.Model", dict]:
         )
         pm.StudentT("lap_time", nu=nu, mu=mu, sigma=sigma[r], observed=y)
 
+        if practice is not None and len(practice):
+            p = practice.copy()
+            p["pair"] = _index(pd.Series(list(zip(p["RoundNumber"].astype(int), p["Driver"])),
+                                         index=p.index), pairs)
+            p["team_i"] = _index(p["Team"], teams)
+            p = p[(p["pair"] >= 0) & (p["team_i"] >= 0)]
+            sessions = sorted(set(zip(p["RoundNumber"].astype(int), p["session"])))
+            runs = sorted(p["run"].unique())
+            pr = _index(p["RoundNumber"].astype(int), races)
+            pt_ = p["team_i"].to_numpy()
+            pc = _index(p["Compound"], list(COMPOUNDS))
+            ps = _index(pd.Series(list(zip(p["RoundNumber"].astype(int), p["session"])),
+                                  index=p.index), sessions)
+            pj = _index(p["run"], runs)
+            run_session = (p.groupby("run")[["RoundNumber", "session"]].first()
+                           .loc[runs].apply(lambda x: sessions.index((int(x.iloc[0]), x.iloc[1])),
+                                            axis=1).to_numpy())
+            model.add_coord("practice_session", [f"{rr}_{ss}" for rr, ss in sessions])
+            model.add_coord("practice_run", runs)
+            level = pm.Normal("practice_level", 0.0, 3.0, dims="practice_session")
+            sigma_run = pm.HalfNormal("sigma_run", 1.0)
+            z_run = pm.Normal("z_run", 0.0, 1.0, dims="practice_run")
+            run_offset = level[run_session] + sigma_run * z_run
+            tau_fuel = pm.HalfNormal("tau_fuel", 0.03)
+            z_fuel = pm.Normal("z_fuel", 0.0, 1.0, dims="practice_session")
+            fuel = pm.Deterministic("fuel_practice", mu_trend + tau_fuel * z_fuel,
+                                    dims="practice_session")
+            sigma_practice = pm.HalfNormal("sigma_practice", 1.0)
+            pa = p["TyreLife"].to_numpy(float) / TYRE_SCALE
+            mu_p = (race_base[pr] + driver_offset[p["pair"].to_numpy()]
+                    + compound_offset[pc, pr] + team_compound[pc, pr, pt_]
+                    + (deg[pc, pr] + team_deg[pc, pt_]) * pa
+                    + run_offset[pj] + fuel[ps] * p["lap_in_run"].to_numpy(float))
+            pm.StudentT("practice_lap_time", nu=nu, mu=mu_p, sigma=sigma_practice,
+                        observed=p["lap_s"].to_numpy(float))
+
     final_rounds = sorted({int(r) for r in laps.loc[laps["final_stint"], "RoundNumber"]})
-    meta = {"races": races, "drivers": drivers, "teams": teams,
+    meta = {"practice_laps": 0 if practice is None else int(len(p)) if len(practice) else 0,
+            "races": races, "drivers": drivers, "teams": teams,
             "driver_race": pairs, "lap_centre": lap_centre, "stints": stints,
             "final_stint_races": final_rounds}
     return model, meta
@@ -489,6 +571,7 @@ def fit(
     seed: int = 0,
     adaptation: str = "low_rank",
     target_accept: float = 0.95,
+    practice: pd.DataFrame | None = None,
 ) -> BayesFit:
     """Fit the Bayesian hierarchical model with nutpie.
 
@@ -500,6 +583,8 @@ def fit(
             takes smaller steps, which avoids divergences in tight regions.
         adaptation: nutpie mass-matrix adaptation. ``"low_rank"`` adapts to
             posterior correlations (e.g. between deg, trend and compound offsets).
+        practice: Practice long runs of the decision race (cutoff fits; see
+            ``docs/model.md``). ``None`` gives the Phase 3 model.
 
     Returns:
         A :class:`BayesFit` with diagnostics over every sampled variable.
@@ -507,14 +592,15 @@ def fit(
     import nutpie
 
     laps = apply_cutoff(laps, cutoff)
-    model, meta = build_model(laps)
+    model, meta = build_model(laps, practice)
     compiled = nutpie.compile_pymc_model(model)
     idata = nutpie.sample(compiled, draws=draws, tune=tune, chains=chains,
                           seed=seed, progress_bar=False, adaptation=adaptation,
                           target_accept=target_accept)
     sampled = [v.name for v in model.free_RVs]
     diag = diagnose(idata, sampled)
-    posterior = idata.posterior.to_dataset()[list(KEEP_VARS)].astype("float32")
+    keep = list(KEEP_VARS) + [v for v in PRACTICE_VARS if v in idata.posterior]
+    posterior = idata.posterior.to_dataset()[keep].astype("float32")
     # Keep each draw's divergence flag, to check where divergences sit.
     posterior["diverging"] = idata.sample_stats["diverging"].astype("int8")
     return BayesFit(posterior=posterior, diagnostics=diag, races=meta["races"],

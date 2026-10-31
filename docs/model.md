@@ -318,11 +318,13 @@ separately per race.
 
 ## Fitting
 
-- **Interface:** `fit(laps, cutoff=None)`. `cutoff=Cutoff(round, lap)` keeps
-  every lap of earlier rounds plus laps of that round up to and including
-  `lap`, and drops later rounds. Phase 6 refits through the same function.
-  Caveat: cleaning currently uses whole-race information (see ROADMAP Phase 6
-  open issues).
+- **Interface:** `fit(laps, cutoff=None, practice=None)`.
+  - `cutoff=Cutoff(round, lap)` keeps every lap of earlier rounds plus laps
+    of that round up to and including `lap`, and drops later rounds.
+  - Phase 6 refits through the same function, with laps from
+    `cutoff_inputs(raw, cutoff)`. That function recomputes cleaning from the
+    known laps only and labels no stint of the decision race final.
+  - `practice` adds the decision race's practice long runs (next section).
 - **Sampler:** nutpie (NUTS), 4 chains, 1,500 tuning and 5,000 draws, with
   low-rank mass-matrix adaptation and target acceptance 0.95 (default 0.8).
   The higher target takes smaller steps, which avoids isolated divergences.
@@ -338,6 +340,82 @@ separately per race.
 - **Diagnostics required:** R-hat < 1.01 on every parameter, zero divergences,
   bulk and tail ESS ≥ 400. A fit that misses is rerun longer.
 - **Time budget:** up to ~20 minutes per fit, run in the background.
+
+## Practice long runs in cutoff fits (Phase 5 Part C)
+
+**Why.** At a decision lap the race may have few or no laps on a compound.
+Spain cut at lap 33 had 2 clean hard laps, so Spain's hard `deg[hard, r]`
+fell back to the season pool: 0.039 s/lap, against 0.123 s/lap once the
+whole race is in. The strategy search then sent nearly every car onto hards.
+A real pit wall also had the Friday long runs on every compound. Cutoff fits
+therefore add **the decision race's FP1–FP3 long runs**. Practice happens
+before the race, so this adds no leakage.
+
+**Data** (`f1strat.practice.long_runs`, saved per race to
+`data/processed/2022/<RR>_<event>_practice_long_runs.parquet`):
+- **Cleaning, as for race laps:** drop in and out laps, deleted laps, laps
+  with no time or inaccurate timing, laps with an SC/VSC/red-flag code, wet
+  compounds, laps in rain, and laps slower than 107% of the driver's median
+  candidate lap in that session.
+- **Long run:** 6 or more **consecutive** clean timed laps on one set (one
+  stint, consecutive lap numbers).
+- **Drivers:** only race drivers. FP1 stand-ins are dropped, since their pace
+  is not the race driver's.
+- `TyreLife` is the set's age including earlier sessions, as in the race.
+
+**Model.** For practice lap `i` in run `j` of session `s` (FP1, FP2 or FP3 of
+decision race `r`), driver `d`, team `t`, compound `c`, tyre age `a`, `k`
+laps into the run:
+
+```
+y_i ~ StudentT(nu, mu_i, sigma_practice)
+
+mu_i = race_base[r] + driver_offset[d,r]
+     + compound_offset[c,r] + team_compound[t,c,r]
+     + (deg[c,r] + team_deg[t,c]) * TyreLife_i
+     + run_offset[j]
+     + fuel[s] * k_i
+
+run_offset[j] = practice_level[s] + sigma_run * z_run[j]
+fuel[s]       = mu_trend + tau_fuel * z_fuel[s]
+```
+
+- **Shared with the race:** `deg[c,r]`, `compound_offset[c,r]`,
+  `team_compound[t,c,r]`, `team_deg[t,c]` and `driver_offset[d,r]`, so
+  practice informs exactly the race-day tyre terms the simulator uses.
+- **`run_offset[j]`:** each run's own level. The fuel load and engine mode of
+  a practice run are unknown, so a run's absolute pace says little about the
+  race. Runs are pooled around a session level `practice_level[s]` with
+  spread `sigma_run`.
+- **`fuel[s]`:** one fuel slope per session (s per lap into the run), shared
+  across compounds. Its prior is centred on the season race trend
+  `mu_trend` (fuel burn plus track evolution per race lap), with spread
+  `tau_fuel`.
+- **`sigma_practice`:** practice lap noise, separate from the race's.
+- **No stint, `post_stop`, `opening`, dirty-air or rain terms:** the run
+  offset absorbs a run's level, and runs start after the out lap.
+
+**What practice identifies, and what it does not.**
+- Within a run, tyre age and fuel move together: each lap is one lap older
+  and one lap lighter. A single run identifies only `deg[c,r] + fuel[s]`.
+- Because `fuel[s]` is shared by every compound in a session, **differences
+  in degradation between compounds** are identified. Partly pooled run
+  offsets also give some information on compound offsets.
+- The **level** of degradation is anchored by the race laps on compounds
+  already used before the cutoff, plus the fuel prior.
+- So practice mainly tells the model how a compound not yet raced differs
+  from the ones that have been.
+
+**Priors.**
+
+| Parameter | Prior | Reasoning |
+|---|---|---|
+| `practice_level[s]` | Normal(0, 3) s | Practice runs may be several seconds off race pace (fuel, engine modes, track). |
+| `sigma_run` | HalfNormal(1.0) s | Run-to-run fuel and mode differences within a session. |
+| `tau_fuel` | HalfNormal(0.03) s/lap | A session's fuel slope stays near the race trend. |
+| `sigma_practice` | HalfNormal(1.0) s | Practice lap noise. |
+
+With `practice=None` the model is exactly the Phase 3 model.
 
 ## Not in this model
 
