@@ -168,6 +168,19 @@ Case studies (2022):
     2022).
   - Hungary's committed verdicts keep the previous-running intercept; the
     relative method is a post-hoc sensitivity there (`docs/case_studies.md`).
+- **Silverstone additions (Phase 6, committed before any Silverstone
+  simulation):** `docs/case_studies.md`, "Silverstone 2022".
+  - Decision at Leclerc's lap 39 (SC deployed during it); cutoff lap 38; the
+    state starts under the SC; its length from the 6 pre-race 2022 SCs.
+  - Race time from the session clock (lap-1 red flag, untimed restart lap).
+  - Double-stack queue: the second car waits `max(0, D − arrival gap)`, `D`
+    fitted on 2022 same-lap teammate stops (green 7.15 s, SC 6.45 s).
+  - Rivals' and Leclerc's searches cost stops at the expected SC/VSC pit loss.
+  - Pass intercept: relative method, updated with the race's own passes
+    before the cutoff (also a post-hoc row for Hungary).
+  - Primary verdict with Sainz's actual stop fixed; Ferrari's combined points
+    per joint option reported alongside; added checks: SC length p10/p90,
+    double-stack loss ×0.5/×2, Leclerc's new hard removed.
 - **Final-stint widening in Phase 6: 1.0 (Phase 5).** The replay backtests
   are better calibrated without the ×1.188 widening (fair position coverage
   0.57 / 0.85 vs 0.60 / 0.87; gaps 0.54 / 0.82 vs 0.55 / 0.84). Phase 6 uses

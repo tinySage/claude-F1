@@ -74,16 +74,19 @@ def points(positions: np.ndarray) -> np.ndarray:
 @dataclass
 class Family:
     """Plans whose first stop is in ``laps`` (inclusive) onto one of ``sets``;
-    ``laps=None`` is the single plan with no further stop."""
+    ``laps=None`` is the single plan with no further stop. ``or_none`` also
+    admits the plan with no further stop (e.g. Silverstone's "stay out at 39":
+    no stop on lap 39, any later stop or none)."""
 
     laps: tuple[int, int] | None
     sets: tuple[tuple[str, int], ...] = ()
+    or_none: bool = False
 
     def contains(self, plan: Plan) -> bool:
         if self.laps is None:
             return not plan.stops
         if not plan.stops:
-            return False
+            return self.or_none
         s = plan.stops[0]
         return self.laps[0] <= s.lap <= self.laps[1] and (s.compound, s.tyre_life) in self.sets
 
@@ -107,6 +110,23 @@ class Call:
     families_fn: Callable | None = None
     #: Short name of the call for figures, e.g. "hards at 39".
     call_label: str = ""
+    #: Phase 6 Silverstone additions (defaults keep Hungary as committed).
+    #: ``"session"``: gaps from the session clock (:meth:`RaceState.from_laps`).
+    timing: str = "laps"
+    #: The decision was made on an SC deployment lap: the state starts under
+    #: the SC, with the next lap as its first SC lap.
+    sc_deployed: bool = False
+    #: Cars out of the race at the decision (e.g. the car that caused the SC).
+    drop: tuple[str, ...] = ()
+    #: Rival plans held fixed in the primary verdict (e.g. Sainz's actual stop).
+    fixed: dict[str, Plan] = field(default_factory=dict)
+    #: Single-car searches (focal shortlist, rivals) cost stops at their lap's
+    #: expected SC/VSC pit loss.
+    sc_aware: bool = False
+    #: The focal car's teammate, for the joint (team) options.
+    teammate: str | None = None
+    #: ``leakage_free_params`` keywords (circuit method, in-race update).
+    param_kwargs: dict = field(default_factory=dict)
 
 
 def hungary_call() -> Call:
@@ -131,6 +151,39 @@ def hungary54_call() -> Call:
         as_run=Plan((Stop(54, "SOFT", 4),)), intended=Plan(),
         families_fn=hungary54_families, call_label="used softs at 54",
     )
+
+
+def silverstone_call() -> Call:
+    """Britain 2022: Leclerc left out under the lap-39 safety car (cutoff 38).
+
+    The SC was deployed during lap 39 (``docs/case_studies.md``); Sainz pitted
+    for new softs at the end of lap 39, Leclerc stayed out on 14-lap hards to
+    the flag. Sainz's stop is held fixed in the primary verdict.
+    """
+    return Call(
+        name="silverstone", round_number=10, cutoff=38, focal="LEC",
+        call_family="call: stay out at 39", as_run=Plan(), intended=Plan(),
+        # Ricciardo and Tsunoda: in lap 38 by lap number (lapped cars).
+        known_stops={"RIC": ("SOFT", 1), "TSU": ("SOFT", 1)},
+        families_fn=silverstone_families, call_label="stay out at 39",
+        timing="session", sc_deployed=True, drop=("OCO",),
+        fixed={"SAI": Plan((Stop(39, "SOFT", 1),))}, sc_aware=True, teammate="SAI",
+        param_kwargs={"circuit_method": "relative", "in_race": True, "first_racing_lap": 2},
+    )
+
+
+def silverstone_families(sets: list[tuple[str, int]], cutoff: int, total: int
+                         ) -> dict[str, Family]:
+    """Named alternatives at Silverstone (``docs/case_studies.md``): stay out
+    (the call), or pit at the end of lap 39 onto each available set."""
+    now = (cutoff + 1, cutoff + 1)
+    fams = {"call: stay out at 39": Family((cutoff + 2, total - 1), tuple(sorted(set(sets))),
+                                           or_none=True)}
+    names = {"SOFT": "soft", "MEDIUM": "medium", "HARD": "hard"}
+    for comp, life in sorted(set(sets)):
+        tag = "new" if life == 1 else f"used {life}"
+        fams[f"pit at 39: {names[comp]} ({tag})"] = Family(now, ((comp, life),))
+    return fams
 
 
 def hungary54_families(sets: list[tuple[str, int]], cutoff: int, total: int
@@ -213,18 +266,26 @@ def apply_known_stop(state: RaceState, driver: str, compound: str, tyre_life: in
 
 
 def decision_state(raw: pd.DataFrame, race: pd.DataFrame, call: Call,
-                   cleaned: pd.DataFrame) -> tuple[RaceState, dict]:
-    """The race at the cutoff as the pit wall knew it, and notes for the report."""
+                   cleaned: pd.DataFrame, outlap_scale: float = 1.0
+                   ) -> tuple[RaceState, dict]:
+    """The race at the cutoff as the pit wall knew it, and notes for the report.
+
+    ``outlap_scale`` scales the out-lap loss added for known stops (e.g. the
+    SC pit-loss ratio when those out laps ran under the SC)."""
     from f1strat.tyres import race_used_sets, reconstruct_inventories, sets_left
 
     rnd, lap = call.round_number, call.cutoff
     total = int(race.loc[race["RoundNumber"] == rnd, "TotalLaps"].iloc[0])
-    state = RaceState.from_laps(raw, rnd, lap, total)
+    state = RaceState.from_laps(raw, rnd, lap, total, timing=call.timing)
+    if call.drop:
+        state = replace(state, cars={d: c for d, c in state.cars.items() if d not in call.drop})
+    if call.sc_deployed:
+        state = replace(state, track_status="sc", neutral_laps=0)
     invs = reconstruct_inventories(2022, rnd)
     sets = {d: sets_left(invs[d], raw, rnd, lap) + race_used_sets(raw, rnd, d, lap)
             for d in state.cars if d in invs}
     state = state.with_sets(sets)
-    out_s = outlap_loss(cleaned, rnd)
+    out_s = outlap_loss(cleaned, rnd) * outlap_scale
     for d, (comp, life) in call.known_stops.items():
         state = apply_known_stop(state, d, comp, life, out_s)
     call.families = (call.families_fn or hungary_families)(list(state.sets[call.focal]),
@@ -248,6 +309,21 @@ class Check:
     hard_wear_q: float | None = None      # Ferrari deg[hard]+team_deg[hard] quantile
     hard_pace_q: float | None = None      # Ferrari team_compound[hard, r] quantile
     hard_pace_add: float = 0.0            # exploratory: s/lap added to Ferrari's hard pace
+    #: Silverstone: the current SC's total length fixed at this quantile of
+    #: its conditional distribution (lengths longer than the laps already run).
+    sc_len_q: float | None = None
+    #: Silverstone: factor on the double-stack D (green and SC).
+    ds_factor: float = 1.0
+    #: Silverstone: a set removed from the focal car's pool (inventory check).
+    drop_set: tuple[str, int] | None = None
+
+
+def current_sc_length(state: RaceState, neutral, q: float) -> int:
+    """Quantile ``q`` of the current SC's total length, from the observed SC
+    lengths longer than the laps already run (inverted CDF: an observed length)."""
+    lengths = np.asarray(neutral.sc_lengths)
+    longer = lengths[lengths > state.neutral_laps]
+    return int(np.quantile(longer, q, method="inverted_cdf"))
 
 
 CHECKS: tuple[Check, ...] = (
@@ -259,6 +335,16 @@ CHECKS: tuple[Check, ...] = (
     Check("Ferrari hard pace p90", hard_pace_q=0.9),
     Check("SC/VSC rate x0.5", sc_factor=0.5),
     Check("SC/VSC rate x2", sc_factor=2.0),
+)
+
+#: Silverstone: the committed checks plus the additions recorded before any
+#: Silverstone simulation (``docs/case_studies.md``).
+SILVERSTONE_CHECKS: tuple[Check, ...] = CHECKS + (
+    Check("SC length p10", sc_len_q=0.1),
+    Check("SC length p90", sc_len_q=0.9),
+    Check("double-stack loss x0.5", ds_factor=0.5),
+    Check("double-stack loss x2", ds_factor=2.0),
+    Check("Leclerc's new hard removed", drop_set=("HARD", 1)),
 )
 
 
@@ -287,8 +373,14 @@ def make_field(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, c
         params = replace(params, neutral=replace(
             params.neutral, p_sc_per_lap=params.neutral.p_sc_per_lap * check.sc_factor,
             p_vsc_per_lap=params.neutral.p_vsc_per_lap * check.sc_factor))
+    if check.ds_factor != 1.0 and params.double_stack:
+        params = replace(params, double_stack={k: v * check.ds_factor
+                                               for k, v in params.double_stack.items()})
+    sc_len = (current_sc_length(state, params.neutral, check.sc_len_q)
+              if check.sc_len_q is not None and state.track_status == "sc" else None)
     fld = build_field(fitted, state, losses, params, n_sims=n_sims, seed=seed,
-                      widening=check.widening, use_fitted_current_stint=True)
+                      widening=check.widening, use_fitted_current_stint=True,
+                      current_neutral_length=sc_len)
     if check.hard_wear_q is None and check.hard_pace_q is None and not check.hard_pace_add:
         return fld
     q = ferrari_hard_quantiles(fitted, state.round_number, team,
@@ -313,16 +405,19 @@ def make_field(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, c
 
 def candidates(fld: Field, call: Call, cap: dict[str, int]) -> tuple[list[Plan], dict]:
     """Leclerc's candidate plans and what the tyre-age cap removed."""
+    from f1strat.simulator import expected_pit_factor
+
     st, d = fld.state, call.focal
     m, dr = fld.models[d], fld.draws[d]
+    pf = expected_pit_factor(fld) if call.sc_aware else None
     base = search(m, st, d, dr, max_stops=3, min_stint=5, max_age=cap,
-                  include=[call.as_run, call.intended])
+                  include=[call.as_run, call.intended], pit_factor=pf)
     plans = list(base.plans)
     for fam in call.families.values():
         if fam.laps is None:
             continue
         res = search(m, st, d, dr, max_stops=3, min_stint=5, max_age=cap,
-                     first_laps=fam.laps, first_sets=fam.sets)
+                     first_laps=fam.laps, first_sets=fam.sets, pit_factor=pf)
         plans += [p for p in res.plans if p not in plans]
     car = st.cars[d]
     capped = {"n_capped": base.n_capped,
@@ -374,14 +469,16 @@ def verdict(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, call
             cap: dict[str, int], check: Check = CHECKS[0], n_select: int = 1000,
             n_measure: int = 2000, seeds: tuple[int, int] = (101, 202)) -> dict:
     """Selection on ``n_select`` simulations, measurement on a fresh ``n_measure``."""
+    if check.drop_set is not None:
+        state, call = without_set(state, call, check.drop_set)
     sel = make_field(fitted, state, losses, params, check, n_select, seeds[0])
-    rivals = {d: rival_plan_options(sel, d, max_age=cap) for d in sel.drivers if d != call.focal}
+    rivals = rivals_for(sel, call, cap)
     plans, capped = candidates(sel, call, cap)
     pts_sel, pos_sel = focal_points(sel, call, plans, rivals)
     chosen = choose(plans, pts_sel, call)
 
     mea = make_field(fitted, state, losses, params, check, n_measure, seeds[1])
-    rivals_m = {d: rival_plan_options(mea, d, max_age=cap) for d in mea.drivers if d != call.focal}
+    rivals_m = rivals_for(mea, call, cap)
     names = list(chosen)
     uniq = list(dict.fromkeys(chosen.values()))
     pts_m, pos_m = focal_points(mea, call, uniq, rivals_m)
@@ -414,6 +511,129 @@ def verdict(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, call
         "capped": capped,
     }
     return out
+
+
+def rivals_for(fld: Field, call: Call, cap: dict[str, int],
+               exclude: tuple[str, ...] = ()) -> dict:
+    """Every rival on its own top-3 single-car plans (SC-aware if the call
+    says so), except the call's fixed plans (e.g. Sainz's actual stop)."""
+    out = {d: rival_plan_options(fld, d, max_age=cap, sc_aware=call.sc_aware)
+           for d in fld.drivers if d != call.focal and d not in call.fixed and d not in exclude}
+    out.update({d: p for d, p in call.fixed.items() if d not in exclude})
+    return out
+
+
+def without_set(state: RaceState, call: Call, item: tuple[str, int]) -> tuple[RaceState, Call]:
+    """The state and call with one set removed from the focal car's pool
+    (inventory robustness check); the named families are rebuilt."""
+    pool = list(state.sets[call.focal])
+    if item in pool:
+        pool.remove(item)
+    state = replace(state, sets={**state.sets, call.focal: tuple(pool)})
+    call = replace(call, families=call.families_fn(pool, call.cutoff, state.total_laps))
+    return state, call
+
+
+# --- Joint options (Ferrari's combined points; secondary) ---------------------------------
+
+#: Joint option name -> (focal pits on the decision lap, teammate pits on it).
+JOINT: dict[str, tuple[bool, bool]] = {
+    "SAI pits, LEC stays out (actual family)": (False, True),
+    "both pit (double stack)": (True, True),
+    "LEC pits, SAI stays out": (True, False),
+    "neither pits": (False, False),
+}
+
+
+def _car_candidates(fld: Field, driver: str, pits_now: bool, lap: int, cap: dict[str, int],
+                    k: int, include: Plan | None = None) -> list[Plan]:
+    """A car's best ``k`` plans by single-car expected time (SC-aware) that
+    pit on ``lap`` (onto any of its sets) or do not (any later stop or none)."""
+    from f1strat.simulator import expected_pit_factor
+
+    st, m, dr = fld.state, fld.models[driver], fld.draws[driver]
+    sets = tuple(sorted(set(st.sets[driver])))
+    first = (lap, lap) if pits_now else (lap + 1, st.total_laps - 1)
+    pf = expected_pit_factor(fld)
+    res = search(m, st, driver, dr, max_stops=3, min_stint=5, max_age=cap, per_stratum=1,
+                 first_laps=first, first_sets=sets, pit_factor=pf)
+    plans = [res.plans[i] for i in np.argsort(res.totals.mean(axis=1))]
+    if not pits_now:
+        stay = search(m, st, driver, dr, max_stops=0, min_stint=5, max_age=cap, pit_factor=pf)
+        plans = [p for p in stay.plans if not p.stops] + plans
+        plans = sorted(plans, key=lambda p: plan_totals_mean(fld, driver, p, pf))
+    out = plans[:k]
+    if include is not None and include not in out and \
+            (bool(include.stops) and include.stops[0].lap == lap) == pits_now:
+        out.append(include)
+    return out
+
+
+def plan_totals_mean(fld: Field, driver: str, plan: Plan, pit_factor) -> float:
+    from f1strat.simulator import plan_totals
+
+    return float(plan_totals(fld.models[driver], fld.state, driver, [plan], fld.draws[driver],
+                             pit_factor).mean())
+
+
+def joint_options(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, call: Call,
+                  cap: dict[str, int], actual: dict[str, Plan], check: Check = CHECKS[0],
+                  k: int = 4, n_select: int = 1000, n_measure: int = 2000,
+                  seeds: tuple[int, int] = (111, 222)) -> dict:
+    """Ferrari's combined points per joint option on the decision lap
+    (secondary; never changes the band).
+
+    For each option in :data:`JOINT`, every pair of the two cars' best ``k``
+    plans in that option (by single-car expected time, SC-aware) is simulated
+    with the field; the pair with the most combined points on the selection
+    set is measured on a fresh set, with the actual pair. Other rivals are on
+    their own plans.
+    """
+    focal, mate, lap = call.focal, call.teammate, call.cutoff + 1
+    sel = make_field(fitted, state, losses, params, check, n_select, seeds[0])
+    riv = rivals_for(sel, call, cap, exclude=(mate,))
+    from f1strat.simulator import simulate_field
+
+    def combined(fld, rivals, pf, pm):
+        res = simulate_field(fld, {**rivals, focal: pf, mate: pm})
+        pos = res.positions
+        return (points(pos[:, res.drivers.index(focal)]),
+                points(pos[:, res.drivers.index(mate)]))
+
+    chosen, tables = {}, []
+    for name, (f_pits, m_pits) in JOINT.items():
+        cf = _car_candidates(sel, focal, f_pits, lap, cap, k, actual[focal])
+        cm = _car_candidates(sel, mate, m_pits, lap, cap, k, actual[mate])
+        best = None
+        for pf in cf:
+            for pm in cm:
+                a, b = combined(sel, riv, pf, pm)
+                tables.append({"option": name, "focal": label(pf, state.cars[focal].compound),
+                               "teammate": label(pm, state.cars[mate].compound),
+                               "focal_points": a.mean(), "teammate_points": b.mean(),
+                               "combined": (a + b).mean()})
+                if best is None or (a + b).mean() > best[0]:
+                    best = ((a + b).mean(), pf, pm)
+        chosen[name] = (best[1], best[2])
+    chosen["actual"] = (actual[focal], actual[mate])
+
+    mea = make_field(fitted, state, losses, params, check, n_measure, seeds[1])
+    riv_m = rivals_for(mea, call, cap, exclude=(mate,))
+    pts = {n: combined(mea, riv_m, pf, pm) for n, (pf, pm) in chosen.items()}
+    act = pts["actual"][0] + pts["actual"][1]
+    out = {}
+    for n, (pf, pm) in chosen.items():
+        a, b = pts[n]
+        diff = (a + b) - act
+        out[n] = {"focal_plan": label(pf, state.cars[focal].compound),
+                  "teammate_plan": label(pm, state.cars[mate].compound),
+                  "focal_points": float(a.mean()), "teammate_points": float(b.mean()),
+                  "combined": float((a + b).mean()),
+                  "vs_actual_mean": float(diff.mean()),
+                  "vs_actual_p10": float(np.quantile(diff, 0.1)),
+                  "vs_actual_p90": float(np.quantile(diff, 0.9)),
+                  "p_better_than_actual": float((diff > 0).mean())}
+    return {"options": out, "selection": pd.DataFrame(tables)}
 
 
 # --- Hindsight replay ------------------------------------------------------------------
@@ -808,7 +1028,8 @@ def break_even(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, c
     return out
 
 
-CALLS: dict[str, Callable[[], Call]] = {"hungary": hungary_call, "hungary54": hungary54_call}
+CALLS: dict[str, Callable[[], Call]] = {"hungary": hungary_call, "hungary54": hungary54_call,
+                                        "silverstone": silverstone_call}
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -834,6 +1055,9 @@ def main(argv: list[str] | None = None) -> None:
     args = argv if argv is not None else sys.argv[1:]
     if args and args[0] == "pass-sensitivity":
         pass_sensitivity()
+        return
+    if args and args[0] == "pass-sensitivity-in-race":
+        pass_sensitivity_in_race()
         return
     if not args or args[0] not in CALLS:
         raise SystemExit("usage: python -m f1strat.case_study <hungary|hungary54> "
@@ -902,6 +1126,52 @@ def main(argv: list[str] | None = None) -> None:
 
 
 # --- Post-hoc pass-difficulty sensitivity (Hungary) ---------------------------------------
+
+
+def pass_sensitivity_in_race(names=("hungary", "hungary54")) -> dict:
+    """Post-hoc row for Hungary's pass-difficulty table, added with Silverstone's
+    method (``docs/case_studies.md``): the relative intercept updated with
+    Hungary's own on-track passes before each cutoff
+    (:func:`f1strat.race_events.in_race_pass_update`), main check, same seeds.
+    Appended to ``case_hungary_pass_sensitivity.json``."""
+    import json
+    import logging
+
+    from f1strat.data import load_season
+    from f1strat.deg_model import Cutoff, cutoff_inputs, load_fit, thin_fit
+    from f1strat.race_events import in_race_pass_update, relative_circuit_intercept
+    from f1strat.rehearsal import fit_path, leakage_free_params
+    from f1strat.simulator import observed_pit_losses
+
+    logging.disable(logging.WARNING)
+    raw, race = load_season(2022), load_season(2022, table="race")
+    path = FIG_DIR / "case_hungary_pass_sensitivity.json"
+    out = json.loads(path.read_text()) if path.exists() else {}
+    for name in names:
+        call = CALLS[name]()
+        rnd = call.round_number
+        cleaned, laps = cutoff_inputs(raw, Cutoff(rnd, call.cutoff))
+        fitted = thin_fit(load_fit(fit_path(rnd, call.cutoff, "cutoff")))
+        state, _ = decision_state(raw, race, call, cleaned)
+        losses = observed_pit_losses(cleaned, rnd)
+        params, _ = leakage_free_params(fitted, raw, race, cleaned, rnd)
+        event = str(race.loc[race["RoundNumber"] == rnd, "EventName"].iloc[0])
+        rel = relative_circuit_intercept(event, params.passing.intercept, 2021)
+        upd = in_race_pass_update(cleaned, fitted, rnd, rel["intercept"], params.passing.slope)
+        circ = {**params.passing.circuit, rnd: upd["intercept"]}
+        prm = replace(params, passing=replace(params.passing, circuit=circ))
+        v = verdict(fitted, state, losses, prm, call, tyre_age_cap(laps), CHECKS[0])
+        out.setdefault(name, {"settings": {}})["settings"]["relative + in-race (post-hoc)"] = {
+            "intercept": upd["intercept"], "in_race": upd, "band": v["band"],
+            "primary": v["primary"], "chosen": v["chosen"],
+            "measure": {n: {k: m[k] for k in ("mean_points", "mean_pos", "p_podium")}
+                        for n, m in v["measure"].items()}}
+        print(name, "relative + in-race", round(upd["intercept"], 3), upd["events"],
+              upd["passes"], v["band"], round(v["primary"]["mean_loss"], 2),
+              round(v["primary"]["p_level_or_ahead"], 3), v["chosen"]["best overall"],
+              flush=True)
+    path.write_text(json.dumps(out, indent=1, default=str))
+    return out
 
 
 def pass_sensitivity(names=("hungary", "hungary54")) -> dict:
