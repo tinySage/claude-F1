@@ -744,16 +744,26 @@ main check, same seeds (`case_hungary_pass_sensitivity.json`):
 | Lap 38: hards at 39 | committed | −4.60 | within range | 0.0 | 100% | M → 39 H(new) (the call) |
 | | relative | −4.23 | within range | 0.0 | 100% | M → 39 H(new) (the call) |
 | | average | −2.78 | within range | 0.15 | 70% | M → 50 S(used 4) |
+| | relative + in-race (post-hoc, Silverstone method) | −2.73 | within range | 0.31 | 68% | M → 50 S(used 4) |
 | Lap 54: used softs | committed | −4.60 | outside range | 5.1 | 13% | H (hards to the flag) |
 | | relative | −4.22 | outside range | 4.8 | 16% | H (hards to the flag) |
 | | average | −2.77 | marginal | 3.6 | 27% | H (hards to the flag) |
+| | relative + in-race (post-hoc, Silverstone method) | −2.63 | marginal | 3.5 | 28% | H (hards to the flag) |
 
-- **Lap 38:** within range in all three settings. With average passing, the
+- **Relative + in-race** (added with Silverstone, labelled post-hoc): the
+  relative value updated with Hungary 2022's own passes before each cutoff
+  (`race_events.in_race_pass_update`; `case_study pass-sensitivity-in-race`).
+  - Lap 38: 108 events, 25 passes, which moves −4.23 to **−2.73**. Lap 53:
+    130 events, 31 passes, which moves −4.22 to **−2.63**.
+  - So the race's own passes pull Hungary back to about the 2022 average.
+    The pit wall could see that the 2021 value overstated the difficulty.
+- **Lap 38:** within range in all four settings. With average passing, the
   best plan becomes staying out to lap 50 and finishing on the 4-lap soft,
   but the call loses only 0.15 points to it.
-- **Lap 54:** hards to the flag is the best plan in all three settings. The
-  loss is 3.6–5.1 points, and the band is outside range except with average
-  passing (marginal, at 27% just above the 25% line).
+- **Lap 54:** hards to the flag is the best plan in all four settings. The
+  loss is 3.5–5.1 points. The band is outside range with the committed and
+  relative values, and marginal with average passing (27%) and with the
+  in-race update (3.5 points, 28%, just above the 25% line).
 
 ### Verdicts
 
@@ -772,7 +782,8 @@ checks.**
 - The call finished level or ahead in only 13% of simulations, under every
   committed check.
 - Post-hoc: outside range with relative pass difficulty too (4.8 points),
-  marginal with average pass difficulty (3.6 points).
+  marginal with average pass difficulty (3.6 points) and with the in-race
+  update (3.5 points).
 
 **Summary.**
 - **The lap-54 switch was the worse option in every setting tested.** It
