@@ -74,16 +74,19 @@ def points(positions: np.ndarray) -> np.ndarray:
 @dataclass
 class Family:
     """Plans whose first stop is in ``laps`` (inclusive) onto one of ``sets``;
-    ``laps=None`` is the single plan with no further stop."""
+    ``laps=None`` is the single plan with no further stop. ``or_none`` also
+    admits the plan with no further stop (e.g. Silverstone's "stay out at 39":
+    no stop on lap 39, any later stop or none)."""
 
     laps: tuple[int, int] | None
     sets: tuple[tuple[str, int], ...] = ()
+    or_none: bool = False
 
     def contains(self, plan: Plan) -> bool:
         if self.laps is None:
             return not plan.stops
         if not plan.stops:
-            return False
+            return self.or_none
         s = plan.stops[0]
         return self.laps[0] <= s.lap <= self.laps[1] and (s.compound, s.tyre_life) in self.sets
 
@@ -107,6 +110,23 @@ class Call:
     families_fn: Callable | None = None
     #: Short name of the call for figures, e.g. "hards at 39".
     call_label: str = ""
+    #: Phase 6 Silverstone additions (defaults keep Hungary as committed).
+    #: ``"session"``: gaps from the session clock (:meth:`RaceState.from_laps`).
+    timing: str = "laps"
+    #: The decision was made on an SC deployment lap: the state starts under
+    #: the SC, with the next lap as its first SC lap.
+    sc_deployed: bool = False
+    #: Cars out of the race at the decision (e.g. the car that caused the SC).
+    drop: tuple[str, ...] = ()
+    #: Rival plans held fixed in the primary verdict (e.g. Sainz's actual stop).
+    fixed: dict[str, Plan] = field(default_factory=dict)
+    #: Single-car searches (focal shortlist, rivals) cost stops at their lap's
+    #: expected SC/VSC pit loss.
+    sc_aware: bool = False
+    #: The focal car's teammate, for the joint (team) options.
+    teammate: str | None = None
+    #: ``leakage_free_params`` keywords (circuit method, in-race update).
+    param_kwargs: dict = field(default_factory=dict)
 
 
 def hungary_call() -> Call:
@@ -131,6 +151,39 @@ def hungary54_call() -> Call:
         as_run=Plan((Stop(54, "SOFT", 4),)), intended=Plan(),
         families_fn=hungary54_families, call_label="used softs at 54",
     )
+
+
+def silverstone_call() -> Call:
+    """Britain 2022: Leclerc left out under the lap-39 safety car (cutoff 38).
+
+    The SC was deployed during lap 39 (``docs/case_studies.md``); Sainz pitted
+    for new softs at the end of lap 39, Leclerc stayed out on 14-lap hards to
+    the flag. Sainz's stop is held fixed in the primary verdict.
+    """
+    return Call(
+        name="silverstone", round_number=10, cutoff=38, focal="LEC",
+        call_family="call: stay out at 39", as_run=Plan(), intended=Plan(),
+        # Ricciardo and Tsunoda: in lap 38 by lap number (lapped cars).
+        known_stops={"RIC": ("SOFT", 1), "TSU": ("SOFT", 1)},
+        families_fn=silverstone_families, call_label="stay out at 39",
+        timing="session", sc_deployed=True, drop=("OCO",),
+        fixed={"SAI": Plan((Stop(39, "SOFT", 1),))}, sc_aware=True, teammate="SAI",
+        param_kwargs={"circuit_method": "relative", "in_race": True, "first_racing_lap": 2},
+    )
+
+
+def silverstone_families(sets: list[tuple[str, int]], cutoff: int, total: int
+                         ) -> dict[str, Family]:
+    """Named alternatives at Silverstone (``docs/case_studies.md``): stay out
+    (the call), or pit at the end of lap 39 onto each available set."""
+    now = (cutoff + 1, cutoff + 1)
+    fams = {"call: stay out at 39": Family((cutoff + 2, total - 1), tuple(sorted(set(sets))),
+                                           or_none=True)}
+    names = {"SOFT": "soft", "MEDIUM": "medium", "HARD": "hard"}
+    for comp, life in sorted(set(sets)):
+        tag = "new" if life == 1 else f"used {life}"
+        fams[f"pit at 39: {names[comp]} ({tag})"] = Family(now, ((comp, life),))
+    return fams
 
 
 def hungary54_families(sets: list[tuple[str, int]], cutoff: int, total: int
@@ -213,18 +266,26 @@ def apply_known_stop(state: RaceState, driver: str, compound: str, tyre_life: in
 
 
 def decision_state(raw: pd.DataFrame, race: pd.DataFrame, call: Call,
-                   cleaned: pd.DataFrame) -> tuple[RaceState, dict]:
-    """The race at the cutoff as the pit wall knew it, and notes for the report."""
+                   cleaned: pd.DataFrame, outlap_scale: float = 1.0
+                   ) -> tuple[RaceState, dict]:
+    """The race at the cutoff as the pit wall knew it, and notes for the report.
+
+    ``outlap_scale`` scales the out-lap loss added for known stops (e.g. the
+    SC pit-loss ratio when those out laps ran under the SC)."""
     from f1strat.tyres import race_used_sets, reconstruct_inventories, sets_left
 
     rnd, lap = call.round_number, call.cutoff
     total = int(race.loc[race["RoundNumber"] == rnd, "TotalLaps"].iloc[0])
-    state = RaceState.from_laps(raw, rnd, lap, total)
+    state = RaceState.from_laps(raw, rnd, lap, total, timing=call.timing)
+    if call.drop:
+        state = replace(state, cars={d: c for d, c in state.cars.items() if d not in call.drop})
+    if call.sc_deployed:
+        state = replace(state, track_status="sc", neutral_laps=0)
     invs = reconstruct_inventories(2022, rnd)
     sets = {d: sets_left(invs[d], raw, rnd, lap) + race_used_sets(raw, rnd, d, lap)
             for d in state.cars if d in invs}
     state = state.with_sets(sets)
-    out_s = outlap_loss(cleaned, rnd)
+    out_s = outlap_loss(cleaned, rnd) * outlap_scale
     for d, (comp, life) in call.known_stops.items():
         state = apply_known_stop(state, d, comp, life, out_s)
     call.families = (call.families_fn or hungary_families)(list(state.sets[call.focal]),
@@ -248,6 +309,21 @@ class Check:
     hard_wear_q: float | None = None      # Ferrari deg[hard]+team_deg[hard] quantile
     hard_pace_q: float | None = None      # Ferrari team_compound[hard, r] quantile
     hard_pace_add: float = 0.0            # exploratory: s/lap added to Ferrari's hard pace
+    #: Silverstone: the current SC's total length fixed at this quantile of
+    #: its conditional distribution (lengths longer than the laps already run).
+    sc_len_q: float | None = None
+    #: Silverstone: factor on the double-stack D (green and SC).
+    ds_factor: float = 1.0
+    #: Silverstone: a set removed from the focal car's pool (inventory check).
+    drop_set: tuple[str, int] | None = None
+
+
+def current_sc_length(state: RaceState, neutral, q: float) -> int:
+    """Quantile ``q`` of the current SC's total length, from the observed SC
+    lengths longer than the laps already run (inverted CDF: an observed length)."""
+    lengths = np.asarray(neutral.sc_lengths)
+    longer = lengths[lengths > state.neutral_laps]
+    return int(np.quantile(longer, q, method="inverted_cdf"))
 
 
 CHECKS: tuple[Check, ...] = (
@@ -259,6 +335,16 @@ CHECKS: tuple[Check, ...] = (
     Check("Ferrari hard pace p90", hard_pace_q=0.9),
     Check("SC/VSC rate x0.5", sc_factor=0.5),
     Check("SC/VSC rate x2", sc_factor=2.0),
+)
+
+#: Silverstone: the committed checks plus the additions recorded before any
+#: Silverstone simulation (``docs/case_studies.md``).
+SILVERSTONE_CHECKS: tuple[Check, ...] = CHECKS + (
+    Check("SC length p10", sc_len_q=0.1),
+    Check("SC length p90", sc_len_q=0.9),
+    Check("double-stack loss x0.5", ds_factor=0.5),
+    Check("double-stack loss x2", ds_factor=2.0),
+    Check("Leclerc's new hard removed", drop_set=("HARD", 1)),
 )
 
 
@@ -287,8 +373,14 @@ def make_field(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, c
         params = replace(params, neutral=replace(
             params.neutral, p_sc_per_lap=params.neutral.p_sc_per_lap * check.sc_factor,
             p_vsc_per_lap=params.neutral.p_vsc_per_lap * check.sc_factor))
+    if check.ds_factor != 1.0 and params.double_stack:
+        params = replace(params, double_stack={k: v * check.ds_factor
+                                               for k, v in params.double_stack.items()})
+    sc_len = (current_sc_length(state, params.neutral, check.sc_len_q)
+              if check.sc_len_q is not None and state.track_status == "sc" else None)
     fld = build_field(fitted, state, losses, params, n_sims=n_sims, seed=seed,
-                      widening=check.widening, use_fitted_current_stint=True)
+                      widening=check.widening, use_fitted_current_stint=True,
+                      current_neutral_length=sc_len)
     if check.hard_wear_q is None and check.hard_pace_q is None and not check.hard_pace_add:
         return fld
     q = ferrari_hard_quantiles(fitted, state.round_number, team,
@@ -313,16 +405,19 @@ def make_field(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, c
 
 def candidates(fld: Field, call: Call, cap: dict[str, int]) -> tuple[list[Plan], dict]:
     """Leclerc's candidate plans and what the tyre-age cap removed."""
+    from f1strat.simulator import expected_pit_factor
+
     st, d = fld.state, call.focal
     m, dr = fld.models[d], fld.draws[d]
+    pf = expected_pit_factor(fld) if call.sc_aware else None
     base = search(m, st, d, dr, max_stops=3, min_stint=5, max_age=cap,
-                  include=[call.as_run, call.intended])
+                  include=[call.as_run, call.intended], pit_factor=pf)
     plans = list(base.plans)
     for fam in call.families.values():
         if fam.laps is None:
             continue
         res = search(m, st, d, dr, max_stops=3, min_stint=5, max_age=cap,
-                     first_laps=fam.laps, first_sets=fam.sets)
+                     first_laps=fam.laps, first_sets=fam.sets, pit_factor=pf)
         plans += [p for p in res.plans if p not in plans]
     car = st.cars[d]
     capped = {"n_capped": base.n_capped,
@@ -374,14 +469,16 @@ def verdict(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, call
             cap: dict[str, int], check: Check = CHECKS[0], n_select: int = 1000,
             n_measure: int = 2000, seeds: tuple[int, int] = (101, 202)) -> dict:
     """Selection on ``n_select`` simulations, measurement on a fresh ``n_measure``."""
+    if check.drop_set is not None:
+        state, call = without_set(state, call, check.drop_set)
     sel = make_field(fitted, state, losses, params, check, n_select, seeds[0])
-    rivals = {d: rival_plan_options(sel, d, max_age=cap) for d in sel.drivers if d != call.focal}
+    rivals = rivals_for(sel, call, cap)
     plans, capped = candidates(sel, call, cap)
     pts_sel, pos_sel = focal_points(sel, call, plans, rivals)
     chosen = choose(plans, pts_sel, call)
 
     mea = make_field(fitted, state, losses, params, check, n_measure, seeds[1])
-    rivals_m = {d: rival_plan_options(mea, d, max_age=cap) for d in mea.drivers if d != call.focal}
+    rivals_m = rivals_for(mea, call, cap)
     names = list(chosen)
     uniq = list(dict.fromkeys(chosen.values()))
     pts_m, pos_m = focal_points(mea, call, uniq, rivals_m)
@@ -414,6 +511,129 @@ def verdict(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, call
         "capped": capped,
     }
     return out
+
+
+def rivals_for(fld: Field, call: Call, cap: dict[str, int],
+               exclude: tuple[str, ...] = ()) -> dict:
+    """Every rival on its own top-3 single-car plans (SC-aware if the call
+    says so), except the call's fixed plans (e.g. Sainz's actual stop)."""
+    out = {d: rival_plan_options(fld, d, max_age=cap, sc_aware=call.sc_aware)
+           for d in fld.drivers if d != call.focal and d not in call.fixed and d not in exclude}
+    out.update({d: p for d, p in call.fixed.items() if d not in exclude})
+    return out
+
+
+def without_set(state: RaceState, call: Call, item: tuple[str, int]) -> tuple[RaceState, Call]:
+    """The state and call with one set removed from the focal car's pool
+    (inventory robustness check); the named families are rebuilt."""
+    pool = list(state.sets[call.focal])
+    if item in pool:
+        pool.remove(item)
+    state = replace(state, sets={**state.sets, call.focal: tuple(pool)})
+    call = replace(call, families=call.families_fn(pool, call.cutoff, state.total_laps))
+    return state, call
+
+
+# --- Joint options (Ferrari's combined points; secondary) ---------------------------------
+
+#: Joint option name -> (focal pits on the decision lap, teammate pits on it).
+JOINT: dict[str, tuple[bool, bool]] = {
+    "SAI pits, LEC stays out (actual family)": (False, True),
+    "both pit (double stack)": (True, True),
+    "LEC pits, SAI stays out": (True, False),
+    "neither pits": (False, False),
+}
+
+
+def _car_candidates(fld: Field, driver: str, pits_now: bool, lap: int, cap: dict[str, int],
+                    k: int, include: Plan | None = None) -> list[Plan]:
+    """A car's best ``k`` plans by single-car expected time (SC-aware) that
+    pit on ``lap`` (onto any of its sets) or do not (any later stop or none)."""
+    from f1strat.simulator import expected_pit_factor
+
+    st, m, dr = fld.state, fld.models[driver], fld.draws[driver]
+    sets = tuple(sorted(set(st.sets[driver])))
+    first = (lap, lap) if pits_now else (lap + 1, st.total_laps - 1)
+    pf = expected_pit_factor(fld)
+    res = search(m, st, driver, dr, max_stops=3, min_stint=5, max_age=cap, per_stratum=1,
+                 first_laps=first, first_sets=sets, pit_factor=pf)
+    plans = [res.plans[i] for i in np.argsort(res.totals.mean(axis=1))]
+    if not pits_now:
+        stay = search(m, st, driver, dr, max_stops=0, min_stint=5, max_age=cap, pit_factor=pf)
+        plans = [p for p in stay.plans if not p.stops] + plans
+        plans = sorted(plans, key=lambda p: plan_totals_mean(fld, driver, p, pf))
+    out = plans[:k]
+    if include is not None and include not in out and \
+            (bool(include.stops) and include.stops[0].lap == lap) == pits_now:
+        out.append(include)
+    return out
+
+
+def plan_totals_mean(fld: Field, driver: str, plan: Plan, pit_factor) -> float:
+    from f1strat.simulator import plan_totals
+
+    return float(plan_totals(fld.models[driver], fld.state, driver, [plan], fld.draws[driver],
+                             pit_factor).mean())
+
+
+def joint_options(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, call: Call,
+                  cap: dict[str, int], actual: dict[str, Plan], check: Check = CHECKS[0],
+                  k: int = 4, n_select: int = 1000, n_measure: int = 2000,
+                  seeds: tuple[int, int] = (111, 222)) -> dict:
+    """Ferrari's combined points per joint option on the decision lap
+    (secondary; never changes the band).
+
+    For each option in :data:`JOINT`, every pair of the two cars' best ``k``
+    plans in that option (by single-car expected time, SC-aware) is simulated
+    with the field; the pair with the most combined points on the selection
+    set is measured on a fresh set, with the actual pair. Other rivals are on
+    their own plans.
+    """
+    focal, mate, lap = call.focal, call.teammate, call.cutoff + 1
+    sel = make_field(fitted, state, losses, params, check, n_select, seeds[0])
+    riv = rivals_for(sel, call, cap, exclude=(mate,))
+    from f1strat.simulator import simulate_field
+
+    def combined(fld, rivals, pf, pm):
+        res = simulate_field(fld, {**rivals, focal: pf, mate: pm})
+        pos = res.positions
+        return (points(pos[:, res.drivers.index(focal)]),
+                points(pos[:, res.drivers.index(mate)]))
+
+    chosen, tables = {}, []
+    for name, (f_pits, m_pits) in JOINT.items():
+        cf = _car_candidates(sel, focal, f_pits, lap, cap, k, actual[focal])
+        cm = _car_candidates(sel, mate, m_pits, lap, cap, k, actual[mate])
+        best = None
+        for pf in cf:
+            for pm in cm:
+                a, b = combined(sel, riv, pf, pm)
+                tables.append({"option": name, "focal": label(pf, state.cars[focal].compound),
+                               "teammate": label(pm, state.cars[mate].compound),
+                               "focal_points": a.mean(), "teammate_points": b.mean(),
+                               "combined": (a + b).mean()})
+                if best is None or (a + b).mean() > best[0]:
+                    best = ((a + b).mean(), pf, pm)
+        chosen[name] = (best[1], best[2])
+    chosen["actual"] = (actual[focal], actual[mate])
+
+    mea = make_field(fitted, state, losses, params, check, n_measure, seeds[1])
+    riv_m = rivals_for(mea, call, cap, exclude=(mate,))
+    pts = {n: combined(mea, riv_m, pf, pm) for n, (pf, pm) in chosen.items()}
+    act = pts["actual"][0] + pts["actual"][1]
+    out = {}
+    for n, (pf, pm) in chosen.items():
+        a, b = pts[n]
+        diff = (a + b) - act
+        out[n] = {"focal_plan": label(pf, state.cars[focal].compound),
+                  "teammate_plan": label(pm, state.cars[mate].compound),
+                  "focal_points": float(a.mean()), "teammate_points": float(b.mean()),
+                  "combined": float((a + b).mean()),
+                  "vs_actual_mean": float(diff.mean()),
+                  "vs_actual_p10": float(np.quantile(diff, 0.1)),
+                  "vs_actual_p90": float(np.quantile(diff, 0.9)),
+                  "p_better_than_actual": float((diff > 0).mean())}
+    return {"options": out, "selection": pd.DataFrame(tables)}
 
 
 # --- Hindsight replay ------------------------------------------------------------------
@@ -451,7 +671,7 @@ def attach_actual_stints(fld: Field, fitted: BayesFit, raw: pd.DataFrame,
 def hindsight(full_fit: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
               cleaned_full: pd.DataFrame, call: Call, state: RaceState,
               plans: dict[str, Plan], all_plans: list[Plan] = (), n_sims: int = 1000,
-              seed: int = 303) -> dict:
+              seed: int = 303, sim_params=None) -> dict:
     """Leclerc's plans under what actually happened after the cutoff (not the
     verdict). ``all_plans`` (e.g. every decision-lap candidate) are also run to
     find the best plan in hindsight."""
@@ -460,7 +680,7 @@ def hindsight(full_fit: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
 
     act = actual_race(raw, race, call.round_number)
     fld, rivals, retire = hindsight_field(full_fit, raw, race, cleaned_full, call, state,
-                                          n_sims, seed)
+                                          n_sims, seed, sim_params)
     attached = {d: len(m.known_stints) for d, m in fld.models.items()}
     out = {}
     plans = dict(plans)
@@ -488,15 +708,18 @@ def hindsight(full_fit: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
 
 def hindsight_field(full_fit: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
                     cleaned_full: pd.DataFrame, call: Call, state: RaceState,
-                    n_sims: int = 1000, seed: int = 303):
-    """(field, rival actual plans, retirements) for a hindsight replay."""
+                    n_sims: int = 1000, seed: int = 303, sim_params=None):
+    """(field, rival actual plans, retirements) for a hindsight replay.
+
+    ``sim_params`` defaults to the season's ``sim_params.json``."""
     from f1strat.backtest import actual_race
     from f1strat.race_events import SimParams
     from f1strat.simulator import actual_plan, observed_pit_losses
 
     act = actual_race(raw, race, call.round_number)
     fld = build_field(full_fit, state, observed_pit_losses(cleaned_full, call.round_number),
-                      SimParams.load(), n_sims=n_sims, seed=seed,
+                      sim_params if sim_params is not None else SimParams.load(),
+                      n_sims=n_sims, seed=seed,
                       use_fitted_current_stint=True, status=act.status[call.cutoff + 1:])
     attach_actual_stints(fld, full_fit, raw, call.round_number)
     rivals = {d: actual_plan(raw, call.round_number, d, call.cutoff)
@@ -678,7 +901,7 @@ def _merged(main: dict, keep: Callable[[str], bool] = lambda n: True) -> list[tu
     return [(" = ".join(ns), lbl) for lbl, ns in rows.items()]
 
 
-def plot_points(main: dict, path: Path) -> Path:
+def plot_points(main: dict, path: Path, race_name: str = "Hungary") -> Path:
     """Leclerc's points distribution per plan (measurement set, decision lap)."""
     import matplotlib
     matplotlib.use("Agg")
@@ -688,6 +911,7 @@ def plot_points(main: dict, path: Path) -> Path:
     rows = sorted(_merged(main), key=lambda r: meas[r[0].split(" = ")[0]]["mean_points"])
     fig, ax = plt.subplots(figsize=(9.5, 0.6 * len(rows) + 1.8), facecolor=SURFACE)
     _style(ax)
+    seen: set[str] = set()
     for y, (joined, _) in enumerate(rows):
         n = joined.split(" = ")[0]
         left = 0.0
@@ -695,18 +919,23 @@ def plot_points(main: dict, path: Path) -> Path:
         for label, vals, color in POINT_BINS:
             w = sum(dist.get(v, dist.get(str(v), 0.0)) for v in vals)
             if w > 0:
+                # Legend entry on each bin's first appearance (any row).
                 ax.barh(y, w - 0.004, left=left, color=color, height=0.62,
-                        label=label if y == 0 else None)
+                        label=label if label not in seen else None)
+                seen.add(label)
             left += w
         ax.text(1.01, y, f"{meas[n]['mean_points']:.1f} pts", va="center", fontsize=9,
                 color=INK)
     ax.set_yticks(range(len(rows)), [f"{j}\n{lbl}" for j, lbl in rows], fontsize=8.5, color=INK)
     ax.set_xlim(0, 1)
     ax.set_xlabel("share of simulations", color=INK2)
-    ax.set_title(f"Leclerc's points per plan at the decision lap (Hungary, end of lap "
+    ax.set_title(f"Leclerc's points per plan at the decision lap ({race_name}, end of lap "
                  f"{main.get('cutoff', 38)}; 2,000 simulations)", fontsize=10, color=INK,
                  loc="left")
     handles, labels = ax.get_legend_handles_labels()
+    order = [b[0] for b in POINT_BINS]
+    pairs = sorted(zip(handles, labels), key=lambda hl: order.index(hl[1]))
+    handles, labels = [h for h, _ in pairs], [lbl for _, lbl in pairs]
     ax.legend(handles, labels, title="points", ncol=7, fontsize=8, title_fontsize=8,
               loc="upper center", bbox_to_anchor=(0.5, -0.12 - 0.3 / len(rows)),
               frameon=False)
@@ -751,7 +980,7 @@ def plot_sensitivity(checks: list[dict], path: Path) -> Path:
     return path
 
 
-def plot_hindsight(main: dict, hind: dict, path: Path) -> Path:
+def plot_hindsight(main: dict, hind: dict, path: Path, race_name: str = "Hungary") -> Path:
     """Mean points per plan at the decision lap vs in the hindsight replay."""
     import matplotlib
     matplotlib.use("Agg")
@@ -782,7 +1011,7 @@ def plot_hindsight(main: dict, hind: dict, path: Path) -> Path:
             fontsize=8, color=INK2)
     ax.set_yticks(range(len(names)), [f"{j}\n{lbl}" for j, lbl in rows], fontsize=8, color=INK)
     ax.set_xlabel("Leclerc's mean points", color=INK2)
-    ax.set_title(f"Decision lap (end of lap {main.get('cutoff', 38)}) vs hindsight (Hungary)",
+    ax.set_title(f"Decision lap (end of lap {main.get('cutoff', 38)}) vs hindsight ({race_name})",
                  fontsize=10, color=INK, loc="left")
     ax.legend(fontsize=8, frameon=False, loc="upper center",
               bbox_to_anchor=(0.5, -0.1 - 0.4 / len(names)), ncol=1)
@@ -808,7 +1037,8 @@ def break_even(fitted: BayesFit, state: RaceState, losses: np.ndarray, params, c
     return out
 
 
-CALLS: dict[str, Callable[[], Call]] = {"hungary": hungary_call, "hungary54": hungary54_call}
+CALLS: dict[str, Callable[[], Call]] = {"hungary": hungary_call, "hungary54": hungary54_call,
+                                        "silverstone": silverstone_call}
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -834,6 +1064,16 @@ def main(argv: list[str] | None = None) -> None:
     args = argv if argv is not None else sys.argv[1:]
     if args and args[0] == "pass-sensitivity":
         pass_sensitivity()
+        return
+    if args and args[0] == "silverstone-break-even":
+        silverstone_break_even()
+        return
+    if args and args[0] == "silverstone":
+        run_silverstone(hindsight_only="--hindsight-only" in args,
+                        version="v2" if "--v2" in args else "v1")
+        return
+    if args and args[0] == "pass-sensitivity-in-race":
+        pass_sensitivity_in_race()
         return
     if not args or args[0] not in CALLS:
         raise SystemExit("usage: python -m f1strat.case_study <hungary|hungary54> "
@@ -904,6 +1144,52 @@ def main(argv: list[str] | None = None) -> None:
 # --- Post-hoc pass-difficulty sensitivity (Hungary) ---------------------------------------
 
 
+def pass_sensitivity_in_race(names=("hungary", "hungary54")) -> dict:
+    """Post-hoc row for Hungary's pass-difficulty table, added with Silverstone's
+    method (``docs/case_studies.md``): the relative intercept updated with
+    Hungary's own on-track passes before each cutoff
+    (:func:`f1strat.race_events.in_race_pass_update`), main check, same seeds.
+    Appended to ``case_hungary_pass_sensitivity.json``."""
+    import json
+    import logging
+
+    from f1strat.data import load_season
+    from f1strat.deg_model import Cutoff, cutoff_inputs, load_fit, thin_fit
+    from f1strat.race_events import in_race_pass_update, relative_circuit_intercept
+    from f1strat.rehearsal import fit_path, leakage_free_params
+    from f1strat.simulator import observed_pit_losses
+
+    logging.disable(logging.WARNING)
+    raw, race = load_season(2022), load_season(2022, table="race")
+    path = FIG_DIR / "case_hungary_pass_sensitivity.json"
+    out = json.loads(path.read_text()) if path.exists() else {}
+    for name in names:
+        call = CALLS[name]()
+        rnd = call.round_number
+        cleaned, laps = cutoff_inputs(raw, Cutoff(rnd, call.cutoff))
+        fitted = thin_fit(load_fit(fit_path(rnd, call.cutoff, "cutoff")))
+        state, _ = decision_state(raw, race, call, cleaned)
+        losses = observed_pit_losses(cleaned, rnd)
+        params, _ = leakage_free_params(fitted, raw, race, cleaned, rnd)
+        event = str(race.loc[race["RoundNumber"] == rnd, "EventName"].iloc[0])
+        rel = relative_circuit_intercept(event, params.passing.intercept, 2021)
+        upd = in_race_pass_update(cleaned, fitted, rnd, rel["intercept"], params.passing.slope)
+        circ = {**params.passing.circuit, rnd: upd["intercept"]}
+        prm = replace(params, passing=replace(params.passing, circuit=circ))
+        v = verdict(fitted, state, losses, prm, call, tyre_age_cap(laps), CHECKS[0])
+        out.setdefault(name, {"settings": {}})["settings"]["relative + in-race (post-hoc)"] = {
+            "intercept": upd["intercept"], "in_race": upd, "band": v["band"],
+            "primary": v["primary"], "chosen": v["chosen"],
+            "measure": {n: {k: m[k] for k in ("mean_points", "mean_pos", "p_podium")}
+                        for n, m in v["measure"].items()}}
+        print(name, "relative + in-race", round(upd["intercept"], 3), upd["events"],
+              upd["passes"], v["band"], round(v["primary"]["mean_loss"], 2),
+              round(v["primary"]["p_level_or_ahead"], 3), v["chosen"]["best overall"],
+              flush=True)
+    path.write_text(json.dumps(out, indent=1, default=str))
+    return out
+
+
 def pass_sensitivity(names=("hungary", "hungary54")) -> dict:
     """Post-hoc, labelled sensitivity (``docs/case_studies.md``): each decision's
     verdict (main check) with the decision circuit's pass intercept set three
@@ -955,6 +1241,350 @@ def pass_sensitivity(names=("hungary", "hungary54")) -> dict:
     (FIG_DIR / "case_hungary_pass_sensitivity.json").write_text(
         json.dumps(out, indent=1, default=str))
     return out
+
+
+
+# --- Silverstone runner -----------------------------------------------------------------------
+
+
+def restart_index(status: np.ndarray) -> np.ndarray:
+    """Per simulation, the index of the first green lap after the SC the
+    state starts under (the restart lap)."""
+    neutral = status != 0
+    first_green = np.argmax(~neutral, axis=1)
+    return np.where(neutral.all(axis=1), status.shape[1], first_green)
+
+
+def silverstone_reality(dec_fit: BayesFit, full_fit: BayesFit, raw: pd.DataFrame,
+                        race: pd.DataFrame, cleaned_full: pd.DataFrame, call: Call,
+                        state: RaceState, params, cap: dict[str, int], plan: Plan,
+                        losses: np.ndarray, sim_params_h, n_sims: int = 1000,
+                        first_laps: int = 3) -> dict:
+    """Leclerc's laps after the restart against the forecast, the lap he lost
+    each position, and passes in the first ``first_laps`` laps after the
+    restart (whole field), simulated vs real.
+
+    The forecast restarts on a drawn lap, so position losses and restart
+    passes are counted from each simulation's own restart; lap times are
+    compared lap by lap on green laps (medians), as for Hungary.
+    """
+    from f1strat.backtest import actual_race, count_passes
+    from f1strat.simulator import simulate_field
+
+    focal, rnd, cut = call.focal, call.round_number, call.cutoff
+    act = actual_race(raw, race, rnd)
+    real_restart = int(next(L for L in range(cut + 1, act.total_laps + 1)
+                            if act.status[L] == 0))
+    laps_idx = np.arange(cut + 1, act.total_laps + 1)
+    me = raw[(raw["RoundNumber"] == rnd) & (raw["Driver"] == focal)].set_index("LapNumber")
+    real_lap = me["LapTime"].dt.total_seconds().reindex(laps_idx)
+    real_pos = me["Position"].reindex(laps_idx).astype(float)
+    pos_tab = raw[(raw["RoundNumber"] == rnd) & raw["LapNumber"].isin(laps_idx)].pivot(
+        index="LapNumber", columns="Driver", values="Position")
+    lost = []
+    for L in laps_idx[1:]:
+        if real_pos[L] > real_pos[L - 1]:
+            by = [d for d in pos_tab.columns
+                  if pos_tab.at[L - 1, d] > real_pos[L - 1] and pos_tab.at[L, d] < real_pos[L]]
+            lost.append({"lap": int(L), "laps_after_restart": int(L - real_restart + 1),
+                         "from": int(real_pos[L - 1]), "to": int(real_pos[L]), "by": by})
+    win = range(real_restart - 1, real_restart + first_laps)
+    real_passes = int(count_passes(act.times[None, list(win), :], act.pit_laps[None, list(win), :],
+                                   act.status[list(win)] == 0)[0])
+    out = {"laps": laps_idx.tolist(), "real_restart_lap": real_restart,
+           "real_lap_s": real_lap.round(3).tolist(), "real_pos": real_pos.tolist(),
+           "real_positions_lost": lost, f"real_passes_first_{first_laps}": real_passes}
+
+    dec = make_field(dec_fit, state, losses, params, CHECKS[0], n_sims, seed=202)
+    dec_rivals = rivals_for(dec, call, cap)
+    hfld, h_rivals, retire = hindsight_field(full_fit, raw, race, cleaned_full, call, state,
+                                             n_sims, sim_params=sim_params_h)
+    for name, fld, rivals, ret in (("forecast", dec, dec_rivals, {}),
+                                   ("hindsight", hfld, h_rivals, retire)):
+        res = simulate_field(fld, {**rivals, focal: plan}, retire=ret, record=True)
+        c = res.drivers.index(focal)
+        n = fld.n_sims
+        start = np.array([state.cars[d].race_time for d in res.drivers])
+        hist = np.concatenate([np.broadcast_to(start, (n, 1, len(start))), res.history], axis=1)
+        pits = np.concatenate([np.zeros((n, 1, len(start)), bool), res.pit_laps], axis=1)
+        green = np.asarray(fld.status == 0)
+        lap_t = np.where(green, np.diff(hist[:, :, c], axis=1), np.nan)
+        pos = np.argsort(np.argsort(hist[:, 1:, :], axis=2), axis=2)[:, :, c] + 1
+        r0 = restart_index(fld.status)                       # restart lap index
+        # Position at the restart's start (end of the last SC lap) and after.
+        rows = np.arange(n)
+        pos_at_restart = pos[rows, np.maximum(r0 - 1, 0)]
+        laps_after = []
+        lost_lap = {}
+        for k in range(1, 4):                                 # lost 1st, 2nd, 3rd place
+            target = pos_at_restart + k
+            hit = np.full(n, -1)
+            for j in range(pos.shape[1]):
+                newly = (hit < 0) & (j >= r0) & (pos[:, j] >= target)
+                hit = np.where(newly, j - r0 + 1, hit)
+            lost_lap[k] = {"p_lost": float((hit > 0).mean()),
+                           "median_laps_after_restart": (float(np.median(hit[hit > 0]))
+                                                         if (hit > 0).any() else None)}
+        g = np.zeros((n, hist.shape[1]), bool)
+        for i in range(n):
+            g[i, r0[i] + 1: r0[i] + 1 + first_laps] = True
+        g &= np.concatenate([np.zeros((n, 1), bool), green], axis=1)
+        passes = count_passes(hist, pits, g)
+        out[name] = {
+            "lap_median": np.nanmedian(lap_t, axis=0).round(3).tolist(),
+            "lap_p10": np.nanquantile(lap_t, 0.1, axis=0).round(3).tolist(),
+            "lap_p90": np.nanquantile(lap_t, 0.9, axis=0).round(3).tolist(),
+            "share_green": green.mean(axis=0).round(3).tolist(),
+            "pos_mean": pos.mean(axis=0).round(3).tolist(),
+            "pos_p10": np.quantile(pos, 0.1, axis=0).tolist(),
+            "pos_p90": np.quantile(pos, 0.9, axis=0).tolist(),
+            "restart_lap_dist": {int(cut + 1 + k): float((r0 == k).mean())
+                                 for k in np.unique(r0)},
+            "pos_at_restart_mean": float(pos_at_restart.mean()),
+            "positions_lost_after_restart": lost_lap,
+            f"passes_first_{first_laps}_mean": float(passes.mean()),
+            f"passes_first_{first_laps}_p10_p90": [float(np.quantile(passes, 0.1)),
+                                                     float(np.quantile(passes, 0.9))],
+            "final_pos_dist": {int(v): float((pos[:, -1] == v).mean())
+                               for v in np.unique(pos[:, -1])},
+        }
+    return out
+
+
+def plot_reality_silverstone(rc: dict, path: Path) -> Path:
+    """Leclerc's lap times and positions after the restart: real vs simulated."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    x = np.array(rc["laps"])
+    keep = x >= rc["real_restart_lap"]
+    fig, axes = plt.subplots(2, 1, figsize=(9, 7), sharex=True, facecolor=SURFACE)
+    names = {"forecast": "lap-38 forecast", "hindsight": "hindsight replay"}
+    for ax, key, real, ylab in ((axes[0], "lap", rc["real_lap_s"], "Leclerc lap time (s)"),
+                                (axes[1], "pos", rc["real_pos"], "Leclerc position")):
+        _style(ax)
+        for name, color in (("forecast", BLUE), ("hindsight", ORANGE)):
+            d = rc[name]
+            mid = d["lap_median"] if key == "lap" else d["pos_mean"]
+            ax.fill_between(x[keep], np.array(d[f"{key}_p10"])[keep],
+                            np.array(d[f"{key}_p90"])[keep], color=color, alpha=0.15, lw=0)
+            ax.plot(x[keep], np.array(mid)[keep], color=color, lw=2,
+                    label=f"{names[name]} ({'median' if key == 'lap' else 'mean'}; 10–90%)")
+        ax.plot(x[keep], np.array(real)[keep], "o-", color=INK, lw=1.2, ms=4, label="real")
+        ax.set_ylabel(ylab, color=INK2, fontsize=9)
+    axes[1].invert_yaxis()
+    axes[0].set_title(f"Leclerc on old hards after the restart (lap {rc['real_restart_lap']}): "
+                      f"real vs simulated", fontsize=10, color=INK, loc="left")
+    axes[0].legend(fontsize=8, frameon=False)
+    axes[1].set_xlabel("lap", color=INK2)
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+    return path
+
+
+def plot_joint(joint: dict, path: Path, hind: dict | None = None) -> Path:
+    """Ferrari's combined points per joint lap-39 option (measurement set)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    opts = joint["options"]
+    names = sorted(opts, key=lambda n: opts[n]["combined"])
+    fig, ax = plt.subplots(figsize=(9.5, 0.7 * len(names) + 1.8), facecolor=SURFACE)
+    _style(ax)
+    for y, n in enumerate(names):
+        o = opts[n]
+        ax.barh(y, o["focal_points"], color=BLUE, height=0.6,
+                label="Leclerc" if y == 0 else None)
+        ax.barh(y, o["teammate_points"], left=o["focal_points"], color=ORANGE, height=0.6,
+                label="Sainz" if y == 0 else None)
+        txt = f"{o['combined']:.1f}"
+        if hind and n in hind:
+            txt += f"  (hindsight {hind[n]['combined']:.1f})"
+        ax.text(o["combined"] + 0.3, y, txt, va="center", fontsize=9, color=INK)
+    ax.set_yticks(range(len(names)),
+                  [f"{n}\nLEC {opts[n]['focal_plan']} | SAI {opts[n]['teammate_plan']}"
+                   for n in names], fontsize=8, color=INK)
+    ax.set_xlabel("Ferrari's mean points (Leclerc + Sainz), 2,000 simulations", color=INK2)
+    ax.set_xlim(0, max(opts[n]["combined"] for n in names) * 1.3)
+    ax.set_title("Ferrari's combined points per joint lap-39 option (Silverstone, end of lap 38)",
+                 fontsize=10, color=INK, loc="left")
+    ax.legend(fontsize=8, frameon=False, loc="lower right")
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+    return path
+
+
+#: Exploratory (Silverstone): s/lap added to Ferrari's hard pace.
+SILVERSTONE_BREAK_EVEN: tuple[float, ...] = (0.25, 0.5, 0.75, 1.0, 1.5)
+
+
+def silverstone_inputs():
+    """(fitted, state, losses, params, call, cap) at Silverstone's cutoff, as in
+    :func:`run_silverstone`."""
+    from f1strat.data import load_season
+    from f1strat.deg_model import Cutoff, cutoff_inputs, load_fit, thin_fit
+    from f1strat.race_events import double_stack_loss, double_stack_pairs
+    from f1strat.rehearsal import fit_path, leakage_free_params
+    from f1strat.simulator import observed_pit_losses
+
+    call = silverstone_call()
+    rnd = call.round_number
+    raw, race = load_season(2022), load_season(2022, table="race")
+    cleaned, laps = cutoff_inputs(raw, Cutoff(rnd, call.cutoff))
+    fitted = thin_fit(load_fit(fit_path(rnd, call.cutoff, "cutoff")))
+    params, _ = leakage_free_params(fitted, raw, race, cleaned, rnd, **call.param_kwargs)
+    params = replace(params, double_stack={k: v["D_s"] for k, v in
+                                           double_stack_loss(double_stack_pairs(raw)).items()})
+    state, _ = decision_state(raw, race, call, cleaned, outlap_scale=params.neutral.sc_pit_ratio)
+    return fitted, state, observed_pit_losses(cleaned, rnd), params, call, tyre_age_cap(laps)
+
+
+def silverstone_break_even(shifts=SILVERSTONE_BREAK_EVEN) -> list[dict]:
+    """Exploratory, outside the committed rule: the verdict with Ferrari's hard
+    pace shifted by each of ``shifts`` (both Ferraris; only Leclerc stays on
+    hards after lap 39). Writes ``case_silverstone_break_even.json``."""
+    import json
+
+    fitted, state, losses, params, call, cap = silverstone_inputs()
+    out = []
+    for x in shifts:
+        v = verdict(fitted, state, losses, params, call, cap,
+                    Check(f"Ferrari hard pace +{x:.2f} s/lap", hard_pace_add=x))
+        r = {k: v[k] for k in ("check", "band", "primary", "chosen")}
+        r["measure"] = {n: m["mean_points"] for n, m in v["measure"].items()}
+        out.append(r)
+        print(x, v["band"], round(v["primary"]["mean_loss"], 2),
+              v["chosen"]["best overall"], v["chosen"][call.call_family], flush=True)
+    (FIG_DIR / "case_silverstone_break_even.json").write_text(
+        json.dumps(out, indent=1, default=str))
+    return out
+
+
+def run_silverstone(hindsight_only: bool = False, version: str = "v1") -> dict:
+    """``python -m f1strat.case_study silverstone [--v2]``: the verdict under
+    every Silverstone check, Ferrari's joint options, the hindsight replay and
+    the reality check (``docs/case_studies.md``).
+
+    ``version="v2"`` adds the restart layer (:mod:`f1strat.restart`),
+    estimated from the dry rounds before Silverstone with the cutoff fit, to
+    the decision simulations and the hindsight replay; outputs are
+    ``case_silverstone_v2_*`` (v1 files are kept)."""
+    import json
+    import time
+
+    from f1strat.clean import clean_laps
+    from f1strat.data import load_season
+    from f1strat.deg_model import THIN_FIT_PATH, Cutoff, cutoff_inputs, load_fit, thin_fit
+    from f1strat.race_events import (SimParams, double_stack_loss, double_stack_pairs,
+                                     neutral_pit_samples)
+    from f1strat.rehearsal import fit_path, leakage_free_params
+    from f1strat.simulator import actual_plan, observed_pit_losses, simulate_field
+
+    call = silverstone_call()
+    rnd = call.round_number
+    raw, race = load_season(2022), load_season(2022, table="race")
+    cleaned, laps = cutoff_inputs(raw, Cutoff(rnd, call.cutoff))
+    full = load_fit(fit_path(rnd, call.cutoff, "cutoff"))
+    if full.diagnostics.get("divergences", 0) != 0:
+        raise RuntimeError("cutoff fit has divergences")
+    fitted = thin_fit(full)
+    params, pinfo = leakage_free_params(fitted, raw, race, cleaned, rnd, **call.param_kwargs)
+    ds = double_stack_loss(double_stack_pairs(raw))
+    params = replace(params, double_stack={k: v["D_s"] for k, v in ds.items()})
+    pinfo["double_stack"] = ds
+    pinfo["sc_lengths"] = params.neutral.sc_lengths
+    pinfo["sc_pit_ratio"] = params.neutral.sc_pit_ratio
+    pinfo["neutral_pit_samples"] = neutral_pit_samples(cleaned[cleaned["RoundNumber"] < rnd])
+    if version == "v2":
+        from f1strat.clean import MIXED_CONDITIONS_2022
+        from f1strat.restart import estimate as estimate_restart
+
+        dry_before = sorted(int(r) for r in race.loc[
+            (race["RoundNumber"] < rnd) & ~race["EventName"].isin(list(MIXED_CONDITIONS_2022)),
+            "RoundNumber"].unique())
+        rs = estimate_restart(cleaned, fitted, dry_before)
+        params = replace(params, restart=rs)
+        pinfo["restart"] = rs.to_dict()
+    state, notes = decision_state(raw, race, call, cleaned,
+                                  outlap_scale=params.neutral.sc_pit_ratio)
+    cap = tyre_age_cap(laps)
+    losses = observed_pit_losses(cleaned, rnd)
+    stem = f"case_{call.name}" + ("" if version == "v1" else f"_{version}")
+    path = FIG_DIR / f"{stem}_results.json"
+    full_season = load_fit(THIN_FIT_PATH)
+    cleaned_full = clean_laps(raw)
+    sim_h = replace(SimParams.load(), double_stack=params.double_stack,
+                    restart=getattr(params, "restart", None))
+    actual = {"LEC": call.as_run, "SAI": actual_plan(raw, rnd, "SAI", call.cutoff)}
+
+    if hindsight_only:
+        results = json.loads(path.read_text())
+        main_v = results["checks"][0]
+        chosen_plans = {n: parse_label(lbl) for n, lbl in main_v["chosen"].items()}
+        all_plans = [parse_label(lbl) for lbl in
+                     pd.read_csv(FIG_DIR / f"{stem}_candidates.csv")["plan"]]
+    else:
+        results = {"notes": notes, "cap": cap, "n_pit_losses": len(losses), "params": pinfo,
+                   "fit_diagnostics": {k: float(v) for k, v in full.diagnostics.items()},
+                   "ferrari_hard": ferrari_hard_quantiles(fitted, rnd), "checks": []}
+        print(json.dumps({k: results[k] for k in ("notes", "params", "ferrari_hard")},
+                         indent=1, default=str), flush=True)
+        tables = {}
+        for check in SILVERSTONE_CHECKS:
+            t0 = time.time()
+            v = verdict(fitted, state, losses, params, call, cap, check)
+            tables[check.name] = v.pop("selection_table")
+            objs = (v.pop("chosen_plans"), v.pop("all_plans"))
+            if check.name == "main":
+                chosen_plans, all_plans = objs
+            fam = objs[0][call.call_family]
+            v["call_family_best_first_stop"] = fam.stops[0].lap if fam.stops else None
+            results["checks"].append(v)
+            print(f"{check.name}: {v['band']}, loss {v['primary']['mean_loss']:.2f}, level/ahead "
+                  f"{v['primary']['p_level_or_ahead']:.2f}, best {v['chosen']['best overall']}, "
+                  f"call fam {v['chosen'][call.call_family]} ({time.time() - t0:.0f} s)",
+                  flush=True)
+        main_v = results["checks"][0]
+        tables["main"].round(3).to_csv(FIG_DIR / f"{stem}_candidates.csv", index=False)
+        plot_points(main_v, FIG_DIR / f"{stem}_points.png", "Silverstone")
+        plot_sensitivity(results["checks"], FIG_DIR / f"{stem}_sensitivity.png")
+        t0 = time.time()
+        joint = joint_options(fitted, state, losses, params, call, cap, actual)
+        joint.pop("selection").round(3).to_csv(FIG_DIR / f"{stem}_joint_pairs.csv", index=False)
+        results["joint"] = joint
+        print("joint:", json.dumps(joint, indent=1), f"({time.time() - t0:.0f} s)", flush=True)
+        path.write_text(json.dumps(results, indent=1, default=str))
+
+    hind = hindsight(full_season, raw, race, cleaned_full, call, state, chosen_plans,
+                     all_plans=all_plans, sim_params=sim_h)
+    results["hindsight"] = hind
+    # Joint options in hindsight (rivals on their actual plans, actual SC).
+    hfld, h_rivals, retire = hindsight_field(full_season, raw, race, cleaned_full, call, state,
+                                             sim_params=sim_h)
+    hj = {}
+    for n, o in results["joint"]["options"].items():
+        pf, pm = parse_label(o["focal_plan"]), parse_label(o["teammate_plan"])
+        res = simulate_field(hfld, {**h_rivals, "LEC": pf, "SAI": pm}, retire=retire)
+        a = points(res.positions[:, res.drivers.index("LEC")])
+        b = points(res.positions[:, res.drivers.index("SAI")])
+        hj[n] = {"focal_points": float(a.mean()), "teammate_points": float(b.mean()),
+                 "combined": float((a + b).mean())}
+    results["joint_hindsight"] = hj
+    plot_hindsight(main_v, hind, FIG_DIR / f"{stem}_hindsight.png", "Silverstone")
+    plot_joint(results["joint"], FIG_DIR / f"{stem}_joint.png", hj)
+    rc = silverstone_reality(fitted, full_season, raw, race, cleaned_full, call, state, params,
+                             cap, call.as_run, losses, sim_h)
+    results["reality_check"] = rc
+    plot_reality_silverstone(rc, FIG_DIR / f"{stem}_reality.png")
+    path.write_text(json.dumps(results, indent=1, default=str))
+    print(json.dumps({"hindsight": hind, "joint_hindsight": hj,
+                      "reality": {k: v for k, v in rc.items() if k not in ("forecast", "hindsight")}},
+                     indent=1, default=str))
+    return results
 
 
 if __name__ == "__main__":

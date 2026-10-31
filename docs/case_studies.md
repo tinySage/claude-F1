@@ -744,16 +744,26 @@ main check, same seeds (`case_hungary_pass_sensitivity.json`):
 | Lap 38: hards at 39 | committed | −4.60 | within range | 0.0 | 100% | M → 39 H(new) (the call) |
 | | relative | −4.23 | within range | 0.0 | 100% | M → 39 H(new) (the call) |
 | | average | −2.78 | within range | 0.15 | 70% | M → 50 S(used 4) |
+| | relative + in-race (post-hoc, Silverstone method) | −2.73 | within range | 0.31 | 68% | M → 50 S(used 4) |
 | Lap 54: used softs | committed | −4.60 | outside range | 5.1 | 13% | H (hards to the flag) |
 | | relative | −4.22 | outside range | 4.8 | 16% | H (hards to the flag) |
 | | average | −2.77 | marginal | 3.6 | 27% | H (hards to the flag) |
+| | relative + in-race (post-hoc, Silverstone method) | −2.63 | marginal | 3.5 | 28% | H (hards to the flag) |
 
-- **Lap 38:** within range in all three settings. With average passing, the
+- **Relative + in-race** (added with Silverstone, labelled post-hoc): the
+  relative value updated with Hungary 2022's own passes before each cutoff
+  (`race_events.in_race_pass_update`; `case_study pass-sensitivity-in-race`).
+  - Lap 38: 108 events, 25 passes, which moves −4.23 to **−2.73**. Lap 53:
+    130 events, 31 passes, which moves −4.22 to **−2.63**.
+  - So the race's own passes pull Hungary back to about the 2022 average.
+    The pit wall could see that the 2021 value overstated the difficulty.
+- **Lap 38:** within range in all four settings. With average passing, the
   best plan becomes staying out to lap 50 and finishing on the 4-lap soft,
   but the call loses only 0.15 points to it.
-- **Lap 54:** hards to the flag is the best plan in all three settings. The
-  loss is 3.6–5.1 points, and the band is outside range except with average
-  passing (marginal, at 27% just above the 25% line).
+- **Lap 54:** hards to the flag is the best plan in all four settings. The
+  loss is 3.5–5.1 points. The band is outside range with the committed and
+  relative values, and marginal with average passing (27%) and with the
+  in-race update (3.5 points, 28%, just above the 25% line).
 
 ### Verdicts
 
@@ -772,12 +782,13 @@ checks.**
 - The call finished level or ahead in only 13% of simulations, under every
   committed check.
 - Post-hoc: outside range with relative pass difficulty too (4.8 points),
-  marginal with average pass difficulty (3.6 points).
+  marginal with average pass difficulty (3.6 points) and with the in-race
+  update (3.5 points).
 
 **Summary.**
 - **The lap-54 switch was the worse option in every setting tested.** It
-  cost **3.6–5.1 points** with lap-53 information (average, relative and
-  committed pass difficulty; 5.7 in hindsight). The size of the loss depends
+  cost **3.5–5.1 points** with lap-53 information (average, relative,
+  relative + in-race and committed pass difficulty; 5.7 in hindsight). The size of the loss depends
   on how hard Hungary was to pass at.
 - **The hard-tyre call at lap 38 cost nothing with the information
   available.** The ~4 points it concedes in hindsight came from what the pit
@@ -793,3 +804,756 @@ Limits specific to these verdicts:
 - **Pass difficulty is from Hungary 2021** (committed). 2022 cars follow more
   closely, so this likely overstates it (post-hoc sensitivity above).
 - Ferrari knew its own fuel loads and modes.
+
+## Silverstone 2022: Leclerc left out under the late safety car
+
+Written and committed **before any Silverstone simulation**. It adds to the
+committed rule; nothing above changes.
+
+### Decision point
+
+- **The SC:** Ocon stopped on track at the end of lap 38. Yellow at session
+  time 2:55:58.7, **SC deployed 2:56:11.4** (race control 15:57:11 UTC),
+  during the leader's **lap 39**. The SC covers laps 39–42 in the race
+  table (4 laps, counting the deployment lap; "SAFETY CAR IN THIS LAP" on
+  lap 42), and racing restarted on lap 43 of 52.
+- **The decision: Leclerc's lap 39.** Leclerc led and started lap 39 at
+  2:54:57.4. He passed pit entry at about 2:56:29.5, which is Sainz's pit
+  entry (2:56:34.2) less the 4.7 s by which Sainz trailed at the lap-39
+  sector-2 line.
+  - So the pit wall had about **18 s** between the SC call and Leclerc's
+    last chance to pit (31 s from the yellow).
+  - He stayed out on his hards (new on lap 26, TyreLife 14 on lap 39) to the
+    flag and finished P4.
+- **Cutoff: lap 38**, the last lap Leclerc completed before the decision.
+  **The state starts under the SC:** lap 39 is the period's first SC lap
+  (gaps kept, as in every first SC lap), and its length is drawn from the 2022
+  SC lengths known before Silverstone (below). Every observed length is at
+  least 1 lap, so conditioning on the deployment lap leaves the distribution
+  unchanged.
+- **Stops under this SC:**
+
+| In lap | Stops (driver: off → on) |
+|---|---|
+| 38 (lapped cars; pit entry after the decision) | RIC 2:56:44 S → S(new); TSU 2:57:09 H → S(new) |
+| **39** | **SAI 2:56:34 H(19) → S(new)**; HAM H → S(new); PER M → S(new); ALO H → S(new); VET M → M(used 3); VER H → S(new); MSC H → S(new); LAT M → S(used 2) |
+| 40 | NOR H → S(new); STR H → M(used 4) |
+| stayed out | **LEC** (H, to the flag), MAG |
+
+- **What is known at the cutoff, by the lap-number rule:**
+  - **Ocon is out** (dropped from the state). He stopped on lap 38, which
+    caused the SC.
+  - **Ricciardo's and Tsunoda's lap-38 stops count as known.** Their pit
+    entries came 15 s and 40 s after Leclerc passed pit entry. Both are
+    lapped cars (P13–P14), so the effect on Leclerc is nil; this is stated
+    rather than special-cased.
+  - Their out laps (lap 39) ran under the SC, so the out-lap loss added to
+    their race time is the green out-lap median (22.5 s, from the 18
+    Silverstone green stops by lap 38) × the SC pit-loss ratio 0.72 =
+    **16.1 s**.
+- **Race time from the session clock** (`RaceState.from_laps(timing="session")`).
+  - Lap 1 was red-flagged, and the restart lap (lap 2) has no lap time for
+    any car. Summing lap times gives wrong gaps: Hamilton comes out 1.8 s
+    *ahead* of Leclerc.
+  - The clock gives the real gaps at the line. Tested
+    (`test_session_timing_uses_the_clock`).
+
+**State at the cutoff** (end of lap 38, 14 laps to go):
+
+| Pos | Driver | Gap (s) | Tyre (TyreLife at lap 38) |
+|---|---|---|---|
+| 1 | **Leclerc** | — | **hard, 13** (new on lap 26) |
+| 2 | Sainz | +4.2 | hard, 18 (new on lap 21) |
+| 3 | Hamilton | +6.1 | hard, 5 |
+| 4 | Pérez | +28.8 | medium, 34 |
+| 5 | Norris | +43.3 | hard, 4 |
+| 6 | Alonso | +45.7 | hard, 5 |
+| 7 | Vettel | +69.4 | medium, 34 |
+| 8 | Verstappen | +75.2 | hard, 15 |
+
+### Data checks
+
+**Ferrari's tyre sets.** Reconstructed from FP1–Q (FastF1, FIA 2022 SpR
+Art. 30):
+
+| Car | Race-day sets (reconstructed) | Fitted in the race | Available at the end of lap 38 (besides the set on the car) |
+|---|---|---|---|
+| Leclerc | S new×2, M new×2, H new×2 | M new (lap 1, red-flagged), M new (lap 2, restart), H new (lap 26) | **H new, S new×2, M used (TyreLife 2), M used (TyreLife 25)** |
+| Sainz | S new×3, M new×1, H new×2 | M new (lap 1), M new (lap 2), H new (lap 21), S new (lap 40) | H new, S new×3, M used (2), M used (20) |
+
+- **Leclerc: every fitting matches** a reconstructed set (0 mismatches).
+- **Sainz: 1 mismatch.** His lap-2 new medium has no reconstructed set. The
+  reconstruction returned a 1-lap FP1 medium, so he likely had one more new
+  medium on race day than it shows. That set was fitted on lap 2, so his sets
+  at lap 38 are unaffected.
+- **The used mediums are race sets** (back in the pool, as committed):
+  - "M used 2" is the lap-1 set: about one lap before the red flag. A
+    near-new medium.
+  - "M used 25" is Leclerc's 24-lap second stint.
+  - Neither depends on the return assumption.
+- **The new hard is uncertain.** Leclerc's FP1 return included an unused set,
+  assumed to be a soft (softs first; Phase 4 validation). If Ferrari returned
+  the unprotected second hard instead, Leclerc had S new×3 and no new hard at
+  lap 39. Hence the inventory check below.
+- **Practice long runs** (`f1strat.practice`, 6+ clean consecutive laps):
+  - FP1 was wet; FP3 gives one long run (Ocon, soft). FP2 has 4 hard runs
+    (31 laps, ages 9–22), 4 medium and 4 soft.
+  - Ferrari: Leclerc medium 7 laps, Sainz soft 6 laps. No Ferrari hard run.
+  - Ferrari's Silverstone hard terms therefore rest on their race laps (Sainz
+    from lap 21, Leclerc from lap 26) and the season tendency.
+
+**Leclerc's tyre age and the laps left.**
+- Hards **TyreLife 14 on lap 39**. Staying out to the flag means 27 laps,
+  within the hard cap of 63 (Magnussen, Canada).
+- 2022 SC lengths known before Silverstone: **4, 4, 5, 5, 6, 6 laps** (6 SCs in
+  the dry rounds 1–9). So the restart comes on lap 43, 44 or 45, with
+  **10, 9 or 8 racing laps** left, each with probability 1/3. The real SC
+  was 4 laps (restart lap 43, 10 laps).
+- At the restart Leclerc's hards would be TyreLife 18–20; new softs fitted
+  on lap 39 would be TyreLife 5–7 (laps under the SC count as tyre age in
+  the model).
+- **Caps at the cutoff:** hard 63, medium 35, soft 24. A new soft from lap 40
+  to the flag (13 laps) is within its cap.
+
+**Pit loss under the SC: what it rests on.**
+- It is the green-flag loss × `sc_pit_ratio`:
+  - the **green losses** are resampled from the **18 Silverstone green-flag
+    stops by lap 38** (median 22.8 s, range 19.2–32.6 s). Lap-1 stops (the
+    red flag) are not used; every later Silverstone stop was under this SC.
+  - **`sc_pit_ratio` = 0.72**, from **38 SC stops** in the dry rounds 1–9
+    (`race_events.neutral_pit_samples`).
+- So an SC stop costs about **16.4 s** in expectation.
+- **Lap 39 is simulated as a full SC lap.** In reality the SC came out with
+  about 15 s of Leclerc's lap left. The ratio is a pooled 2022 average, not a
+  measurement of this SC (stated limitation; the hindsight replay uses the
+  actual timing).
+
+**Double stack** (new: the simulator did not handle teammates pitting on the
+same lap; see `docs/simulator.md`, "Phase 6 additions").
+- **Rule:** the car ahead on track (earlier arrival, before its pit loss) is
+  served first. The second waits **`max(0, D − arrival gap)`**, where `D` is
+  the first car's stationary time plus a margin.
+  - This is how "loses the first car's stationary time plus a margin" is
+    applied when the second car arrives a few seconds later: the arrival gap
+    is time it would not have waited anyway.
+  - Tested: `test_double_stack_second_car_waits`.
+- **Estimate** (`race_events.double_stack_pairs`, `double_stack_loss`):
+  - Every 2022 same-lap teammate stop: arrival gap = pit-entry time
+    difference; the second car's extra pit-lane time over the race's solo
+    stops (same track status where the race has 3+ such stops).
+  - FastF1 has no stationary times, so pit-lane time is the only duration
+    available.
+  - `D` is fitted by least absolute deviation, because a few slow stops
+    (e.g. Zhou, Saudi Arabia, +12.9 s) would dominate squared error.
+  - **Whole 2022 season: green `D` = 7.15 s (15 pairs, 5 arriving within D);
+    SC `D` = 6.45 s (24 pairs, 4 within D).** VSC uses the SC value.
+  - Rounds before Silverstone only: green 5.1 s (2 within D), SC 9.3 s (3).
+  - **The season values are used (approved before simulating).**
+    - `D` is an operational constant (a crew's service time plus a release
+      margin), not information about how this race would unfold.
+    - Ferrari knew its own double-stack cost far better than any season
+      average. So using the whole season gives the model no information the
+      pit wall lacked, and the no-leakage rule is not breached.
+    - The pre-race fit rests on only 2–3 queued stacks. Both pre-race values
+      (5.1 s, 9.3 s) lie inside the ×0.5–×2 robustness range.
+- **What it means at lap 39:** Leclerc led Sainz by 4.2 s at the line. If both
+  pit, Leclerc is served first and Sainz waits about 6.45 − 4.2 ≈ 2 s. That
+  is enough to put Sainz behind Hamilton (6.1 s behind at lap 38, also
+  pitting) in some simulations.
+
+**Pass difficulty.**
+- **Committed relative value:** `a_2022` (pooled, dry rounds before
+  Silverstone) + (Britain 2021 − 2021 average) = `a_2022` + (−3.18 − (−2.98))
+  = **`a_2022` − 0.21**. Britain was a little harder to pass at than the
+  2021 average (154 events, 12 passes in 2021).
+- **In-race update** (new; `race_events.in_race_pass_update`):
+  - The relative value is the prior. It is updated with Silverstone's own
+    pass events before the cutoff (the pit wall saw them): slope fixed, the
+    circuit deviation shrunk toward the prior with the season fits' L2
+    penalty.
+  - The events exclude lap 1 and the restart's opening lap (outcome lap ≤
+    2), in or out laps of either car (pit cycles), SC/VSC laps, and lapping
+    (pairs are adjacent in the classification and within 1 s on the same lap
+    number).
+  - **150 events, 14 passes** (outcome laps 4–37).
+  - Teammate pairs are kept, as in every season fit. That includes Leclerc
+    passing Sainz on lap 31 (team orders); without teammate pairs: 114
+    events, 12 passes.
+- **Provisional values**, with the thinned full fit as the pace proxy (Part B
+  recomputes all of them with the cutoff fit):
+  - `a_2022` −2.68; relative −2.88; **after the in-race update −2.85**
+    (−2.84 without teammate pairs).
+  - So Silverstone's own passes confirm the prior; the update moves it by
+    +0.03.
+
+### Inputs (as committed, with these additions)
+
+- **Refit** on data known at the end of lap 38 plus the Silverstone FP2/FP3
+  long runs; 0 divergences.
+- **Leakage-free parameters** from the dry rounds before Silverstone. Pass
+  intercept: the relative method plus the in-race update
+  (`leakage_free_params(circuit_method="relative", in_race=True,
+  first_racing_lap=2)`).
+- **Double stack** on (season `D` above), for every team.
+- **Rivals** on their own top-3 single-car plans, **SC-aware**: each stop is
+  costed at its lap's expected SC/VSC pit loss over the field's simulations
+  (`rival_plan_options(sc_aware=True)`), so rivals can pit under this SC.
+  Never their actual stops. Leclerc's own shortlist search is SC-aware too.
+- **Sainz's actual stop is held fixed** in the primary verdict: `H → 39
+  S(new)` to the flag.
+
+### Primary verdict: Leclerc's points, Sainz's stop fixed
+
+The committed rule applies unchanged: best plan overall vs best call-family
+plan, chosen on 1,000 simulations, measured on a fresh 2,000; the same bands.
+
+| Family | Plans |
+|---|---|
+| **Call: stay out at 39** | no stop at the end of lap 39: to the flag, or any later stop (e.g. lap 40, possibly still under the SC) |
+| Pit at 39: soft (new) | first stop lap 39 onto a new soft (a double stack, served first) |
+| Pit at 39: hard (new) | first stop lap 39 onto the new hard |
+| Pit at 39: medium (used 2) | first stop lap 39 onto the near-new lap-1 medium |
+| Pit at 39: medium (used 25) | first stop lap 39 onto the 24-lap medium |
+| Best overall | any legal plan within the caps |
+
+- **As run** (and "hards to the flag"): `H`, no further stop. It is the call
+  family's actual member, reported alongside.
+- The call family includes a lap-40 stop, which is a separate, later decision
+  with more information (did the SC continue?). Its best member is reported
+  next to the as-run plan, so it is visible when that drives the result.
+- In every "pit at 39" plan, Leclerc and Sainz stop on the same lap. Leclerc
+  is ahead on track, so he is served first and Sainz waits. That costs Sainz,
+  not Leclerc, so it does not enter the primary verdict. It enters the
+  combined points below.
+
+### Secondary: Ferrari's combined points (reported, never changes the band)
+
+Leclerc's + Sainz's points across the joint lap-39 options
+(`case_study.joint_options`):
+
+| Joint option | Leclerc on lap 39 | Sainz on lap 39 |
+|---|---|---|
+| **Actual** | stays out (`H` to the flag) | pits (`39 S(new)` to the flag) |
+| SAI pits, LEC stays out (best pair) | stays out | pits |
+| Both pit (double stack) | pits | pits |
+| LEC pits, SAI stays out | pits | stays out |
+| Neither pits | stays out | stays out |
+
+- For each option, each car's best 4 plans in that option (single-car
+  expected time, SC-aware; "stays out" allows a later stop or none; "pits"
+  allows any of its sets) are paired.
+- Every pair is simulated with the field on 1,000 simulations (other rivals
+  on their own plans). The pair with the most combined points is measured on
+  a fresh 2,000, with the actual pair.
+- Reported per option: both cars' plans and mean points, the combined mean,
+  and the paired difference from the actual pair (mean, 10th/90th
+  percentile, P(better)).
+
+### Robustness
+
+The committed checks, plus the additions. The band is recomputed under each:
+
+| Check | Change |
+|---|---|
+| Widening | ×1.188 |
+| Ferrari hard wear p10 / p90 | as committed (both Ferraris start on hards) |
+| Ferrari hard pace p10 / p90 | as committed |
+| SC/VSC rate ×0.5 / ×2 | as committed (later SCs) |
+| **SC length p10** | this SC's total length fixed at the 10th percentile of its distribution: **4 laps** |
+| **SC length p90** | the same at the 90th percentile: **6 laps** |
+| **Double-stack loss ×0.5** | `D` halved (green and SC) |
+| **Double-stack loss ×2** | `D` doubled |
+| **Leclerc's new hard removed** | the inventory check: the second hard may have been returned after FP1 (above) |
+
+- Medium availability is not uncertain (both used mediums are race sets), so
+  it is not run both ways. The analogous uncertainty is the new hard,
+  covered by the last row.
+- The verdict is robust only if the band is the same under every row.
+
+### Hindsight replay and reality check (separate from the verdict)
+
+- **Hindsight:** as committed: full fit, the actual SC (laps 39–42), rivals
+  on their actual plans (including the stops under the SC), fitted stint
+  effects for stints that happened, Sainz on his actual plan.
+- **Reality check:** Leclerc's laps after the restart (laps 43–52) against
+  the lap-38 forecast and the hindsight replay, and the lap on which he lost
+  each position (P1 at the restart; P4 at the flag).
+
+### Silverstone-specific limits
+
+- **Candidate explanation for the restart miss (unverified).**
+  - The simulator swaps positions at no time cost: when a car is passed, only
+    the passer's arrival time is adjusted (`simulate_field`), and the
+    defender's lap time is unchanged.
+  - In reality, defending costs the defender lap time: defensive lines,
+    braking early, dirty air from the attacker alongside. Leclerc defended
+    against three cars (Sainz, Hamilton, Pérez) on laps 43–45, and again
+    against Hamilton on lap 48. His slow laps (92.6 and 93.1 s, and 93.1 s on
+    lap 48) are those laps.
+  - So part of the 1.56 s/lap Leclerc − Sainz gap on the restart laps may be
+    the cost of defending, not tyre pace.
+  - Not tested here: it would need a defending-cost term estimated from 2022
+    pass events, applied to the defender on laps with a pass attempt.
+- **The SC pit loss is a pooled ratio** (0.72 from 38 stops in rounds 1–9)
+  on Silverstone's 18 green stops, and lap 39 is simulated as a full SC lap.
+- **The SC length rests on 6 pre-race SCs** (4–6 laps). Shorter SCs (3 laps,
+  seen later in 2022) cannot be drawn.
+- **SC queue closing:** small gaps close too fast (Phase 5). Here the
+  restart order rests on how the queue closes after the stops.
+- **Double stack:** `D` rests on 4–5 queued 2022 stacks and pit-lane times
+  (no stationary times).
+- **Restart laps are normal green laps.** No cold-tyre restart penalty and no
+  restart-specific passing, both of which matter for old hards against new
+  softs.
+- **Ferrari's hard pace** has no practice data. It rests on Sainz's and
+  Leclerc's race laps on hards and the season tendency.
+
+### Results (v1)
+
+> **Status of v1: within range given the model; not supported, because the
+> hindsight replay doesn't reproduce the race.** With the actual SC and the
+> rivals' actual plans, the replay has Leclerc winning 95% of the time; he
+> finished P4. A model that cannot reproduce the race in hindsight cannot
+> judge the call. Every v1 number below is kept on record; v2 (below) follows
+> the diagnosis.
+
+Run: `uv run python -m f1strat.case_study silverstone` (hindsight and reality
+check alone: `--hindsight-only`); exploratory break-even: `silverstone-break-even`.
+Outputs in `reports/figures/`:
+- `case_silverstone_results.json` (every number below);
+- `case_silverstone_candidates.csv` (all 70 candidates on the selection set);
+- `case_silverstone_joint_pairs.csv`; `case_silverstone_break_even.json`;
+- figures `case_silverstone_points.png`, `_sensitivity.png`, `_joint.png`,
+  `_hindsight.png`, `_reality.png`.
+
+**Inputs at the cutoff.**
+- **Fit:** 8 races (6,390 race laps) plus 98 Silverstone practice laps; 27.2
+  min. Max R-hat 1.002, min ESS 2,033 (bulk) / 3,185 (tail), **0
+  divergences** on the first attempt.
+  - Field compound offsets at Silverstone, against a new medium: soft −0.44 s,
+    hard +0.28 s.
+  - Ferrari's hard wear: 0.013 s/lap (p10–p90 0.001–0.025). Ferrari's hard
+    pace term: −0.00 s (−0.17 to +0.15).
+- **Pass intercept:**
+  - pooled 2022 (dry rounds 1–9) −2.71;
+  - relative −2.92;
+  - **after the in-race update −2.84** (150 events, 14 passes).
+  - Slope 2.45, pass shift +0.92.
+- **SC:** closing ratio 0.66; SC and VSC start 1.68% per green lap each;
+  lengths 4–6 laps; pit ratio 0.72 (38 stops).
+- **Double stack:** `D` green 7.15 s, SC 6.45 s.
+- **Candidates:** 70 plans. The tyre-age cap removed 2 (the 24-lap medium
+  run past 35 laps).
+
+**v1 verdict (not supported; see the status note above): within range,
+robust given the model.**
+- **The best plan overall is the call itself:** stay out on the hards to the
+  flag (`H`).
+- The primary loss is 0 on the measurement set (10th–90th percentile 0 to
+  0). The call finishes level with or ahead of the best plan in 100% of
+  simulations.
+- **The best call-family plan is not a lap-40 stop.** It is no further stop,
+  the as-run plan, under the main check and under every robustness check. So
+  in the model the mistake does not move to lap 40.
+
+Measurement set (2,000 fresh simulations), Leclerc's points:
+
+| Plan (family) | Plan | Mean points | Mean position | P(win) | P(podium) |
+|---|---|---|---|---|---|
+| **Best overall = call: stay out at 39 = as run** | H | **23.3** | 1.26 | 0.78 | 1.00 |
+| Pit at 39: soft (new) | H → 39 S(new) | 21.4 | 1.56 | 0.53 | 1.00 |
+| Pit at 39: medium (used 2) | H → 39 M(used 2) | 19.9 | 1.84 | 0.36 | 0.98 |
+| Pit at 39: hard (new) | H → 39 H(new) | 19.0 | 2.01 | 0.27 | 0.98 |
+| Pit at 39: medium (used 25) | H → 39 M(used 25) → 44 S(new) | 7.0 | 6.60 | 0.00 | 0.01 |
+
+- **Why, in the model:** at lap 38 Leclerc led by 4.2 s, and a stop under
+  the SC costs about 16 s.
+  - New softs are only about 0.3–0.4 s/lap quicker than his old hards over
+    the 8–10 racing laps left (forecast pace, laps 46–52; reality check
+    below).
+  - The pass model gives better-than-even odds per lap only from about a
+    1 s pace gap.
+  - So staying out keeps P1 in 78% of simulations; pitting for new softs
+    ends in P1 in 53%.
+
+![Leclerc's points per plan at lap 38](../reports/figures/case_silverstone_points.png)
+
+**Robustness: the band is the same under every check.** The best plan is the
+call (`H`) in all 13. The best "pit at 39" plan is always new softs:
+
+| Check | Band | Primary loss | Call (`H`) points | Pit at 39, soft (new), points |
+|---|---|---|---|---|
+| Main | within range | 0.0 | 23.3 | 21.4 |
+| Widening ×1.188 | within range | 0.0 | 23.2 | 21.3 |
+| Ferrari hard wear p10 / p90 | within range | 0.0 / 0.0 | 24.4 / 21.3 | 21.4 / 21.4 |
+| Ferrari hard pace p10 / p90 | within range | 0.0 / 0.0 | 23.9 / 22.3 | 21.4 / 21.4 |
+| SC/VSC rate ×0.5 / ×2 | within range | 0.0 / 0.0 | 23.3 / 23.4 | 21.4 / 21.3 |
+| SC length p10 (4 laps) / p90 (6 laps) | within range | 0.0 / 0.0 | 23.6 / 23.2 | 21.4 / 21.3 |
+| Double-stack loss ×0.5 / ×2 | within range | 0.0 / 0.0 | 23.3 / 23.3 | 21.3 / 21.7 |
+| Leclerc's new hard removed | within range | 0.0 | 23.3 | 21.4 |
+
+- **Ferrari hard wear p90 (0.025 s/lap) is the closest call.** The selection
+  set still picked `H`, but on the fresh set new softs at 39 scored 0.1
+  points more. That is selection noise, and the band does not move. It does
+  show that a little more wear makes the two options even.
+- **The double-stack loss barely matters to Leclerc.** He is ahead on track,
+  so Sainz waits, not him.
+
+![Verdict under each robustness check](../reports/figures/case_silverstone_sensitivity.png)
+
+**Secondary: Ferrari's combined points** (measurement set, 2,000
+simulations; never changes the band):
+
+| Joint option | Leclerc | Sainz | LEC pts | SAI pts | **Combined** | vs actual: mean (10–90%) | P(better) | Hindsight combined |
+|---|---|---|---|---|---|---|---|---|
+| **Actual** (= best pair with SAI pitting, LEC out) | H | H → 39 S(new) | 23.2 | 17.1 | **40.3** | — | — | 42.5 |
+| Neither pits | H | H | 24.7 | 15.9 | 40.6 | +0.3 (−3 to +3) | 30% | 42.4 |
+| LEC pits, SAI stays out | H → 39 S(new) | H | 20.3 | 17.9 | 38.2 | −2.1 (−7 to +3) | 16% | 42.2 |
+| Both pit (double stack) | H → 39 S(new) | H → 39 S(new) | 21.3 | 16.1 | 37.4 | −3.0 (−7 to 0) | 4% | 41.5 |
+
+- **Ferrari's actual split was the best joint option,** level with leaving
+  both out (+0.3 points, within noise).
+- **The double stack was the worst option for the team** (−3.0 points). Both
+  cars give up track position, and Sainz also queues behind Leclerc.
+- **Sainz's stop costs Leclerc about 1.5 points in the model** (23.2 against
+  24.7 when both stay out), because Sainz on new softs can pass him. It gains
+  Sainz 1.2. In the real race Sainz passed him on the restart lap; see the
+  reality check.
+
+![Ferrari's combined points per joint option](../reports/figures/case_silverstone_joint.png)
+
+**Hindsight replay (outcome, not the verdict).**
+- Full-season fit, the actual SC (laps 39–42, restart lap 43), rivals on
+  their actual plans (including every stop under the SC), and the double
+  stack on.
+- Every stint that happened uses its fitted effect (12 of the 14 cars; Leclerc
+  and Magnussen made no further stop, and Leclerc's current hard stint keeps
+  its fitted effect).
+
+| Plan | Hindsight mean points | Mean position | P(win) |
+|---|---|---|---|
+| **Best in hindsight = the call = as run: H** | 24.6 | 1.05 | 0.95 |
+| Pit at 39: soft (new) | 23.8 | 1.22 | 0.85 |
+| Pit at 39: medium (used 2) | 23.4 | 1.27 | 0.81 |
+| Pit at 39: hard (new) | 22.5 | 1.44 | 0.71 |
+| Pit at 39: medium (used 25) | 6.4 | 6.88 | 0.00 |
+
+- **Leclerc actually finished P4 (12 points).**
+- **Unlike Hungary, the replay does not reproduce the race.** Even with the
+  actual SC and rivals' actual plans, it has Leclerc win 95% of the time. The
+  reality check shows why: what cost him three places is something the
+  simulator does not model.
+
+![Decision lap vs hindsight](../reports/figures/case_silverstone_hindsight.png)
+
+**Reality check: Leclerc after the restart** (`silverstone_reality`, the
+as-run plan; lap times on green laps, simulation medians):
+
+| | Real | Lap-38 forecast | Hindsight replay |
+|---|---|---|---|
+| Restart lap | 43 | 43 / 44 / 45 (32% / 35% / 33%) | 43 |
+| Leclerc, laps 46–52, average lap (s) | **91.96** | 91.00 | 91.45 |
+| Sainz (new softs), laps 46–52 | 91.35 | 90.66 | 91.30 |
+| Pérez (new softs) | 91.31 | 90.86 | 91.39 |
+| Hamilton (new softs) | 91.69 | 90.71 | 91.59 |
+| **Leclerc's deficit to Sainz** (s/lap) | **+0.61** | +0.34 | +0.15 |
+| Leclerc's deficit to Pérez | +0.65 | +0.14 | +0.06 |
+| Leclerc's laps 43–45 (s) | 92.6, 91.9, 93.1 | ≈ 91.3 each | ≈ 91.6 each |
+| Positions lost after the restart | 3 (P1 → P4) | ≥1: 23%; ≥2: 3%; ≥3: 0.2% | ≥1: 5%; ≥2: 0.1% |
+| **Passes in the first 3 laps after the restart (whole field)** | **9** | 3.1 (10–90%: 1–5) | 1.2 (0–3) |
+
+- **The lap he lost each position** (real):
+  - **lap 43** (first lap after the restart): Sainz, P1 → P2;
+  - **lap 45** (third lap): Hamilton and Pérez, P2 → P4;
+  - he regained P3 on lap 46 and lost it to Hamilton on **lap 48** (sixth
+    lap).
+- In the forecast, a position is lost a median 6 laps after the restart;
+  in reality two of the three went in the first three laps.
+- **Restart passes:** 9 real against 3.1 forecast and 1.2 in hindsight. The
+  real count is outside the forecast's 10–90% range. The simulator treats the
+  restart as a normal green lap: no cold-tyre penalty for 18-lap hards after
+  four SC laps, and the pass model is fitted on green-flag pairs, not on
+  restarts.
+- **Pace:** the forecast is about 0.7–1.0 s/lap too fast for every car (a
+  common level shift that does not change positions). The relative gap is
+  what matters:
+  - The model put Leclerc's old hards **0.34 s/lap** (forecast) or **0.15
+    s/lap** (hindsight) behind the new softs. In reality the gap was **0.61
+    s/lap** to Sainz and 0.65 to Pérez.
+  - Leclerc's own laps were 0.5 s/lap slower than the hindsight model,
+    which has his fitted stint effect. That effect is fitted on the whole
+    stint (laps 26–52), mostly run before the SC.
+- So the model's case for staying out rests on old hards holding on to a
+  lead at a restart. In 2022 that failed in exactly the two places the
+  simulator is weakest: restart passing and the late-stint hard-vs-new-soft
+  gap.
+
+![Reality check: Leclerc after the restart](../reports/figures/case_silverstone_reality.png)
+
+**Exploratory, not part of the committed rule: how much slower would
+Leclerc's hards have to be?** The full procedure was rerun with Ferrari's hard
+pace shifted (both Ferraris; only Leclerc runs hards after lap 39):
+
+| Ferrari hards slower by | Band | Mean loss | Call level or ahead | Best plan overall | Best call-family plan | Hards to the flag (pts) |
+|---|---|---|---|---|---|---|
+| +0.25 s/lap | within range | 0.0 | 100% | H | H | 21.7 |
+| +0.50 s/lap | marginal | 2.4 | 53% | H → 39 S(new) | H | 19.0 |
+| +0.75 s/lap | marginal | 3.3 | 43% | H → 39 S(new) | **H → 40 S(new)** | 16.5 |
+| +1.00 s/lap | marginal | 3.3 | 43% | H → 39 S(new) | **H → 40 S(new)** | 14.9 |
+| +1.50 s/lap | marginal | 3.3 | 43% | H → 39 S(new) | **H → 40 S(new)** | 13.2 |
+
+- **Break-even:** staying out stops being the best plan between +0.25 and
+  +0.5 s/lap. New softs at 39 then take over (21.4 points).
+- **From +0.75 s/lap, the call family's best member is a lap-40 stop** onto
+  new softs, still under the SC in most simulations.
+  - So with hards that slow, the model's mistake is no longer staying out at
+    39 but not pitting at 40 either.
+  - The primary loss stops at 3.3 points (marginal, never outside), because
+    the lap-40 stop recovers most of it. Hards to the flag keeps losing:
+    4.9 points at +0.75, 8.2 at +1.5.
+- **The real extra deficit was about +0.3 to +0.5 s/lap:** the real gap to
+  Sainz (0.61 s) minus the forecast's (0.34 s) or the hindsight model's
+  (0.15 s). That is right at the break-even, before the restart passes are
+  counted.
+
+### Verdict (v1)
+
+**v1: within range given the model; not supported, because the hindsight
+replay doesn't reproduce the race.**
+
+The v1 model's verdict, kept on record:
+- With the information at the end of lap 38, staying out on the 14-lap hards
+  was the model's best plan (23.3 points, P1 in 78% of simulations). New
+  softs at 39 came second with 21.4.
+- Within range under all 13 checks, including SC length 4 and 6 laps, the
+  double-stack loss halved and doubled, and the new hard removed. The best
+  call-family plan is no further stop, not a lap-40 stop, in every check.
+- **Ferrari's combined points:** the actual split (Sainz in, Leclerc out) was
+  the best joint option, level with leaving both out. The double stack was
+  the worst by 3 points.
+
+**But the call's case is fragile, and the race exposed it.**
+- It needs Leclerc's old hards to be no more than about 0.25–0.5 s/lap worse
+  than the model expects. At about +0.5 s/lap the band is marginal, and from
+  +0.75 the model's best stay-out plan pits a lap later.
+- In the race the extra deficit was about +0.3 to +0.5 s/lap. The restart
+  produced 9 passes in three laps, against 3 in the forecast. Leclerc lost
+  P1 on the restart lap and fell to P4.
+- The simulator cannot produce that restart: no cold-tyre penalty and
+  green-flag pass rates. So the verdict is "within range given the model",
+  and the model is weakest exactly where this decision was decided.
+
+Limits specific to this verdict:
+- Leclerc's points only for the band; the team result is reported
+  separately.
+- Restart laps are normal green laps (no cold tyres, no restart passing
+  model); see the reality check.
+- The SC pit loss is a pooled ratio; lap 39 is simulated as a full SC lap.
+- The SC length rests on 6 pre-race SCs; the double-stack `D` on 4–5 queued
+  stacks.
+- Ferrari had no hard practice run. Its hard pace rests on Sainz's and
+  Leclerc's race laps and the season tendency.
+- Ferrari knew its own fuel loads, modes and tyre temperatures.
+
+### Diagnosis of v1 (before any fix)
+
+**1. Where the forecast pace miss sits.** Leclerc − Sainz lap time (s/lap),
+lap-model means (forecast = lap-38 cutoff fit; hindsight = full fit) against
+the real laps:
+
+| Laps | Real | Forecast | Miss (real − forecast) | Hindsight |
+|---|---|---|---|---|
+| 43–45 (the 3 laps after the restart) | **1.56** | 0.69 | **+0.87** | 0.44 |
+| 46–52 | 0.61 | 0.37 | +0.24 | 0.18 |
+| 46–52 without lap 48 (Hamilton passing him) | 0.40 | 0.36 | **+0.04** | 0.17 |
+
+- Per lap, the real gap was 1.73, 1.08 and 1.87 s on laps 43–45, against
+  0.66–0.81 forecast. From lap 46 it was 0.61, 0.73, (1.89 on lap 48), 0.41,
+  0.61, 0.30 and −0.24, against 0.76–0.16.
+- Before the SC (clean laps 26–38), Leclerc's residuals are −0.17 (hindsight)
+  and 0.00 (forecast), and the front-runners' are within ±0.15.
+- **So the forecast miss sits in the restart laps** plus one lap of being
+  passed (lap 48). It is not spread across the whole final stint: outside
+  those laps the forecast gap is right.
+- The hindsight model has a smaller tail (+0.23 s/lap on laps 46–52 without
+  lap 48). Leclerc's fitted stint effect averages his fast pre-SC laps with
+  his slower post-SC laps.
+
+**2. The late-restart rule.** It is not applied in the case-study hindsight
+replay (`final_race_prior` is off; the rule is used only in Phase 5
+random-mode backtests).
+- The replay uses the full fit's `final_race[Silverstone]` = +0.09 s (p10–p90
+  −0.09 to +0.26), the same for every car's final stint. Leclerc's current
+  stint uses its own fitted effect (−0.16 s), which already includes it.
+- **None of the hindsight miss comes from the rule.**
+
+**3. Did the lap model ever see restart laps?** Not the restart lap itself.
+- In 2022, all 454 first laps after an SC/VSC carry `exclude_reason =
+  restart_lap`, and 26 more are out laps. None reach the fit.
+- The second and third laps after a restart are mostly in the fit (419 and
+  432 clean laps).
+- So the lap model knows nothing about the first lap after a restart, and
+  the simulator ran it as a normal green lap.
+
+### Restart layer (v2 method; written and validated before rerunning Silverstone)
+
+`f1strat.restart`, on in the simulator through `SimParams.restart`; off by
+default, so v1, Hungary and Phase 5 are unchanged.
+- **Pace:** for the first 3 green laps after an SC/VSC (`k` = 1, 2, 3), each
+  car's lap gets
+  `a_k + s_k·[soft] + h_k·[hard] + g_k·TyreLife/10` (medium = baseline).
+  - Estimated by OLS on lap-model residuals (lap time − posterior mean) of
+    those laps.
+  - In and out laps, lap 1, deleted or inaccurate laps and wet races are
+    excluded.
+  - The offset changes the car's free-air lap, so it also enters the pass
+    probability through the pace gap.
+- **Passing:** pass probability × `m` on the same laps. `m` = observed passes
+  / passes expected by the pass model on restart-lap events (outcome lap
+  `k` = 1–3), pooled over `k`.
+- **Estimated from the dry rounds before Silverstone** (1, 2, 3, 5, 6, 8, 9)
+  with the Silverstone lap-38 cutoff fit, so no future information enters.
+
+**Estimates** (s per lap; standard errors in brackets; 208, 210 and 208 laps):
+
+| k | a (medium, new) | soft | hard | per 10 laps of tyre age |
+|---|---|---|---|---|
+| 1 (restart lap) | +0.82 (0.18) | −0.18 (0.30) | +0.12 (0.20) | −0.10 (0.10) |
+| 2 | +0.17 (0.11) | +0.02 (0.17) | +0.18 (0.12) | −0.06 (0.06) |
+| 3 | −0.12 (0.09) | −0.09 (0.14) | +0.12 (0.10) | +0.04 (0.05) |
+
+- **Pass multiplier `m` = 0.74:** 24 passes in 271 restart-lap events,
+  against 32.5 expected. Per lap, `k` = 1: 0.67, `k` = 2: 0.45, `k` = 3: 1.10.
+- **What the pre-Silverstone data say:**
+  - the restart lap is about 0.8 s slower for everyone;
+  - hards are about 0.1–0.2 s/lap worse than mediums on all three laps;
+  - **there is no sign that older tyres lose more** (the age terms are about
+    zero or negative);
+  - **passing is less likely, not more,** per close pair on restart laps.
+  - So the hypothesis "old tyres lose more heat behind the SC" is not
+    supported by the 2022 data available at Silverstone.
+
+**Validation on later dry rounds** (12, 14, 15, 16, 19, 20, 21, 22; case
+studies and Austria excluded; `reports/figures/restart_validation_*.csv`).
+
+Pace (full-fit residuals; the full fit includes the k = 2–3 laps of these
+rounds, so those are in-sample; k = 1 is out of sample):
+
+| k | Laps | Mean residual: before → after | MAE: before → after | Hard − soft residual: before → after |
+|---|---|---|---|---|
+| 1 | 175 | +0.65 → −0.03 | 0.91 → 0.85 | −0.57 → −0.84 |
+| 2 | 171 | +0.13 → −0.03 | 0.45 → 0.46 | +0.04 → −0.09 |
+| 3 | 173 | −0.09 → −0.03 | 0.39 → 0.37 | +0.40 → +0.17 |
+
+Passes in the first 3 laps after each restart, replay backtests (actual plans,
+SC/VSC and retirements; 300 simulations each):
+
+| Round | Actual | Without the layer | With the layer |
+|---|---|---|---|
+| 12 France | 5 | 6.1 | 4.8 |
+| 14 Belgium | 10 | 5.4 | 3.9 |
+| 15 Netherlands | 2 | 7.1 | 5.7 |
+| 16 Italy | 2 | 4.6 | 3.4 |
+| 19 United States | 2 | 3.8 | 3.0 |
+| 20 Mexico | 1 | 1.4 | 1.3 |
+| 21 São Paulo | 19 | 8.0 | 6.0 |
+| 22 Abu Dhabi | 0 | 0.0 | 0.0 |
+| **Total** | **41** | **36.3** | **28.0** |
+
+**What the validation shows.**
+- **Passes:** without the layer, the simulator already gets restart passes
+  about right in total (36 vs 41). Per race it is far off either way:
+  São Paulo 19 vs 8, Belgium 10 vs 5. The multiplier moves the total further
+  away (28). **The pass part fails validation.**
+- **Pace:** the layer removes the field-wide restart-lap bias (mean +0.65 →
+  −0.03). That is nearly a common offset, so it barely moves positions. **The
+  compound and tyre-age differentials do not generalise:** on the restart
+  lap, later rounds had softs slower than hards, and the layer makes that
+  error larger.
+- **For Silverstone:** the layer puts Leclerc's hards (TyreLife 18–20)
+  behind Sainz's new softs (TyreLife 4–6) by +0.17, +0.07 and +0.26 s on laps
+  43–45 (+0.17 on average). That is far short of
+  the +0.87 s/lap miss, and it lowers the pass probability.
+- **So the layer, estimated without leakage, is not expected to reproduce
+  Silverstone's restart.** It is run as v2 anyway, as planned, under the same
+  committed rule and with the existing cutoff fit. The v2 hindsight test
+  decides whether the verdict stands.
+
+### Results (v2: with the restart layer)
+
+Run: `uv run python -m f1strat.case_study silverstone --v2`. Same committed
+rule, checks, seeds and lap-38 cutoff fit as v1; the restart layer is on in
+the decision simulations and in the hindsight replay. Outputs:
+`case_silverstone_v2_*` (results JSON, candidates, joint pairs, and the five
+figures).
+
+**Decision lap (measurement set, 2,000 simulations):**
+
+| Plan (family) | Plan | Mean points (v1) | Mean points (v2) | P(win) v2 |
+|---|---|---|---|---|
+| Best overall = call: stay out at 39 = as run | H | 23.3 | 23.4 | 0.78 |
+| Pit at 39: soft (new) | H → 39 S(new) | 21.4 | 21.7 | 0.56 |
+| Pit at 39: medium (used 2) | H → 39 M(used 2) | 19.9 | 20.0 | 0.37 |
+| Pit at 39: hard (new) | H → 39 H(new) | 19.0 | 18.8 | 0.25 |
+| Pit at 39: medium (used 25) | H → 39 M(used 25) → 44 S(new) | 7.0 | 7.0 | 0.00 |
+
+- **Within range under all 13 checks** (primary loss 0.0 in 12).
+- Under Ferrari hard wear p90, the selection set now picks new softs at 39 as
+  the best plan. The loss is 0.13 points, with the call level or ahead in
+  72%: still within range.
+- The best call-family plan is no further stop in every check, not a lap-40
+  stop.
+- **Ferrari's combined points:**
+  - actual 40.5; neither pits 40.9 (+0.3, P(better) 32%);
+  - Leclerc pits and Sainz stays out 38.6 (−1.9);
+  - both pit 37.6 (−2.9).
+  - The same picture as v1.
+
+**The hindsight test fails again.**
+
+| | Real | v1 hindsight | **v2 hindsight** | v2 forecast |
+|---|---|---|---|---|
+| Leclerc's result | **P4 (12 pts)** | 24.6 pts, P1 95% | **24.5 pts, P1 93%, P3 or lower 0.2%** | 23.4 pts, P1 76% |
+| Leclerc loses ≥1 place after the restart | yes (3) | 5% | 7% | 24% |
+| Loses ≥2 places | yes | 0.1% | 0.2% | 3% |
+| Passes, first 3 laps after the restart | **9** | 1.2 | **0.9** | 2.6 |
+
+- The layer added about +0.17 s/lap to Leclerc's restart gap to the new
+  softs, against a +0.87 s/lap miss. Its pass multiplier (0.74) lowered
+  restart passing.
+- Both follow from the 2022 data available at Silverstone, as the validation
+  above showed. They cannot produce the restart Silverstone had.
+
+![v2 reality check](../reports/figures/case_silverstone_v2_reality.png)
+
+### Verdict (v2)
+
+**Inconclusive.**
+- Under the committed rule, staying out at lap 39 is within range in v1 and
+  v2: the model's best plan, by about 2 points over new softs at 39.
+- **But the model cannot reproduce the race in hindsight.** With the actual
+  SC, the rivals' actual plans and the restart layer, it has Leclerc win 93%
+  of the time and almost never finish P4, where he finished. A model that
+  cannot reproduce the outcome given what actually happened cannot judge the
+  call.
+- **Where it fails is known:**
+  - the three laps after the restart: a +0.87 s/lap Leclerc − Sainz pace
+    miss, and 9 passes against 1–3 simulated;
+  - after lap 45 the forecast pace gap is right, except for the lap
+    Hamilton passed him.
+- **The 2022 data do not explain that restart.**
+  - Before Silverstone, restarts show no extra loss for old tyres and fewer
+    passes per close pair.
+  - Later rounds do not support a compound or tyre-age restart effect
+    either.
+  - Silverstone's restart (old hards against a pack on new softs, with 10
+    laps left) is outside what the 2022 restarts teach the model.
+- **What would settle it:** a restart model with physical inputs the data
+  here lack (tyre temperatures, the drop-off of hards after an SC), or many
+  more restarts with old hard tyres against new softs. Until then the call
+  is not judged.
+- **On record, conditional on the model** (not a verdict):
+  - the call needs Leclerc's hards to be no more than about 0.25–0.5 s/lap
+    worse than modelled over the final laps (v1 break-even);
+  - Ferrari's actual split strategy was the best joint option, and the
+    double stack the worst.

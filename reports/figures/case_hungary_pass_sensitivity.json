@@ -235,6 +235,235 @@
       "p_podium": 0.842
      }
     }
+   },
+   "relative + in-race (post-hoc)": {
+    "intercept": -2.7316902591791687,
+    "in_race": {
+     "prior": -4.2293436057041145,
+     "intercept": -2.7316902591791687,
+     "events": 108,
+     "passes": 25,
+     "pass_list": [
+      {
+       "lap": 5,
+       "attacker": "VER",
+       "defender": "ALO",
+       "pace_gap_s": 1.354
+      },
+      {
+       "lap": 7,
+       "attacker": "VER",
+       "defender": "OCO",
+       "pace_gap_s": 1.199
+      },
+      {
+       "lap": 20,
+       "attacker": "VER",
+       "defender": "ALO",
+       "pace_gap_s": 2.504
+      },
+      {
+       "lap": 21,
+       "attacker": "VER",
+       "defender": "OCO",
+       "pace_gap_s": 2.454
+      },
+      {
+       "lap": 9,
+       "attacker": "GAS",
+       "defender": "LAT",
+       "pace_gap_s": 0.548
+      },
+      {
+       "lap": 20,
+       "attacker": "GAS",
+       "defender": "MAG",
+       "pace_gap_s": 1.194
+      },
+      {
+       "lap": 24,
+       "attacker": "GAS",
+       "defender": "MSC",
+       "pace_gap_s": 0.688
+      },
+      {
+       "lap": 26,
+       "attacker": "GAS",
+       "defender": "TSU",
+       "pace_gap_s": 0.694
+      },
+      {
+       "lap": 7,
+       "attacker": "PER",
+       "defender": "ALO",
+       "pace_gap_s": 0.916
+      },
+      {
+       "lap": 9,
+       "attacker": "PER",
+       "defender": "OCO",
+       "pace_gap_s": 0.761
+      },
+      {
+       "lap": 13,
+       "attacker": "PER",
+       "defender": "NOR",
+       "pace_gap_s": 0.503
+      },
+      {
+       "lap": 31,
+       "attacker": "LEC",
+       "defender": "RUS",
+       "pace_gap_s": 0.482
+      },
+      {
+       "lap": 18,
+       "attacker": "STR",
+       "defender": "ALB",
+       "pace_gap_s": 1.3
+      },
+      {
+       "lap": 27,
+       "attacker": "STR",
+       "defender": "ALO",
+       "pace_gap_s": 0.77
+      },
+      {
+       "lap": 29,
+       "attacker": "STR",
+       "defender": "OCO",
+       "pace_gap_s": 0.618
+      },
+      {
+       "lap": 38,
+       "attacker": "ZHO",
+       "defender": "MSC",
+       "pace_gap_s": 0.537
+      },
+      {
+       "lap": 24,
+       "attacker": "RIC",
+       "defender": "ALO",
+       "pace_gap_s": 0.736
+      },
+      {
+       "lap": 20,
+       "attacker": "NOR",
+       "defender": "ZHO",
+       "pace_gap_s": 1.557
+      },
+      {
+       "lap": 21,
+       "attacker": "NOR",
+       "defender": "BOT",
+       "pace_gap_s": 1.518
+      },
+      {
+       "lap": 12,
+       "attacker": "HAM",
+       "defender": "NOR",
+       "pace_gap_s": 0.686
+      },
+      {
+       "lap": 10,
+       "attacker": "VET",
+       "defender": "TSU",
+       "pace_gap_s": 0.282
+      },
+      {
+       "lap": 19,
+       "attacker": "VET",
+       "defender": "ALB",
+       "pace_gap_s": 1.152
+      },
+      {
+       "lap": 31,
+       "attacker": "VET",
+       "defender": "ALO",
+       "pace_gap_s": 0.407
+      },
+      {
+       "lap": 38,
+       "attacker": "VET",
+       "defender": "OCO",
+       "pace_gap_s": 0.003
+      },
+      {
+       "lap": 28,
+       "attacker": "LAT",
+       "defender": "MAG",
+       "pace_gap_s": 0.438
+      }
+     ]
+    },
+    "band": "within range",
+    "primary": {
+     "mean_loss": 0.3145,
+     "p10": -7.0,
+     "p50": 0.0,
+     "p90": 7.0,
+     "p_loss_pos": 0.3215,
+     "p_loss_neg": 0.231,
+     "p_level_or_ahead": 0.6785
+    },
+    "chosen": {
+     "best overall": "M \u2192 50 S(used 4)",
+     "call: hards at 39": "M \u2192 39 H(new)",
+     "used softs at 39": "M \u2192 39 S(used 6) \u2192 53 S(used 4)",
+     "used medium at 39": "M \u2192 39 M(used 22) \u2192 44 H(new)",
+     "stay out, then hards": "M \u2192 44 H(new)",
+     "stay out, then used softs": "M \u2192 50 S(used 4)",
+     "stay out, then used medium": "M \u2192 46 M(used 22) \u2192 53 S(used 4)",
+     "as run": "M \u2192 39 H(new) \u2192 54 S(used 4)",
+     "hards to the flag": "M \u2192 39 H(new)"
+    },
+    "measure": {
+     "best overall": {
+      "mean_points": 17.83,
+      "mean_pos": 2.499,
+      "p_podium": 0.8305
+     },
+     "call: hards at 39": {
+      "mean_points": 17.5155,
+      "mean_pos": 2.59,
+      "p_podium": 0.754
+     },
+     "used softs at 39": {
+      "mean_points": 13.3495,
+      "mean_pos": 3.917,
+      "p_podium": 0.4595
+     },
+     "used medium at 39": {
+      "mean_points": 10.586,
+      "mean_pos": 4.8695,
+      "p_podium": 0.1825
+     },
+     "stay out, then hards": {
+      "mean_points": 17.46,
+      "mean_pos": 2.547,
+      "p_podium": 0.796
+     },
+     "stay out, then used softs": {
+      "mean_points": 17.83,
+      "mean_pos": 2.499,
+      "p_podium": 0.8305
+     },
+     "stay out, then used medium": {
+      "mean_points": 10.377,
+      "mean_pos": 5.1075,
+      "p_podium": 0.1935
+     },
+     "as run": {
+      "mean_points": 11.9975,
+      "mean_pos": 4.374,
+      "p_podium": 0.3345
+     },
+     "hards to the flag": {
+      "mean_points": 17.5155,
+      "mean_pos": 2.59,
+      "p_podium": 0.754
+     }
+    }
    }
   }
  },
@@ -472,6 +701,271 @@
       "mean_points": 13.3805,
       "mean_pos": 3.691,
       "p_podium": 0.453
+     }
+    }
+   },
+   "relative + in-race (post-hoc)": {
+    "intercept": -2.6283461319540598,
+    "in_race": {
+     "prior": -4.224749460920485,
+     "intercept": -2.6283461319540598,
+     "events": 130,
+     "passes": 31,
+     "pass_list": [
+      {
+       "lap": 5,
+       "attacker": "VER",
+       "defender": "ALO",
+       "pace_gap_s": 1.344
+      },
+      {
+       "lap": 7,
+       "attacker": "VER",
+       "defender": "OCO",
+       "pace_gap_s": 1.191
+      },
+      {
+       "lap": 20,
+       "attacker": "VER",
+       "defender": "ALO",
+       "pace_gap_s": 2.472
+      },
+      {
+       "lap": 21,
+       "attacker": "VER",
+       "defender": "OCO",
+       "pace_gap_s": 2.411
+      },
+      {
+       "lap": 45,
+       "attacker": "VER",
+       "defender": "LEC",
+       "pace_gap_s": 0.917
+      },
+      {
+       "lap": 9,
+       "attacker": "GAS",
+       "defender": "LAT",
+       "pace_gap_s": 0.533
+      },
+      {
+       "lap": 20,
+       "attacker": "GAS",
+       "defender": "MAG",
+       "pace_gap_s": 1.186
+      },
+      {
+       "lap": 24,
+       "attacker": "GAS",
+       "defender": "MSC",
+       "pace_gap_s": 0.673
+      },
+      {
+       "lap": 26,
+       "attacker": "GAS",
+       "defender": "TSU",
+       "pace_gap_s": 0.69
+      },
+      {
+       "lap": 7,
+       "attacker": "PER",
+       "defender": "ALO",
+       "pace_gap_s": 0.879
+      },
+      {
+       "lap": 9,
+       "attacker": "PER",
+       "defender": "OCO",
+       "pace_gap_s": 0.725
+      },
+      {
+       "lap": 13,
+       "attacker": "PER",
+       "defender": "NOR",
+       "pace_gap_s": 0.432
+      },
+      {
+       "lap": 41,
+       "attacker": "ALO",
+       "defender": "OCO",
+       "pace_gap_s": 0.207
+      },
+      {
+       "lap": 31,
+       "attacker": "LEC",
+       "defender": "RUS",
+       "pace_gap_s": 0.485
+      },
+      {
+       "lap": 18,
+       "attacker": "STR",
+       "defender": "ALB",
+       "pace_gap_s": 1.251
+      },
+      {
+       "lap": 27,
+       "attacker": "STR",
+       "defender": "ALO",
+       "pace_gap_s": 0.531
+      },
+      {
+       "lap": 29,
+       "attacker": "STR",
+       "defender": "OCO",
+       "pace_gap_s": 0.64
+      },
+      {
+       "lap": 49,
+       "attacker": "STR",
+       "defender": "RIC",
+       "pace_gap_s": 1.712
+      },
+      {
+       "lap": 45,
+       "attacker": "ALB",
+       "defender": "TSU",
+       "pace_gap_s": 1.519
+      },
+      {
+       "lap": 38,
+       "attacker": "ZHO",
+       "defender": "MSC",
+       "pace_gap_s": 0.447
+      },
+      {
+       "lap": 24,
+       "attacker": "RIC",
+       "defender": "ALO",
+       "pace_gap_s": 0.504
+      },
+      {
+       "lap": 20,
+       "attacker": "NOR",
+       "defender": "ZHO",
+       "pace_gap_s": 1.482
+      },
+      {
+       "lap": 21,
+       "attacker": "NOR",
+       "defender": "BOT",
+       "pace_gap_s": 1.439
+      },
+      {
+       "lap": 12,
+       "attacker": "HAM",
+       "defender": "NOR",
+       "pace_gap_s": 0.652
+      },
+      {
+       "lap": 10,
+       "attacker": "VET",
+       "defender": "TSU",
+       "pace_gap_s": 0.273
+      },
+      {
+       "lap": 19,
+       "attacker": "VET",
+       "defender": "ALB",
+       "pace_gap_s": 1.079
+      },
+      {
+       "lap": 31,
+       "attacker": "VET",
+       "defender": "ALO",
+       "pace_gap_s": 0.149
+      },
+      {
+       "lap": 38,
+       "attacker": "VET",
+       "defender": "OCO",
+       "pace_gap_s": 0.013
+      },
+      {
+       "lap": 49,
+       "attacker": "VET",
+       "defender": "ZHO",
+       "pace_gap_s": 1.446
+      },
+      {
+       "lap": 51,
+       "attacker": "VET",
+       "defender": "RIC",
+       "pace_gap_s": 0.977
+      },
+      {
+       "lap": 28,
+       "attacker": "LAT",
+       "defender": "MAG",
+       "pace_gap_s": 0.426
+      }
+     ]
+    },
+    "band": "marginal",
+    "primary": {
+     "mean_loss": 3.527,
+     "p10": 0.0,
+     "p50": 3.0,
+     "p90": 8.0,
+     "p_loss_pos": 0.7225,
+     "p_loss_neg": 0.067,
+     "p_level_or_ahead": 0.2775
+    },
+    "chosen": {
+     "best overall": "H",
+     "call: used softs at 54": "H \u2192 54 S(used 4)",
+     "hards to the flag": "H",
+     "new hard at 54": "H \u2192 54 H(new)",
+     "used medium at 54": "H \u2192 54 M(used 19)",
+     "stay out, then used softs": "H \u2192 55 S(used 4)",
+     "stay out, then new hard": "H \u2192 55 H(new)",
+     "stay out, then used medium": "H \u2192 59 M(used 19)",
+     "as run": "H \u2192 54 S(used 4)"
+    },
+    "measure": {
+     "best overall": {
+      "mean_points": 17.8255,
+      "mean_pos": 2.1545,
+      "p_podium": 0.9725
+     },
+     "call: used softs at 54": {
+      "mean_points": 14.2985,
+      "mean_pos": 3.383,
+      "p_podium": 0.567
+     },
+     "hards to the flag": {
+      "mean_points": 17.8255,
+      "mean_pos": 2.1545,
+      "p_podium": 0.9725
+     },
+     "new hard at 54": {
+      "mean_points": 11.1625,
+      "mean_pos": 4.5575,
+      "p_podium": 0.195
+     },
+     "used medium at 54": {
+      "mean_points": 9.708,
+      "mean_pos": 5.193,
+      "p_podium": 0.0745
+     },
+     "stay out, then used softs": {
+      "mean_points": 14.489,
+      "mean_pos": 3.3135,
+      "p_podium": 0.589
+     },
+     "stay out, then new hard": {
+      "mean_points": 11.2675,
+      "mean_pos": 4.5155,
+      "p_podium": 0.2025
+     },
+     "stay out, then used medium": {
+      "mean_points": 9.902,
+      "mean_pos": 5.1245,
+      "p_podium": 0.0795
+     },
+     "as run": {
+      "mean_points": 14.2985,
+      "mean_pos": 3.383,
+      "p_podium": 0.567
      }
     }
    }

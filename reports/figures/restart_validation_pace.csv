@@ -1,0 +1,4 @@
+k,laps,mean_before,mean_after,mae_before,mae_after,hard_minus_soft_before,hard_minus_soft_after
+1,175,0.648,-0.028,0.908,0.846,-0.573,-0.835
+2,171,0.125,-0.028,0.447,0.463,0.039,-0.092
+3,173,-0.085,-0.034,0.393,0.373,0.395,0.173

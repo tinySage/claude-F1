@@ -168,6 +168,19 @@ Case studies (2022):
     2022).
   - Hungary's committed verdicts keep the previous-running intercept; the
     relative method is a post-hoc sensitivity there (`docs/case_studies.md`).
+- **Silverstone additions (Phase 6, committed before any Silverstone
+  simulation):** `docs/case_studies.md`, "Silverstone 2022".
+  - Decision at Leclerc's lap 39 (SC deployed during it); cutoff lap 38; the
+    state starts under the SC; its length from the 6 pre-race 2022 SCs.
+  - Race time from the session clock (lap-1 red flag, untimed restart lap).
+  - Double-stack queue: the second car waits `max(0, D − arrival gap)`, `D`
+    fitted on 2022 same-lap teammate stops (green 7.15 s, SC 6.45 s).
+  - Rivals' and Leclerc's searches cost stops at the expected SC/VSC pit loss.
+  - Pass intercept: relative method, updated with the race's own passes
+    before the cutoff (also a post-hoc row for Hungary).
+  - Primary verdict with Sainz's actual stop fixed; Ferrari's combined points
+    per joint option reported alongside; added checks: SC length p10/p90,
+    double-stack loss ×0.5/×2, Leclerc's new hard removed.
 - **Final-stint widening in Phase 6: 1.0 (Phase 5).** The replay backtests
   are better calibrated without the ×1.188 widening (fair position coverage
   0.57 / 0.85 vs 0.60 / 0.87; gaps 0.54 / 0.82 vs 0.55 / 0.84). Phase 6 uses
@@ -328,16 +341,44 @@ Open issues for Phase 6:
     checks.** Hards to the flag was better by 5.1 points with lap-53
     information.
     - Post-hoc pass-difficulty sensitivity: the switch was the worse option
-      in every setting, costing 3.6–5.1 points (outside range with the
-      relative method, marginal with average passing).
+      in every setting, costing 3.5–5.1 points (outside range with the
+      relative method; marginal with average passing and with the in-race
+      update).
     - Disclosed limitation: 2021 pass difficulty likely overstates 2022.
   - The points were lost at lap 54. About 4 more points lost in hindsight
     at lap 38 came from what the pit wall could not know (Verstappen's stop
     phase and pace).
-- [ ] Silverstone
+- [x] Silverstone (`docs/case_studies.md`): **inconclusive (the model can't
+  reproduce the restart).**
+  - v1 and v2 put the call within range, but neither model reproduces the
+    race in hindsight (Leclerc P1 in 95% / 93% of replays; he finished P4).
+  - Diagnosis: the miss sits in the three laps after the restart (+0.87 s/lap
+    Leclerc − Sainz; 9 passes vs 1–3 simulated).
+  - The restart layer, estimated from rounds before Silverstone and
+    validated on later rounds, removes the field-wide restart bias. But its
+    compound and age effects and its pass multiplier do not generalise, and
+    it cannot produce this restart.
+  - v1 on record:
+  - It is the model's best plan at lap 38 (23.3 points against 21.4 for new
+    softs at 39). Within range under all 13 checks (committed checks plus SC
+    length 4/6 laps, double-stack loss ×0.5/×2, and the new hard removed).
+    The best call-family plan is no further stop, not a lap-40 stop.
+  - Ferrari's combined points: the actual split was the best joint option,
+    level with leaving both out; the double stack was the worst (−3.0).
+  - **Fragile:** staying out stops being best if Leclerc's hards were
+    0.25–0.5 s/lap worse than modelled. The real extra deficit was about
+    0.3–0.5 s/lap.
+  - **Reality check:** 9 passes in the first three laps after the restart,
+    against 3.1 forecast. Leclerc lost P1 on the restart lap and finished
+    P4. The simulator has no restart effects (cold tyres, restart passing),
+    so the hindsight replay does not reproduce the race (P1 in 95%).
+- **Restart laps are normal green laps** (found at Silverstone): no
+  cold-tyre penalty and green-flag pass rates. Silverstone had 9 passes in
+  the first three restart laps against 3.1 simulated. State it for any
+  verdict that turns on a restart.
 - [ ] Monaco (wet crossover; state limitations)
 
-**Done when:** each case study has a verdict on whether the call was within the range of good options, backed by leakage-free simulations.
+**Done when:** each case study has a verdict on whether the call was within the range of good options, backed by leakage-free simulations, or a documented reason none is supported.
 
 ## Phase 7: Ship
 - [ ] Charts

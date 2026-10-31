@@ -238,6 +238,10 @@ class Backtest:
     vsc_counts: np.ndarray
     actual_counts: dict[str, float]
     lap1_order: list[str] = field(default_factory=list)   # order after lap 1
+    #: Phase 6 restart layer validation: passes in the first 3 green laps
+    #: after each SC/VSC (per simulation; replay mode has the actual schedule).
+    restart_passes: np.ndarray | None = None
+    actual_restart_passes: int | None = None
 
 
 def run_backtest(
@@ -301,8 +305,18 @@ def run_backtest(
     gaps = np.where(running, final - final.min(axis=1, keepdims=True), np.nan)
     sc_n, vsc_n = neutral_counts(fld.status, before=act.status[1])
     lap1 = sorted(fld.drivers, key=lambda d: state.cars[d].race_time)
+    from f1strat.restart import RESTART_LAPS, laps_since_restart_sim
+
+    k_sim = laps_since_restart_sim(np.asarray(fld.status), bool(act.status[1] != GREEN))
+    win = np.concatenate([np.zeros((n_sims, 1), bool),
+                          (k_sim >= 1) & (k_sim <= RESTART_LAPS)], axis=1) & green
+    restart_passes = count_passes(hist, pits, win)
+    k_act = laps_since_restart_sim(act.status[None, 2:], bool(act.status[1] != GREEN))[0]
+    win_act = np.concatenate([[False], (k_act >= 1) & (k_act <= RESTART_LAPS)])
+    act_rs = int(count_passes(act.times[None, 1:, :], act.pit_laps[None, 1:, :],
+                              win_act & (act.status[1:] == GREEN))[0])
     return Backtest(act, mode, fld.drivers, positions, gaps, passes, close, sc_n, vsc_n,
-                    actual_counts(act), lap1)
+                    actual_counts(act), lap1, restart_passes, act_rs)
 
 
 def _with_time(car, act: Actual, driver: str):

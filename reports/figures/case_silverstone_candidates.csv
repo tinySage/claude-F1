@@ -1,0 +1,71 @@
+plan,mean_points,mean_pos,family
+H,23.427,1.243,call: stay out at 39
+H → 39 S(new),21.201,1.597,pit at 39: soft (new)
+H → 39 M(used 2),19.806,1.846,pit at 39: medium (used 2)
+H → 39 H(new),18.857,2.029,pit at 39: hard (new)
+H → 40 S(new),18.142,2.234,call: stay out at 39
+H → 41 S(new),16.77,2.565,call: stay out at 39
+H → 40 M(used 2),16.754,2.55,call: stay out at 39
+H → 40 H(new),16.11,2.706,call: stay out at 39
+H → 41 M(used 2),15.551,2.877,call: stay out at 39
+H → 41 H(new),15.096,3.009,call: stay out at 39
+H → 42 S(new),13.459,3.571,call: stay out at 39
+H → 42 M(used 2),12.442,3.945,call: stay out at 39
+H → 42 H(new),12.107,4.069,call: stay out at 39
+H → 39 S(new) → 47 S(new),7.858,6.243,pit at 39: soft (new)
+H → 39 S(new) → 44 S(new),7.356,6.414,pit at 39: soft (new)
+H → 39 S(new) → 46 S(new),7.301,6.584,pit at 39: soft (new)
+H → 39 S(new) → 47 M(used 2),7.281,6.553,pit at 39: soft (new)
+H → 40 S(new) → 47 S(new),7.161,6.63,call: stay out at 39
+H → 39 M(used 2) → 44 S(new),7.133,6.535,pit at 39: medium (used 2)
+H → 39 H(new) → 44 S(new),7.029,6.587,pit at 39: hard (new)
+H → 39 S(new) → 47 H(new),7.001,6.706,pit at 39: soft (new)
+H → 39 M(used 2) → 46 S(new),6.881,6.815,pit at 39: medium (used 2)
+H → 39 M(used 25) → 44 S(new),6.788,6.716,pit at 39: medium (used 25)
+H → 39 H(new) → 46 S(new),6.742,6.899,pit at 39: hard (new)
+H → 39 S(new) → 46 M(used 2),6.673,6.931,pit at 39: soft (new)
+H → 40 S(new) → 46 S(new),6.619,6.981,call: stay out at 39
+H → 40 S(new) → 47 M(used 2),6.615,6.927,call: stay out at 39
+H → 39 M(used 2) → 47 H(new),6.507,6.988,pit at 39: medium (used 2)
+H → 39 S(new) → 44 M(used 2),6.444,6.909,pit at 39: soft (new)
+H → 39 S(new) → 46 H(new),6.365,7.104,pit at 39: soft (new)
+H → 39 M(used 2) → 45 S(new),6.349,7.146,pit at 39: medium (used 2)
+H → 40 S(new) → 47 H(new),6.344,7.08,call: stay out at 39
+H → 39 H(new) → 45 S(new),6.164,7.248,pit at 39: hard (new)
+H → 39 H(new) → 44 M(used 2),6.15,7.064,pit at 39: hard (new)
+H → 40 M(used 2) → 46 S(new),6.138,7.266,call: stay out at 39
+H → 39 S(new) → 44 H(new),6.08,7.114,pit at 39: soft (new)
+H → 39 H(new) → 46 M(used 2),6.076,7.29,pit at 39: hard (new)
+H → 39 M(used 25) → 46 S(new),6.074,7.304,pit at 39: medium (used 25)
+H → 39 M(used 2) → 47 M(used 25),5.982,7.301,pit at 39: medium (used 2)
+H → 39 M(used 2) → 46 H(new),5.973,7.345,pit at 39: medium (used 2)
+H → 40 S(new) → 46 M(used 2),5.969,7.357,call: stay out at 39
+H → 39 M(used 25) → 44 M(used 2),5.948,7.185,pit at 39: medium (used 25)
+H → 40 S(new) → 45 S(new),5.913,7.413,call: stay out at 39
+H → 40 H(new) → 46 S(new),5.888,7.405,call: stay out at 39
+H → 40 M(used 2) → 47 H(new),5.887,7.373,call: stay out at 39
+H → 39 M(used 2) → 44 H(new),5.864,7.232,pit at 39: medium (used 2)
+H → 41 S(new) → 47 M(used 2),5.726,7.491,call: stay out at 39
+H → 39 M(used 25) → 45 S(new),5.721,7.511,pit at 39: medium (used 25)
+H → 40 S(new) → 46 H(new),5.68,7.532,call: stay out at 39
+H → 39 M(used 25) → 44 H(new),5.536,7.414,pit at 39: medium (used 25)
+H → 40 M(used 2) → 45 S(new),5.534,7.637,call: stay out at 39
+H → 39 H(new) → 45 M(used 2),5.533,7.627,pit at 39: hard (new)
+H → 41 S(new) → 47 H(new),5.454,7.66,call: stay out at 39
+H → 39 M(used 25) → 46 M(used 2),5.422,7.693,pit at 39: medium (used 25)
+H → 39 M(used 2) → 46 M(used 25),5.377,7.745,pit at 39: medium (used 2)
+H → 40 M(used 2) → 47 M(used 25),5.376,7.71,call: stay out at 39
+H → 40 H(new) → 45 S(new),5.335,7.746,call: stay out at 39
+H → 40 H(new) → 46 M(used 2),5.32,7.757,call: stay out at 39
+H → 40 M(used 2) → 46 H(new),5.254,7.796,call: stay out at 39
+H → 39 M(used 25) → 46 H(new),5.167,7.855,pit at 39: medium (used 25)
+H → 39 M(used 25) → 45 M(used 2),5.084,7.903,pit at 39: medium (used 25)
+H → 41 M(used 2) → 46 S(new),4.958,8.012,call: stay out at 39
+H → 39 M(used 2) → 44 M(used 25),4.932,7.795,pit at 39: medium (used 2)
+H → 39 M(used 25) → 45 H(new),4.828,8.068,pit at 39: medium (used 25)
+H → 41 M(used 2) → 47 H(new),4.8,8.113,call: stay out at 39
+H → 41 H(new) → 46 S(new),4.723,8.147,call: stay out at 39
+H → 40 H(new) → 45 M(used 2),4.7,8.152,call: stay out at 39
+H → 41 M(used 2) → 47 M(used 25),4.379,8.413,call: stay out at 39
+H → 40 M(used 25) → 45 M(used 2),4.285,8.412,call: stay out at 39
+H → 41 H(new) → 46 M(used 2),4.219,8.491,call: stay out at 39
