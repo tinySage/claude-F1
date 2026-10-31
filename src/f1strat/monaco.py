@@ -456,11 +456,16 @@ def summarise(r: dict, name: str) -> dict:
     if not p["assessable"]:
         return {"assessable": False}
     pos, ga, gb = p["pos"], p["gap_ahead"], p["gap_behind"]
+
+    def med(g):
+        # No car ahead (P1) or behind: an unlimited gap, not a missing one.
+        m = float(np.median(np.where(np.isnan(g), np.inf, g)))
+        return None if np.isinf(m) else m
+
     return {"assessable": True, "mean_points": float(p["points"].mean()),
             "mean_pos": float(pos.mean()),
             "pos_dist": {int(v): float((pos == v).mean()) for v in np.unique(pos)},
-            "median_gap_ahead_s": float(np.nanmedian(ga)) if np.isfinite(ga).any() else None,
-            "median_gap_behind_s": float(np.nanmedian(gb)) if np.isfinite(gb).any() else None}
+            "median_gap_ahead_s": med(ga), "median_gap_behind_s": med(gb)}
 
 
 def too_close(summary: dict, sigma: float, rebuilt: bool) -> bool:
