@@ -348,10 +348,17 @@ Open issues for Phase 6:
   - The points were lost at lap 54. About 4 more points lost in hindsight
     at lap 38 came from what the pit wall could not know (Verstappen's stop
     phase and pace).
-- [ ] Silverstone (`docs/case_studies.md`): **v1: within range given the
-  model; not supported, because the hindsight replay doesn't reproduce the
-  race** (P1 in 95% of replays; he finished P4). Reopened for the diagnosis
-  and v2. v1 on record:
+- [ ] Silverstone (`docs/case_studies.md`): **v2 verdict: inconclusive.**
+  - v1 and v2 put the call within range, but neither model reproduces the
+    race in hindsight (Leclerc P1 in 95% / 93% of replays; he finished P4).
+  - Diagnosis: the miss sits in the three laps after the restart (+0.87 s/lap
+    Leclerc − Sainz; 9 passes vs 1–3 simulated).
+  - The restart layer, estimated from rounds before Silverstone and
+    validated on later rounds, removes the field-wide restart bias. But its
+    compound and age effects and its pass multiplier do not generalise, and
+    it cannot produce this restart.
+  - Left unticked: no supported verdict.
+  - v1 on record:
   - It is the model's best plan at lap 38 (23.3 points against 21.4 for new
     softs at 39). Within range under all 13 checks (committed checks plus SC
     length 4/6 laps, double-stack loss ×0.5/×2, and the new hard removed).

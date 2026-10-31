@@ -1465,3 +1465,82 @@ SC/VSC and retirements; 300 simulations each):
   Silverstone's restart.** It is run as v2 anyway, as planned, under the same
   committed rule and with the existing cutoff fit. The v2 hindsight test
   decides whether the verdict stands.
+
+### Results (v2: with the restart layer)
+
+Run: `uv run python -m f1strat.case_study silverstone --v2`. Same committed
+rule, checks, seeds and lap-38 cutoff fit as v1; the restart layer is on in
+the decision simulations and in the hindsight replay. Outputs:
+`case_silverstone_v2_*` (results JSON, candidates, joint pairs, and the five
+figures).
+
+**Decision lap (measurement set, 2,000 simulations):**
+
+| Plan (family) | Plan | Mean points (v1) | Mean points (v2) | P(win) v2 |
+|---|---|---|---|---|
+| Best overall = call: stay out at 39 = as run | H | 23.3 | 23.4 | 0.78 |
+| Pit at 39: soft (new) | H → 39 S(new) | 21.4 | 21.7 | 0.56 |
+| Pit at 39: medium (used 2) | H → 39 M(used 2) | 19.9 | 20.0 | 0.37 |
+| Pit at 39: hard (new) | H → 39 H(new) | 19.0 | 18.8 | 0.25 |
+| Pit at 39: medium (used 25) | H → 39 M(used 25) → 44 S(new) | 7.0 | 7.0 | 0.00 |
+
+- **Within range under all 13 checks** (primary loss 0.0 in 12).
+- Under Ferrari hard wear p90, the selection set now picks new softs at 39 as
+  the best plan. The loss is 0.13 points, with the call level or ahead in
+  72%: still within range.
+- The best call-family plan is no further stop in every check, not a lap-40
+  stop.
+- **Ferrari's combined points:**
+  - actual 40.5; neither pits 40.9 (+0.3, P(better) 32%);
+  - Leclerc pits and Sainz stays out 38.6 (−1.9);
+  - both pit 37.6 (−2.9).
+  - The same picture as v1.
+
+**The hindsight test fails again.**
+
+| | Real | v1 hindsight | **v2 hindsight** | v2 forecast |
+|---|---|---|---|---|
+| Leclerc's result | **P4 (12 pts)** | 24.6 pts, P1 95% | **24.5 pts, P1 93%, P3 or lower 0.2%** | 23.4 pts, P1 76% |
+| Leclerc loses ≥1 place after the restart | yes (3) | 5% | 7% | 24% |
+| Loses ≥2 places | yes | 0.1% | 0.2% | 3% |
+| Passes, first 3 laps after the restart | **9** | 1.2 | **0.9** | 2.6 |
+
+- The layer added about +0.17 s/lap to Leclerc's restart gap to the new
+  softs, against a +0.87 s/lap miss. Its pass multiplier (0.74) lowered
+  restart passing.
+- Both follow from the 2022 data available at Silverstone, as the validation
+  above showed. They cannot produce the restart Silverstone had.
+
+![v2 reality check](../reports/figures/case_silverstone_v2_reality.png)
+
+### Verdict (v2)
+
+**Inconclusive.**
+- Under the committed rule, staying out at lap 39 is within range in v1 and
+  v2: the model's best plan, by about 2 points over new softs at 39.
+- **But the model cannot reproduce the race in hindsight.** With the actual
+  SC, the rivals' actual plans and the restart layer, it has Leclerc win 93%
+  of the time and almost never finish P4, where he finished. A model that
+  cannot reproduce the outcome given what actually happened cannot judge the
+  call.
+- **Where it fails is known:**
+  - the three laps after the restart: a +0.87 s/lap Leclerc − Sainz pace
+    miss, and 9 passes against 1–3 simulated;
+  - after lap 45 the forecast pace gap is right, except for the lap
+    Hamilton passed him.
+- **The 2022 data do not explain that restart.**
+  - Before Silverstone, restarts show no extra loss for old tyres and fewer
+    passes per close pair.
+  - Later rounds do not support a compound or tyre-age restart effect
+    either.
+  - Silverstone's restart (old hards against a pack on new softs, with 10
+    laps left) is outside what the 2022 restarts teach the model.
+- **What would settle it:** a restart model with physical inputs the data
+  here lack (tyre temperatures, the drop-off of hards after an SC), or many
+  more restarts with old hard tyres against new softs. Until then the call
+  is not judged.
+- **On record, conditional on the model** (not a verdict):
+  - the call needs Leclerc's hards to be no more than about 0.25–0.5 s/lap
+    worse than modelled over the final laps (v1 break-even);
+  - Ferrari's actual split strategy was the best joint option, and the
+    double stack the worst.
