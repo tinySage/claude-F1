@@ -1,0 +1,165 @@
+plan,mean_points,mean_pos,family
+M → 39 H(new),19.922,1.995,call: hards at 39
+M → 43 H(new),18.906,2.168,"stay out, then hards"
+M → 44 H(new),18.302,2.305,"stay out, then hards"
+M → 45 H(new),17.819,2.424,"stay out, then hards"
+M → 50 S(used 4),17.258,2.639,"stay out, then used softs"
+M → 51 S(used 4),17.017,2.729,"stay out, then used softs"
+M → 52 S(used 4),16.727,2.82,"stay out, then used softs"
+M → 39 S(used 6) → 53 S(used 4),12.213,4.368,used softs at 39
+M → 43 S(used 6) → 55 S(used 4),12.107,4.446,"stay out, then used softs"
+M → 43 S(used 6) → 56 S(used 4),12.021,4.496,"stay out, then used softs"
+M → 44 S(used 6) → 56 S(used 4),11.888,4.558,"stay out, then used softs"
+M → 39 S(used 4) → 55 S(used 6),11.876,4.551,used softs at 39
+M → 39 S(used 4) → 51 H(new),11.812,4.429,used softs at 39
+M → 39 S(used 6) → 54 S(used 4),11.795,4.552,used softs at 39
+M → 39 S(used 4) → 52 H(new),11.748,4.509,used softs at 39
+M → 41 S(used 4) → 53 H(new),11.703,4.555,"stay out, then used softs"
+M → 40 S(used 4) → 53 H(new),11.616,4.59,"stay out, then used softs"
+M → 39 S(used 4) → 53 H(new),11.486,4.641,used softs at 39
+M → 41 S(used 4) → 54 H(new),11.407,4.696,"stay out, then used softs"
+M → 41 H(new) → 57 S(used 4),11.245,4.713,"stay out, then hards"
+M → 41 H(new) → 56 S(used 4),11.138,4.776,"stay out, then hards"
+M → 42 H(new) → 56 S(used 4),11.021,4.819,"stay out, then hards"
+M → 39 H(new) → 57 S(used 4),11.006,4.823,call: hards at 39
+M → 39 H(new) → 55 S(used 4),10.89,4.854,call: hards at 39
+M → 39 H(new) → 56 S(used 4),10.88,4.873,call: hards at 39
+M → 39 H(new) → 54 S(used 4),10.688,4.919,call: hards at 39
+M → 39 M(used 22) → 44 H(new),10.487,4.863,used medium at 39
+M → 39 M(used 22) → 45 H(new),10.117,5.034,used medium at 39
+M → 42 M(used 22) → 47 H(new),9.892,5.174,"stay out, then used medium"
+M → 39 M(used 22) → 46 H(new),9.771,5.193,used medium at 39
+M → 43 M(used 22) → 48 H(new),9.611,5.349,"stay out, then used medium"
+M → 39 H(new) → 52 H(new),9.601,5.417,call: hards at 39
+M → 41 H(new) → 55 H(new),9.566,5.49,"stay out, then hards"
+M → 41 H(new) → 54 H(new),9.548,5.476,"stay out, then hards"
+M → 39 H(new) → 53 H(new),9.513,5.472,call: hards at 39
+M → 40 H(new) → 54 H(new),9.429,5.521,"stay out, then hards"
+M → 39 M(used 22) → 50 S(used 4),9.403,5.411,used medium at 39
+M → 39 S(used 4) → 57 M(used 22),9.349,5.713,used softs at 39
+M → 39 H(new) → 54 H(new),9.349,5.566,call: hards at 39
+M → 46 S(used 4) → 62 M(used 22),9.283,5.849,"stay out, then used softs"
+M → 47 S(used 4) → 63 M(used 22),9.268,5.901,"stay out, then used softs"
+M → 47 M(used 22) → 53 S(used 4),9.256,5.754,"stay out, then used medium"
+M → 46 M(used 22) → 53 S(used 4),9.252,5.719,"stay out, then used medium"
+M → 47 S(used 4) → 62 M(used 22),9.233,5.893,"stay out, then used softs"
+M → 44 M(used 22) → 49 H(new),9.216,5.612,"stay out, then used medium"
+M → 39 M(used 22) → 51 S(used 4),9.18,5.526,used medium at 39
+M → 39 S(used 4) → 58 M(used 22),9.144,5.806,used softs at 39
+M → 39 M(used 22) → 52 S(used 4),9.103,5.59,used medium at 39
+M → 47 M(used 22) → 54 S(used 4),9.101,5.816,"stay out, then used medium"
+M → 39 S(used 4) → 59 M(used 22),8.912,5.943,used softs at 39
+M → 43 H(new) → 65 M(used 22),8.413,6.151,"stay out, then hards"
+M → 44 H(new) → 65 M(used 22),8.327,6.235,"stay out, then hards"
+M → 39 H(new) → 64 M(used 22),8.288,6.188,call: hards at 39
+M → 39 H(new) → 65 M(used 22),8.275,6.207,call: hards at 39
+M → 39 H(new) → 63 M(used 22),8.249,6.195,call: hards at 39
+M → 45 H(new) → 65 M(used 22),8.227,6.311,"stay out, then hards"
+M → 40 H(new) → 47 S(used 6) → 57 S(used 4),7.894,6.379,"stay out, then hards"
+M → 39 H(new) → 47 S(used 6) → 57 S(used 4),7.842,6.408,call: hards at 39
+M → 40 H(new) → 48 S(used 6) → 58 S(used 4),7.829,6.464,"stay out, then hards"
+M → 39 H(new) → 48 S(used 6) → 57 S(used 4),7.821,6.481,call: hards at 39
+M → 39 M(used 22) → 44 S(used 6) → 56 S(used 4),7.808,6.311,used medium at 39
+M → 39 H(new) → 48 S(used 6) → 58 S(used 4),7.769,6.503,call: hards at 39
+M → 40 M(used 22) → 45 S(used 6) → 56 S(used 4),7.747,6.403,"stay out, then used medium"
+M → 39 M(used 22) → 44 S(used 6) → 55 S(used 4),7.727,6.357,used medium at 39
+M → 40 H(new) → 49 S(used 6) → 58 S(used 4),7.723,6.545,"stay out, then hards"
+M → 39 S(used 6) → 48 H(new) → 57 S(used 4),7.717,6.561,used softs at 39
+M → 41 M(used 22) → 46 S(used 6) → 57 S(used 4),7.681,6.482,"stay out, then used medium"
+M → 41 M(used 22) → 46 S(used 6) → 56 S(used 4),7.674,6.494,"stay out, then used medium"
+M → 39 S(used 6) → 49 H(new) → 57 S(used 4),7.657,6.614,used softs at 39
+M → 39 M(used 22) → 44 S(used 4) → 58 S(used 6),7.645,6.41,used medium at 39
+M → 39 S(used 6) → 49 H(new) → 58 S(used 4),7.638,6.655,used softs at 39
+M → 40 S(used 6) → 49 H(new) → 58 S(used 4),7.636,6.653,"stay out, then used softs"
+M → 40 S(used 6) → 50 H(new) → 57 S(used 4),7.544,6.75,"stay out, then used softs"
+M → 40 S(used 6) → 50 H(new) → 58 S(used 4),7.498,6.778,"stay out, then used softs"
+M → 39 M(used 22) → 44 H(new) → 57 S(used 4),7.366,6.553,used medium at 39
+M → 39 M(used 22) → 44 H(new) → 58 S(used 4),7.333,6.585,used medium at 39
+M → 39 M(used 22) → 44 H(new) → 56 S(used 4),7.333,6.602,used medium at 39
+M → 39 S(used 4) → 50 S(used 6) → 60 H(new),7.226,7.022,used softs at 39
+M → 40 H(new) → 48 H(new) → 57 S(used 4),7.2,6.859,"stay out, then hards"
+M → 40 M(used 22) → 45 H(new) → 56 S(used 4),7.198,6.713,"stay out, then used medium"
+M → 40 S(used 4) → 52 S(used 6) → 61 H(new),7.192,7.097,"stay out, then used softs"
+M → 39 M(used 22) → 44 S(used 4) → 56 H(new),7.192,6.696,used medium at 39
+M → 41 S(used 6) → 52 M(used 22) → 57 S(used 4),7.191,7.05,"stay out, then used softs"
+M → 40 M(used 22) → 45 H(new) → 57 S(used 4),7.19,6.695,"stay out, then used medium"
+M → 41 S(used 6) → 51 M(used 22) → 56 S(used 4),7.18,7.033,"stay out, then used softs"
+M → 40 S(used 4) → 51 S(used 6) → 61 H(new),7.171,7.061,"stay out, then used softs"
+M → 40 S(used 4) → 51 S(used 6) → 60 H(new),7.17,7.034,"stay out, then used softs"
+M → 39 M(used 22) → 44 S(used 4) → 55 H(new),7.169,6.716,used medium at 39
+M → 39 H(new) → 48 H(new) → 57 S(used 4),7.167,6.872,call: hards at 39
+M → 40 S(used 6) → 51 M(used 22) → 56 S(used 4),7.156,7.027,"stay out, then used softs"
+M → 39 S(used 4) → 51 S(used 6) → 61 H(new),7.149,7.099,used softs at 39
+M → 39 S(used 4) → 51 S(used 6) → 60 H(new),7.129,7.071,used softs at 39
+M → 39 M(used 22) → 44 S(used 4) → 57 H(new),7.128,6.725,used medium at 39
+M → 40 H(new) → 49 H(new) → 58 S(used 4),7.127,6.968,"stay out, then hards"
+M → 39 S(used 6) → 51 M(used 22) → 56 S(used 4),7.107,7.062,used softs at 39
+M → 41 M(used 22) → 46 H(new) → 57 S(used 4),7.103,6.811,"stay out, then used medium"
+M → 39 H(new) → 49 H(new) → 58 S(used 4),7.101,6.97,call: hards at 39
+M → 39 S(used 6) → 50 M(used 22) → 55 S(used 4),7.094,6.952,used softs at 39
+M → 40 H(new) → 49 H(new) → 57 S(used 4),7.093,6.953,"stay out, then hards"
+M → 39 H(new) → 49 H(new) → 57 S(used 4),7.061,6.96,call: hards at 39
+M → 40 M(used 22) → 45 S(used 4) → 57 H(new),7.02,6.836,"stay out, then used medium"
+M → 39 H(new) → 46 S(used 4) → 58 H(new),7.012,6.91,call: hards at 39
+M → 40 H(new) → 47 S(used 4) → 59 H(new),7.012,6.949,"stay out, then hards"
+M → 39 H(new) → 47 S(used 4) → 59 H(new),6.971,6.974,call: hards at 39
+M → 40 H(new) → 48 S(used 4) → 59 H(new),6.966,7.022,"stay out, then hards"
+M → 40 H(new) → 48 S(used 4) → 60 H(new),6.959,7.028,"stay out, then hards"
+M → 40 M(used 22) → 45 S(used 4) → 58 H(new),6.884,6.938,"stay out, then used medium"
+M → 41 S(used 6) → 52 S(used 4) → 65 M(used 22),6.882,7.341,"stay out, then used softs"
+M → 39 H(new) → 48 S(used 4) → 60 H(new),6.882,7.072,call: hards at 39
+M → 39 S(used 4) → 53 M(used 22) → 58 S(used 6),6.879,7.348,used softs at 39
+M → 41 M(used 22) → 46 S(used 4) → 58 H(new),6.822,7.058,"stay out, then used medium"
+M → 41 S(used 4) → 54 S(used 6) → 65 M(used 22),6.786,7.484,"stay out, then used softs"
+M → 42 S(used 4) → 55 S(used 6) → 65 M(used 22),6.765,7.486,"stay out, then used softs"
+M → 39 S(used 4) → 53 S(used 6) → 65 M(used 22),6.73,7.484,used softs at 39
+M → 39 S(used 6) → 51 S(used 4) → 65 M(used 22),6.718,7.375,used softs at 39
+M → 41 H(new) → 52 M(used 22) → 57 S(used 4),6.69,7.345,"stay out, then hards"
+M → 40 H(new) → 51 M(used 22) → 56 S(used 4),6.676,7.292,"stay out, then hards"
+M → 40 S(used 4) → 51 H(new) → 59 H(new),6.669,7.406,"stay out, then used softs"
+M → 39 S(used 4) → 51 H(new) → 58 H(new),6.664,7.415,used softs at 39
+M → 39 S(used 4) → 54 S(used 6) → 65 M(used 22),6.664,7.569,used softs at 39
+M → 40 S(used 4) → 52 H(new) → 59 H(new),6.659,7.466,"stay out, then used softs"
+M → 39 S(used 4) → 51 H(new) → 59 H(new),6.647,7.435,used softs at 39
+M → 40 H(new) → 52 M(used 22) → 57 S(used 4),6.642,7.363,"stay out, then hards"
+M → 39 H(new) → 51 M(used 22) → 56 S(used 4),6.64,7.313,call: hards at 39
+M → 40 S(used 4) → 52 H(new) → 60 H(new),6.635,7.497,"stay out, then used softs"
+M → 39 S(used 4) → 50 M(used 22) → 55 H(new),6.617,7.36,used softs at 39
+M → 39 S(used 4) → 51 H(new) → 60 H(new),6.614,7.489,used softs at 39
+M → 39 H(new) → 52 M(used 22) → 57 S(used 4),6.604,7.384,call: hards at 39
+M → 39 S(used 4) → 51 M(used 22) → 56 H(new),6.551,7.478,used softs at 39
+M → 39 H(new) → 53 M(used 22) → 58 S(used 4),6.539,7.492,call: hards at 39
+M → 40 S(used 4) → 52 M(used 22) → 57 H(new),6.46,7.575,"stay out, then used softs"
+M → 39 S(used 4) → 52 M(used 22) → 57 H(new),6.445,7.591,used softs at 39
+M → 39 M(used 22) → 44 H(new) → 56 H(new),6.43,7.174,used medium at 39
+M → 39 M(used 22) → 44 H(new) → 57 H(new),6.391,7.19,used medium at 39
+M → 39 M(used 22) → 44 H(new) → 55 H(new),6.377,7.203,used medium at 39
+M → 41 S(used 4) → 53 M(used 22) → 58 H(new),6.364,7.71,"stay out, then used softs"
+M → 40 S(used 4) → 53 M(used 22) → 58 H(new),6.35,7.724,"stay out, then used softs"
+M → 41 H(new) → 53 S(used 4) → 65 M(used 22),6.315,7.695,"stay out, then hards"
+M → 40 M(used 22) → 45 H(new) → 56 H(new),6.305,7.299,"stay out, then used medium"
+M → 40 M(used 22) → 45 H(new) → 55 H(new),6.291,7.301,"stay out, then used medium"
+M → 40 M(used 22) → 45 H(new) → 57 H(new),6.286,7.299,"stay out, then used medium"
+M → 40 H(new) → 52 S(used 4) → 65 M(used 22),6.274,7.689,"stay out, then hards"
+M → 40 H(new) → 53 S(used 4) → 65 M(used 22),6.27,7.72,"stay out, then hards"
+M → 40 S(used 4) → 52 H(new) → 65 M(used 22),6.256,7.769,"stay out, then used softs"
+M → 40 S(used 4) → 53 H(new) → 65 M(used 22),6.252,7.78,"stay out, then used softs"
+M → 39 S(used 4) → 51 H(new) → 65 M(used 22),6.248,7.731,used softs at 39
+M → 41 S(used 4) → 54 H(new) → 65 M(used 22),6.23,7.849,"stay out, then used softs"
+M → 39 S(used 4) → 52 H(new) → 65 M(used 22),6.23,7.8,used softs at 39
+M → 39 H(new) → 51 S(used 4) → 65 M(used 22),6.227,7.665,call: hards at 39
+M → 39 H(new) → 52 S(used 4) → 65 M(used 22),6.218,7.716,call: hards at 39
+M → 39 H(new) → 53 S(used 4) → 65 M(used 22),6.2,7.758,call: hards at 39
+M → 39 S(used 4) → 53 H(new) → 65 M(used 22),6.195,7.84,used softs at 39
+M → 40 H(new) → 50 M(used 22) → 55 H(new),6.052,7.748,"stay out, then hards"
+M → 39 H(new) → 50 M(used 22) → 55 H(new),6.029,7.756,call: hards at 39
+M → 40 H(new) → 51 M(used 22) → 56 H(new),5.982,7.846,"stay out, then hards"
+M → 39 H(new) → 51 M(used 22) → 56 H(new),5.946,7.869,call: hards at 39
+M → 40 H(new) → 52 M(used 22) → 57 H(new),5.896,7.96,"stay out, then hards"
+M → 39 H(new) → 52 M(used 22) → 57 H(new),5.87,7.971,call: hards at 39
+M → 40 H(new) → 52 H(new) → 65 M(used 22),5.623,8.234,"stay out, then hards"
+M → 41 H(new) → 53 H(new) → 65 M(used 22),5.609,8.281,"stay out, then hards"
+M → 39 H(new) → 51 H(new) → 65 M(used 22),5.599,8.209,call: hards at 39
+M → 40 H(new) → 53 H(new) → 65 M(used 22),5.595,8.274,"stay out, then hards"
+M → 39 H(new) → 52 H(new) → 65 M(used 22),5.576,8.271,call: hards at 39
+M → 39 H(new) → 53 H(new) → 65 M(used 22),5.538,8.327,call: hards at 39

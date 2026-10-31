@@ -298,3 +298,174 @@ selection set):
   and Leclerc's own hard stint effect, and the stint lies after the cutoff.
   So at the decision lap Ferrari's hard pace is a prior plus the season
   tendency. This is exactly what the hard-wear checks probe.
+
+### Results
+
+Run: `uv run python -m f1strat.case_study hungary`. Outputs in
+`reports/figures/`:
+- `case_hungary_results.json` (every number below);
+- `case_hungary_candidates.csv` (all 164 candidates on the selection set);
+- `case_hungary_break_even.json`;
+- figures `case_hungary_points.png`, `case_hungary_sensitivity.png`,
+  `case_hungary_hindsight.png`.
+
+**Inputs at the cutoff.**
+- **Fit:** 11 races (8,709 race laps) plus 233 Hungary practice laps; 40.7
+  min. Max R-hat 1.003, min ESS 2,002 (bulk) / 3,194 (tail), **0
+  divergences** on the first attempt.
+- **Ferrari's hard terms in the cutoff fit:**
+  - wear (`deg[hard] + team_deg[Ferrari, hard]`): 0.027 s/lap, p10–p90
+    0.014–0.039;
+  - pace (`team_compound[Ferrari, hard, Hungary]`): +0.01 s, p10–p90 −0.15
+    to +0.17.
+  - The field's new hard is 1.12 s/lap slower than a new medium at Hungary.
+- **Leakage-free parameters** (dry rounds 1–12 before Hungary):
+  - **Hungary pass intercept −4.61**, from the 2021 race (130 events, 14
+    passes), against a pooled −2.78: Hungary is much harder to pass at than
+    average.
+  - Slope 2.74; pass shift +0.91 (replay of rounds 1, 2, 3, 5, 6, 8, 9, 12).
+  - SC closing ratio 0.66; SC and VSC start 1.54% per green lap each.
+- **Pit losses:** 22 green-flag stops. Verstappen's known stop adds a 19.5 s
+  out-lap loss.
+- **Leclerc's sets:** new hard ×2, used soft (out-lap TyreLife 4 and 6), used
+  race medium (TyreLife 22).
+- **Candidates:** 164 plans simulated with the whole field.
+- **The tyre-age cap removed 2,753 otherwise legal plans** from Leclerc's
+  search.
+  - The best removed plans are one stop to the 4-lap soft at laps 45–48:
+    `M → 48 S(used 4)` and similar. That runs the soft 23–26 laps, past its
+    24-lap cap.
+  - The best surviving plan in that family stops at lap 50 (soft to TyreLife
+    24 exactly).
+
+**Verdict: within range, robust.**
+- **The best plan overall is the call itself:** `M → 39 H(new)`, hards at
+  lap 39 run to the flag.
+- So the primary loss (best overall − best call-family plan) is exactly 0 on
+  the measurement set: mean 0.0, 10th–90th percentile 0 to 0. The call
+  family finishes level with or ahead of the best plan in 100% of
+  simulations.
+
+Measurement set (2,000 fresh simulations), Leclerc's points:
+
+| Plan (family) | Plan | Mean points | Mean position | P(win) | P(podium) |
+|---|---|---|---|---|---|
+| **Best overall = call: hards at 39 = hards to the flag** | M → 39 H(new) | **19.9** | 2.03 | 0.47 | 0.86 |
+| Stay out, then hards | M → 43 H(new) | 18.8 | 2.22 | 0.35 | 0.87 |
+| Stay out, then used softs | M → 50 S(used 4) | 17.2 | 2.67 | 0.24 | 0.81 |
+| Used softs at 39 | M → 39 S(used 6) → 53 S(used 4) | 12.1 | 4.43 | 0.05 | 0.33 |
+| **As run** | M → 39 H(new) → 54 S(used 4) | 10.9 | 4.87 | 0.02 | 0.21 |
+| Used medium at 39 | M → 39 M(used 22) → 44 H(new) | 10.5 | 4.88 | 0.01 | 0.15 |
+| Stay out, then used medium | M → 42 M(used 22) → 47 H(new) | 9.9 | 5.18 | 0.00 | 0.12 |
+
+- **The as-run plan** loses a mean **9.0 points** to the best plan (median
+  9, 10th–90th percentile 0–17). It finishes level or ahead in only 11%.
+  - In the model, the cost is entirely the later decision: a third stop at
+    lap 54 (≈ 23 s of pit loss at a circuit where the 2021 data say passing
+    is very hard).
+  - That later decision was made with information the model does not have
+    at lap 38: how Leclerc's hards actually ran in the cool conditions.
+  - It is not part of the verdict on the call.
+- **New mediums:** not available (no new medium left).
+- **Used race medium:** the worst family (≈ 10 points). That set was 21 laps
+  old and capped at 14 more laps, so it forces a further stop.
+
+![Leclerc's points per plan at the decision lap](../reports/figures/case_hungary_points.png)
+
+**Robustness: the band is the same under every check.**
+
+| Check | Band | Primary mean loss | Best plan overall | As-run mean loss |
+|---|---|---|---|---|
+| Main | within range | 0.0 | M → 39 H(new) | 9.0 |
+| Widening ×1.188 | within range | 0.0 | M → 39 H(new) | 8.5 |
+| Ferrari hard wear p10 (0.014 s/lap) | within range | −0.08 | M → 40 H(new) | 9.9 |
+| Ferrari hard wear p90 (0.039 s/lap) | within range | 0.0 | M → 39 H(new) | 7.8 |
+| Ferrari hard pace p10 (−0.15 s) | within range | 0.0 | M → 39 H(new) | 9.8 |
+| Ferrari hard pace p90 (+0.17 s) | within range | 0.0 | M → 39 H(new) | 8.2 |
+| SC/VSC rate ×0.5 | within range | 0.0 | M → 39 H(new) | 8.6 |
+| SC/VSC rate ×2 | within range | 0.0 | M → 39 H(new) | 9.6 |
+
+- **Ferrari hard wear p10:** the selection set picked hards one lap later
+  (lap 40). On the fresh set the call scored slightly better (mean loss
+  −0.08), which is selection noise.
+
+![Verdict under each robustness check](../reports/figures/case_hungary_sensitivity.png)
+
+**Exploratory, not part of the committed rule: how much slower would
+Ferrari's hards have to be?**
+- The p10/p90 pace checks span only the cutoff fit's uncertainty (±0.16 s),
+  and Ferrari ran no hards all weekend. So the full procedure was rerun with
+  Ferrari's hard pace shifted further:
+
+| Ferrari hards slower by | Band | Mean loss | Call level or ahead | Best plan overall |
+|---|---|---|---|---|
+| +0.25 s/lap | within range | 0.0 | 100% | M → 39 H(new) |
+| +0.50 s/lap | marginal | 2.4 | 45% | M → 50 S(used 4) |
+| +0.75 s/lap | marginal | 4.7 | 28% | M → 50 S(used 4) |
+| +1.00 s/lap | **outside range** | 6.7 | 16% | M → 50 S(used 4) |
+
+- **Break-even:** the call stops being the best plan between +0.25 and
+  +0.5 s/lap, and falls outside the range of good options at about
+  +1 s/lap. The alternative that takes over is staying out on the mediums
+  to lap 50, then the 4-lap soft.
+- **What the full fit says in hindsight:** with Leclerc's hard laps
+  included, Ferrari's Hungary hard deficit is +0.22 s/lap (Ferrari's
+  Hungary hard term plus Leclerc's hard-stint effect, 80% interval
+  +0.04 to +0.40; Phase 3). That is below the +0.5 s where the band would
+  move.
+- So even knowing how the hards ran, the model does not say the call was
+  outside the range. The model's linear wear and its season-level Ferrari
+  terms would miss a larger, temperature-driven problem; nothing in the data
+  up to lap 38 shows one.
+
+**Hindsight replay (outcome, not the verdict).**
+- Full-season fit, the actual SC/VSC after lap 38 (VSC laps 68–69), rivals
+  on their actual plans, Bottas retiring on lap 65.
+- **Leclerc actually finished P6 (8 points).**
+
+| Plan | Hindsight mean points | Mean position | P(win) |
+|---|---|---|---|
+| Best in hindsight: M → 51 S(used 4) | **17.4** | 2.56 | 0.24 |
+| Stay out, then used softs: M → 50 S(used 4) | 17.3 | 2.57 | 0.23 |
+| Stay out, then hards: M → 43 H(new) | 15.9 | 3.01 | 0.18 |
+| **The call: M → 39 H(new)** (hards to the flag) | 15.8 | 3.09 | 0.20 |
+| Used softs at 39 | 11.8 | 4.33 | 0.02 |
+| **As run: M → 39 H(new) → 54 S(used 4)** | 10.9 | 4.65 | 0.01 |
+| Used medium at 39 / stay out, then used medium | 9.2 / 9.3 | 5.4 | 0.00 |
+
+- **In hindsight the call is still a good plan:** 15.8 points, 1.6 behind the
+  best in hindsight.
+- **The best plan in hindsight** stays out to lap 51 and finishes on the
+  used soft. Likely reasons (not separately tested):
+  - the actual race had no SC after lap 38, only a late VSC, so nothing
+    rewarded an early stop;
+  - rivals ran their actual, less aggressive plans.
+- **The as-run result** (8 points) is close to the as-run plan's hindsight
+  distribution (10.9 points, mean P4.7). The big loss came from adding the
+  lap-54 stop, not from the lap-39 call.
+- **Limitation:** future stints draw a fresh stint effect, so the replay
+  does not reuse the full fit's estimate of Leclerc's actual hard stint
+  (+0.09 s/lap). That flatters hard plans in hindsight by about
+  0.09 × 31 ≈ 3 s, roughly one place at most here.
+
+![Decision lap vs hindsight](../reports/figures/case_hungary_hindsight.png)
+
+### Hungary conclusion
+
+**Using only what the pit wall knew at the end of lap 38, hards at lap 39 was
+within the range of good options. In fact it was the model's best plan, and
+the band holds under every robustness check.**
+- The plausible alternative, staying out on the mediums to about lap 50 and
+  finishing on the 4-lap soft, overtakes the call only if Ferrari's hards
+  were at least ~0.5 s/lap slower than the season-level model expects. Only
+  at about +1 s/lap does the call fall outside the range.
+- What cost Leclerc the result in the model is the later switch to softs
+  at lap 54, a separate decision taken with information the model does not
+  have.
+
+Limits specific to this verdict:
+- It concerns Leclerc's points only.
+- Ferrari's hard pace rests on its season tendency (no Ferrari hard laps all
+  weekend).
+- Wear is linear, so a temperature-driven hard problem would not be seen.
+- Ferrari knew its own fuel loads and modes.

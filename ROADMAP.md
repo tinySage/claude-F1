@@ -306,7 +306,10 @@ Open issues for Phase 6:
   rests on 3 SC periods. Silverstone's verdict depends on this
   (`docs/validation.md`); state it as a limitation.
 - **Use widening 1.0** and report ×1.188 as a sensitivity check.
-- [ ] Hungary
+- **Hindsight replay draws future stint effects** (Hungary). It does not reuse
+  a stint's fitted effect even when the plan matches the actual stint. Small
+  at Hungary (≈ 3 s); check its size for Silverstone and Monaco.
+- [x] Hungary: **within range, robust** (`docs/case_studies.md`). Hards at lap 39 is the model's best plan at the decision lap. The band changes only if Ferrari's hards were ≥ 0.5 s/lap slower than the model expects (full-fit hindsight estimate: +0.22). The as-run plan loses ~9 points through the later lap-54 switch to softs.
 - [ ] Silverstone
 - [ ] Monaco (wet crossover; state limitations)
 
