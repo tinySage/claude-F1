@@ -393,7 +393,38 @@ Open issues for Phase 6:
 ## Phase 7: Ship
 - [ ] Charts
 - [ ] README
-- [ ] Clean modules
+- [x] Clean modules (`pitwall` command line, ruff, dead code removed, fast tests in CI)
 - [ ] Portfolio case study page
 
 **Done when:** a reader can clone the repo, reproduce the results, and read the case study page.
+
+## What I'd do next
+
+Each item is aimed at a verdict this project could not give, or a limit it
+had to state.
+
+- **A restart model (Silverstone).** Silverstone is inconclusive because the
+  simulator cannot reproduce the three laps after the restart: Leclerc lost
+  0.87 s/lap more to Sainz than forecast, and the field made 9 passes against
+  1–3 simulated. The restart layer estimated from 2022 (`f1strat.restart`)
+  did not generalise.
+  - Test the unverified explanation first: a defending cost on the defender's
+    lap time when a pass is attempted, estimated from 2022 pass events.
+  - Then a restart effect with physical inputs the public timing data lacks
+    (tyre temperature after an SC, hards against new softs), or many more
+    restarts of old hards against new softs from later seasons.
+- **A wet and crossover pace model (Monaco).** Monaco's two decisions are not
+  assessable at the cutoff: the lap model is dry-only, and the public data had
+  no slick pace identified by 2+ cars on 2+ laps when Ferrari decided.
+  - A model of intermediate and slick pace on a drying track (a latent track
+    state shared by every car, compound-specific crossover) would let D1 and
+    D2 be judged at their cutoffs.
+  - It would also bring Imola, Singapore and Suzuka 2022 into the fit, which
+    are excluded today as mixed-conditions races.
+- **Newer seasons.** Refit and backtest on 2023–2025.
+  - More Ferrari hard stints and more late-race restarts would test whether
+    the Hungary and Silverstone conclusions hold beyond one season.
+  - Passing and SC parameters would need refitting: the cars changed.
+  - The blocker is data access: 2023–2026 live timing returns 401 without an
+    F1 account, and the FastF1 mirror used for 2021 has no copy (Decisions
+    log, Phase 2).
