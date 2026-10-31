@@ -1,0 +1,14 @@
+check,band,mean_loss,p10,p90,call_label
+main,within range,0.0,0.0,0.0,stay out at 39
+widening x1.188,within range,0.0,0.0,0.0,stay out at 39
+Ferrari hard wear p10,within range,0.0,0.0,0.0,stay out at 39
+Ferrari hard wear p90,within range,0.0,0.0,0.0,stay out at 39
+Ferrari hard pace p10,within range,0.0,0.0,0.0,stay out at 39
+Ferrari hard pace p90,within range,0.0,0.0,0.0,stay out at 39
+SC/VSC rate x0.5,within range,0.0,0.0,0.0,stay out at 39
+SC/VSC rate x2,within range,0.0,0.0,0.0,stay out at 39
+SC length p10,within range,0.0,0.0,0.0,stay out at 39
+SC length p90,within range,0.0,0.0,0.0,stay out at 39
+double-stack loss x0.5,within range,0.0,0.0,0.0,stay out at 39
+double-stack loss x2,within range,0.0,0.0,0.0,stay out at 39
+Leclerc's new hard removed,within range,0.0,0.0,0.0,stay out at 39

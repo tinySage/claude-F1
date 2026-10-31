@@ -18,7 +18,8 @@ from f1strat.cli import build_parser
         ["case-study", "hungary"],
         ["case-study", "silverstone", "--hindsight-only"],
         ["case-study", "monaco"],
-        ["figures", "--no-notebooks"],
+        ["figures"],
+        ["figures", "--export", "--notebooks"],
     ],
 )
 def test_commands_parse(argv: list[str]) -> None:

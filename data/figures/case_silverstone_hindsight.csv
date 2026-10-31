@@ -1,0 +1,7 @@
+kind,label,plan,decision_points,hindsight_points,race,cutoff,actual_position,actual_points
+plan,best overall = call: stay out at 39 = as run = hards to the flag,H,23.3165,24.626,Silverstone,38,4,12
+plan,pit at 39: hard (new),H → 39 H(new),19.044,22.526,Silverstone,38,4,12
+plan,pit at 39: medium (used 2),H → 39 M(used 2),19.899,23.444,Silverstone,38,4,12
+plan,pit at 39: medium (used 25),H → 39 M(used 25) → 44 S(new),7.008,6.357,Silverstone,38,4,12
+plan,pit at 39: soft (new),H → 39 S(new),21.441,23.747,Silverstone,38,4,12
+best in hindsight,best in hindsight,H,,24.626,Silverstone,38,4,12

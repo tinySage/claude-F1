@@ -644,7 +644,7 @@ def run_monaco() -> dict:
     from f1strat.backtest import FIG_DIR
     from f1strat.data import load_season
 
-    raw, race = load_season(2022), load_season(2022, table="race")
+    raw = load_season(2022)
     s = prepared(raw)
     out = {"decisions": {}}
     for name, (cutoff, plans) in decisions().items():
@@ -679,7 +679,7 @@ def run_monaco() -> dict:
     pos, gap = order_and_gaps(raw, laps=range(12, 33), drivers=FERRARI_RB)
     out["gap_timeline"] = {int(k): v for k, v in gap.to_dict("index").items()}
     (FIG_DIR / "case_monaco_results.json").write_text(json.dumps(out, indent=1, default=str))
-    plot_gap_timeline(raw, race, FIG_DIR / "case_monaco_gaps.png")
+    plot_gap_timeline(gap_timeline_frame(raw), FIG_DIR / "case_monaco_gaps.png")
     plot_positions(out, FIG_DIR / "case_monaco_positions.png")
     return out
 
@@ -700,18 +700,40 @@ def _style(ax) -> None:
     ax.tick_params(colors=INK2, labelsize=9)
 
 
-def plot_gap_timeline(raw: pd.DataFrame, race: pd.DataFrame, path: Path) -> object:
+def gap_timeline_frame(raw: pd.DataFrame, laps: range = range(12, 33)) -> pd.DataFrame:
+    """Ferrari and Red Bull per lap: gap behind the leader at the line (s),
+    compound code and whether it was an in lap (``data/figures`` table)."""
+    s = prepared(raw)
+    t = s.pivot(index="LapNumber", columns="Driver", values="time_s").loc[list(laps)]
+    gap = t.sub(t.min(axis=1), axis=0)
+    rows = []
+    for d in CAR_COLOURS:
+        g = s[s["Driver"] == d].set_index("LapNumber").reindex(list(laps))
+        for L in laps:
+            c = g.at[L, "c"]
+            rows.append(
+                {
+                    "lap": L,
+                    "driver": d,
+                    "gap_s": gap.at[L, d],
+                    "compound": c if isinstance(c, str) else None,
+                    "in_lap": bool(g.at[L, "in_lap"]),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def plot_gap_timeline(frame: pd.DataFrame, path: Path) -> object:
     """Ferrari and Red Bull through the crossover: gap behind the leader at
-    the line, with compounds, stops, the SC and the red flag."""
+    the line, with compounds, stops, the SC and the red flag
+    (``frame`` from :func:`gap_timeline_frame`)."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    s = prepared(raw)
-    laps = range(12, 33)
-    t = s.pivot(index="LapNumber", columns="Driver", values="time_s").loc[list(laps)]
-    gap = t.sub(t.min(axis=1), axis=0)
+    laps = range(int(frame["lap"].min()), int(frame["lap"].max()) + 1)
+    gap = frame.pivot(index="lap", columns="driver", values="gap_s")
     fig, ax = plt.subplots(figsize=(10, 5.2), facecolor=SURFACE)
     _style(ax)
     ax.axvspan(26.5, 29.5, color=GRID, alpha=0.7, lw=0)
@@ -720,10 +742,10 @@ def plot_gap_timeline(raw: pd.DataFrame, race: pd.DataFrame, path: Path) -> obje
     ax.text(30, 26, "red\nflag", ha="center", fontsize=8, color=INK2)
     marks = {"W": "o", "I": "s", "H": "^", "M": "D"}
     for d, col in CAR_COLOURS.items():
-        g = s[s["Driver"] == d].set_index("LapNumber").reindex(list(laps))
+        g = frame[frame["driver"] == d].set_index("lap")
         ax.plot(list(laps), gap[d], color=col, lw=2, label=d)
         for L in laps:
-            c = g.at[L, "c"]
+            c = g.at[L, "compound"]
             if isinstance(c, str):
                 ax.plot(L, gap.at[L, d], marks.get(c, "o"), color=col, ms=5, mec=SURFACE)
             if bool(g.at[L, "in_lap"]) and L < 27:  # stops, not the red-flag pit entry

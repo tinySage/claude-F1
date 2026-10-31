@@ -1,0 +1,28 @@
+row,label,plan,mean_points,points,share,race,cutoff
+0,best overall = call: stay out at 39 = as run = hards to the flag,H,23.3165,12,0.004,Silverstone,38
+0,best overall = call: stay out at 39 = as run = hards to the flag,H,23.3165,15,0.0305,Silverstone,38
+0,best overall = call: stay out at 39 = as run = hards to the flag,H,23.3165,18,0.1895,Silverstone,38
+0,best overall = call: stay out at 39 = as run = hards to the flag,H,23.3165,25,0.776,Silverstone,38
+1,pit at 39: hard (new),H → 39 H(new),19.044,10,0.0005,Silverstone,38
+1,pit at 39: hard (new),H → 39 H(new),19.044,12,0.0215,Silverstone,38
+1,pit at 39: hard (new),H → 39 H(new),19.044,15,0.2365,Silverstone,38
+1,pit at 39: hard (new),H → 39 H(new),19.044,18,0.472,Silverstone,38
+1,pit at 39: hard (new),H → 39 H(new),19.044,25,0.2695,Silverstone,38
+2,pit at 39: medium (used 2),H → 39 M(used 2),19.899,10,0.0005,Silverstone,38
+2,pit at 39: medium (used 2),H → 39 M(used 2),19.899,12,0.0145,Silverstone,38
+2,pit at 39: medium (used 2),H → 39 M(used 2),19.899,15,0.172,Silverstone,38
+2,pit at 39: medium (used 2),H → 39 M(used 2),19.899,18,0.455,Silverstone,38
+2,pit at 39: medium (used 2),H → 39 M(used 2),19.899,25,0.358,Silverstone,38
+3,pit at 39: medium (used 25),H → 39 M(used 25) → 44 S(new),7.008,0,0.048,Silverstone,38
+3,pit at 39: medium (used 25),H → 39 M(used 25) → 44 S(new),7.008,1,0.049,Silverstone,38
+3,pit at 39: medium (used 25),H → 39 M(used 25) → 44 S(new),7.008,2,0.0845,Silverstone,38
+3,pit at 39: medium (used 25),H → 39 M(used 25) → 44 S(new),7.008,4,0.108,Silverstone,38
+3,pit at 39: medium (used 25),H → 39 M(used 25) → 44 S(new),7.008,6,0.132,Silverstone,38
+3,pit at 39: medium (used 25),H → 39 M(used 25) → 44 S(new),7.008,8,0.28,Silverstone,38
+3,pit at 39: medium (used 25),H → 39 M(used 25) → 44 S(new),7.008,10,0.146,Silverstone,38
+3,pit at 39: medium (used 25),H → 39 M(used 25) → 44 S(new),7.008,12,0.1405,Silverstone,38
+3,pit at 39: medium (used 25),H → 39 M(used 25) → 44 S(new),7.008,15,0.012,Silverstone,38
+4,pit at 39: soft (new),H → 39 S(new),21.441,12,0.0035,Silverstone,38
+4,pit at 39: soft (new),H → 39 S(new),21.441,15,0.0815,Silverstone,38
+4,pit at 39: soft (new),H → 39 S(new),21.441,18,0.3855,Silverstone,38
+4,pit at 39: soft (new),H → 39 S(new),21.441,25,0.5295,Silverstone,38

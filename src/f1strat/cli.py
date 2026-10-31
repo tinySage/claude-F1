@@ -2,10 +2,10 @@
 
 Two paths (``README.md``, "Quick start" and "Full reproduction"):
 
-- **Quick:** ``pitwall figures`` redraws every figure from the committed data,
-  the committed thinned posterior and the committed result files. No refits.
+- **Quick:** ``pitwall figures`` redraws every figure from the tables in
+  ``data/figures/`` (:mod:`f1strat.figure_data`). No fits, no simulations.
 - **Full:** ``data`` → ``clean`` → ``fit`` (→ ``thin``) → ``backtest`` →
-  ``case-study hungary|silverstone|monaco`` → ``figures``, from raw FastF1
+  ``case-study hungary|silverstone|monaco`` → ``figures --export``, from raw FastF1
   downloads. Runtimes are listed per command in ``pitwall --help``.
 
 Each command calls the ``main`` of the module that owns the step, so the
@@ -31,7 +31,7 @@ RUNTIMES: dict[str, str] = {
         "hungary ~3 h (two cutoff refits, 8 checks each); "
         "silverstone ~2.5 h (v1 and v2); monaco ~2 min"
     ),
-    "figures": "~5 min (~2 min with --no-notebooks)",
+    "figures": "~1 min (--export adds ~2 min; --notebooks ~4 min)",
 }
 
 
@@ -157,10 +157,11 @@ def cmd_case_study(args: argparse.Namespace) -> None:
 
 
 def cmd_figures(args: argparse.Namespace) -> None:
-    """Redraw every figure from committed files; no refits."""
+    """Redraw every figure from the tables in data/figures; no fits, no
+    simulations, no downloads."""
     from f1strat import figures
 
-    figures.main(notebooks=not args.no_notebooks, readme_only=args.readme)
+    figures.main(export=args.export, notebooks=args.notebooks, readme_only=args.readme)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -170,7 +171,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="What the Pit Wall Knew: Ferrari's 2022 strategy calls, judged with "
         "only what was known at the time.",
         epilog="Quick path: `pitwall figures`. Full path: data, clean, fit, backtest all, "
-        "case-study hungary|silverstone|monaco, figures.",
+        "case-study hungary|silverstone|monaco, figures --export.",
     )
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -209,12 +210,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="rerun only the hindsight replays from the saved verdicts",
     )
-    s = add("figures", cmd_figures, "redraw every figure from committed files")
+    s = add("figures", cmd_figures, "redraw every figure from data/figures")
     s.add_argument(
-        "--no-notebooks",
+        "--export",
         action="store_true",
-        help="skip executing the notebooks (their figures and tables)",
+        help="first rebuild data/figures from the result files, processed laps and "
+        "committed thinned fits (after a full-path step)",
     )
+    s.add_argument("--notebooks", action="store_true", help="also execute the notebooks")
     s.add_argument("--readme", action="store_true", help="only the README assets")
     return p
 

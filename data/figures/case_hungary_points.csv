@@ -1,0 +1,71 @@
+row,label,plan,mean_points,points,share,race,cutoff
+0,best overall = call: hards at 39 = hards to the flag,M → 39 H(new),19.8655,6,0.0015,Hungary,38
+0,best overall = call: hards at 39 = hards to the flag,M → 39 H(new),19.8655,8,0.014,Hungary,38
+0,best overall = call: hards at 39 = hards to the flag,M → 39 H(new),19.8655,10,0.044,Hungary,38
+0,best overall = call: hards at 39 = hards to the flag,M → 39 H(new),19.8655,12,0.077,Hungary,38
+0,best overall = call: hards at 39 = hards to the flag,M → 39 H(new),19.8655,15,0.152,Hungary,38
+0,best overall = call: hards at 39 = hards to the flag,M → 39 H(new),19.8655,18,0.241,Hungary,38
+0,best overall = call: hards at 39 = hards to the flag,M → 39 H(new),19.8655,25,0.4705,Hungary,38
+1,used softs at 39,M → 39 S(used 6) → 53 S(used 4),12.064,0,0.0305,Hungary,38
+1,used softs at 39,M → 39 S(used 6) → 53 S(used 4),12.064,1,0.005,Hungary,38
+1,used softs at 39,M → 39 S(used 6) → 53 S(used 4),12.064,2,0.002,Hungary,38
+1,used softs at 39,M → 39 S(used 6) → 53 S(used 4),12.064,4,0.009,Hungary,38
+1,used softs at 39,M → 39 S(used 6) → 53 S(used 4),12.064,6,0.0305,Hungary,38
+1,used softs at 39,M → 39 S(used 6) → 53 S(used 4),12.064,8,0.156,Hungary,38
+1,used softs at 39,M → 39 S(used 6) → 53 S(used 4),12.064,10,0.206,Hungary,38
+1,used softs at 39,M → 39 S(used 6) → 53 S(used 4),12.064,12,0.2345,Hungary,38
+1,used softs at 39,M → 39 S(used 6) → 53 S(used 4),12.064,15,0.178,Hungary,38
+1,used softs at 39,M → 39 S(used 6) → 53 S(used 4),12.064,18,0.0955,Hungary,38
+1,used softs at 39,M → 39 S(used 6) → 53 S(used 4),12.064,25,0.053,Hungary,38
+2,used medium at 39,M → 39 M(used 22) → 44 H(new),10.4995,0,0.0015,Hungary,38
+2,used medium at 39,M → 39 M(used 22) → 44 H(new),10.4995,1,0.002,Hungary,38
+2,used medium at 39,M → 39 M(used 22) → 44 H(new),10.4995,2,0.001,Hungary,38
+2,used medium at 39,M → 39 M(used 22) → 44 H(new),10.4995,4,0.005,Hungary,38
+2,used medium at 39,M → 39 M(used 22) → 44 H(new),10.4995,6,0.042,Hungary,38
+2,used medium at 39,M → 39 M(used 22) → 44 H(new),10.4995,8,0.2965,Hungary,38
+2,used medium at 39,M → 39 M(used 22) → 44 H(new),10.4995,10,0.315,Hungary,38
+2,used medium at 39,M → 39 M(used 22) → 44 H(new),10.4995,12,0.1865,Hungary,38
+2,used medium at 39,M → 39 M(used 22) → 44 H(new),10.4995,15,0.1075,Hungary,38
+2,used medium at 39,M → 39 M(used 22) → 44 H(new),10.4995,18,0.032,Hungary,38
+2,used medium at 39,M → 39 M(used 22) → 44 H(new),10.4995,25,0.011,Hungary,38
+3,"stay out, then hards",M → 43 H(new),18.8275,0,0.0005,Hungary,38
+3,"stay out, then hards",M → 43 H(new),18.8275,6,0.0025,Hungary,38
+3,"stay out, then hards",M → 43 H(new),18.8275,8,0.0105,Hungary,38
+3,"stay out, then hards",M → 43 H(new),18.8275,10,0.036,Hungary,38
+3,"stay out, then hards",M → 43 H(new),18.8275,12,0.077,Hungary,38
+3,"stay out, then hards",M → 43 H(new),18.8275,15,0.2475,Hungary,38
+3,"stay out, then hards",M → 43 H(new),18.8275,18,0.274,Hungary,38
+3,"stay out, then hards",M → 43 H(new),18.8275,25,0.352,Hungary,38
+4,"stay out, then used softs",M → 50 S(used 4),17.2055,0,0.006,Hungary,38
+4,"stay out, then used softs",M → 50 S(used 4),17.2055,1,0.0025,Hungary,38
+4,"stay out, then used softs",M → 50 S(used 4),17.2055,2,0.0035,Hungary,38
+4,"stay out, then used softs",M → 50 S(used 4),17.2055,4,0.004,Hungary,38
+4,"stay out, then used softs",M → 50 S(used 4),17.2055,6,0.0075,Hungary,38
+4,"stay out, then used softs",M → 50 S(used 4),17.2055,8,0.019,Hungary,38
+4,"stay out, then used softs",M → 50 S(used 4),17.2055,10,0.0485,Hungary,38
+4,"stay out, then used softs",M → 50 S(used 4),17.2055,12,0.094,Hungary,38
+4,"stay out, then used softs",M → 50 S(used 4),17.2055,15,0.3325,Hungary,38
+4,"stay out, then used softs",M → 50 S(used 4),17.2055,18,0.24,Hungary,38
+4,"stay out, then used softs",M → 50 S(used 4),17.2055,25,0.2425,Hungary,38
+5,"stay out, then used medium",M → 42 M(used 22) → 47 H(new),9.8625,0,0.012,Hungary,38
+5,"stay out, then used medium",M → 42 M(used 22) → 47 H(new),9.8625,1,0.0065,Hungary,38
+5,"stay out, then used medium",M → 42 M(used 22) → 47 H(new),9.8625,2,0.009,Hungary,38
+5,"stay out, then used medium",M → 42 M(used 22) → 47 H(new),9.8625,4,0.009,Hungary,38
+5,"stay out, then used medium",M → 42 M(used 22) → 47 H(new),9.8625,6,0.0535,Hungary,38
+5,"stay out, then used medium",M → 42 M(used 22) → 47 H(new),9.8625,8,0.3225,Hungary,38
+5,"stay out, then used medium",M → 42 M(used 22) → 47 H(new),9.8625,10,0.303,Hungary,38
+5,"stay out, then used medium",M → 42 M(used 22) → 47 H(new),9.8625,12,0.167,Hungary,38
+5,"stay out, then used medium",M → 42 M(used 22) → 47 H(new),9.8625,15,0.092,Hungary,38
+5,"stay out, then used medium",M → 42 M(used 22) → 47 H(new),9.8625,18,0.0215,Hungary,38
+5,"stay out, then used medium",M → 42 M(used 22) → 47 H(new),9.8625,25,0.004,Hungary,38
+6,as run,M → 39 H(new) → 54 S(used 4),10.8505,0,0.031,Hungary,38
+6,as run,M → 39 H(new) → 54 S(used 4),10.8505,1,0.0045,Hungary,38
+6,as run,M → 39 H(new) → 54 S(used 4),10.8505,2,0.0065,Hungary,38
+6,as run,M → 39 H(new) → 54 S(used 4),10.8505,4,0.009,Hungary,38
+6,as run,M → 39 H(new) → 54 S(used 4),10.8505,6,0.0385,Hungary,38
+6,as run,M → 39 H(new) → 54 S(used 4),10.8505,8,0.2185,Hungary,38
+6,as run,M → 39 H(new) → 54 S(used 4),10.8505,10,0.2575,Hungary,38
+6,as run,M → 39 H(new) → 54 S(used 4),10.8505,12,0.2235,Hungary,38
+6,as run,M → 39 H(new) → 54 S(used 4),10.8505,15,0.128,Hungary,38
+6,as run,M → 39 H(new) → 54 S(used 4),10.8505,18,0.062,Hungary,38
+6,as run,M → 39 H(new) → 54 S(used 4),10.8505,25,0.021,Hungary,38

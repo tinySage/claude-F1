@@ -1,0 +1,9 @@
+kind,label,plan,decision_points,hindsight_points,race,cutoff,actual_position,actual_points
+plan,best overall = call: hards at 39 = hards to the flag,M → 39 H(new),19.8655,15.747,Hungary,38,6,8
+plan,used softs at 39,M → 39 S(used 6) → 53 S(used 4),12.064,12.478,Hungary,38,6,8
+plan,used medium at 39,M → 39 M(used 22) → 44 H(new),10.4995,9.138,Hungary,38,6,8
+plan,"stay out, then hards",M → 43 H(new),18.8275,18.101,Hungary,38,6,8
+plan,"stay out, then used softs",M → 50 S(used 4),17.2055,19.697,Hungary,38,6,8
+plan,"stay out, then used medium",M → 42 M(used 22) → 47 H(new),9.8625,9.125,Hungary,38,6,8
+plan,as run,M → 39 H(new) → 54 S(used 4),10.8505,10.319,Hungary,38,6,8
+best in hindsight,best in hindsight,M → 52 S(used 4),,19.887,Hungary,38,6,8

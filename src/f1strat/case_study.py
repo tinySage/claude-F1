@@ -1590,7 +1590,7 @@ def hungary_hard_posterior() -> dict:
     return out
 
 
-#: Simulations kept per lap in ``case_hungary_fan.csv`` (README banner and animation).
+#: Simulations kept per lap in ``data/figures/hungary_fan.csv`` (README banner and animation).
 FAN_SIMS: int = 300
 
 
@@ -1600,7 +1600,7 @@ def hungary_fan(n_sims: int = 1000, keep: int = FAN_SIMS, seed: int = 202) -> Pa
     forecast it: the cutoff fit, rivals on their own plans, SC/VSC drawn.
 
     The same forecast as :func:`reality_check` (same field and seed), run to
-    the flag. Writes ``case_hungary_fan.csv``: one row per lap from 38 to 70,
+    the flag. Writes ``data/figures/hungary_fan.csv``: one row per lap from 38 to 70,
     columns ``real`` (the actual gap, which includes the lap-54 stop),
     ``p10``/``p50``/``p90`` over all ``n_sims`` and the first ``keep``
     simulations as ``s0``, ``s1``, ... (s; positive = Leclerc behind).
@@ -1626,7 +1626,10 @@ def hungary_fan(n_sims: int = 1000, keep: int = FAN_SIMS, seed: int = 202) -> Pa
     for q in (10, 50, 90):
         df[f"p{q}"] = np.quantile(gap, q / 100, axis=0)
     sims = pd.DataFrame(gap[:keep].T, columns=[f"s{i}" for i in range(min(keep, len(gap)))])
-    path = FIG_DIR / "case_hungary_fan.csv"
+    from f1strat.figure_data import path as table_path
+
+    path = table_path("hungary_fan")
+    path.parent.mkdir(parents=True, exist_ok=True)
     pd.concat([df, sims], axis=1).round(2).to_csv(path, index=False)
     return path
 

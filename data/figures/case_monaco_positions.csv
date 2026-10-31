@@ -1,0 +1,31 @@
+decision,plan,position,share,mean_points,too_close,best,call
+D1 inters (cutoff 17),"call: inters at 18, slicks at 21",4,1.0,12.0,False,False,True
+D1 inters (cutoff 17),"inters at 19, slicks at 21",1,0.0485,13.1225,False,False,False
+D1 inters (cutoff 17),"inters at 19, slicks at 21",3,0.167,13.1225,False,False,False
+D1 inters (cutoff 17),"inters at 19, slicks at 21",4,0.7815,13.1225,False,False,False
+D1 inters (cutoff 17),"inters at 19, slicks at 21",5,0.0015,13.1225,False,False,False
+D1 inters (cutoff 17),"inters at 19, slicks at 21",6,0.0015,13.1225,False,False,False
+D1 inters (cutoff 17),skip inters: slicks at 21,1,0.897,23.904,False,False,False
+D1 inters (cutoff 17),skip inters: slicks at 21,2,0.0145,23.904,False,False,False
+D1 inters (cutoff 17),skip inters: slicks at 21,3,0.052,23.904,False,False,False
+D1 inters (cutoff 17),skip inters: slicks at 21,4,0.0365,23.904,False,False,False
+D1 inters (cutoff 17),skip inters: slicks at 22,1,0.995,24.9485,False,True,False
+D1 inters (cutoff 17),skip inters: slicks at 22,2,0.001,24.9485,False,True,False
+D1 inters (cutoff 17),skip inters: slicks at 22,3,0.0025,24.9485,False,True,False
+D1 inters (cutoff 17),skip inters: slicks at 22,4,0.0015,24.9485,False,True,False
+D1 earlier stop (cutoff 16),"call: inters at 18, slicks at 21",4,1.0,12.0,False,False,True
+D1 earlier stop (cutoff 16),"inters at 17, slicks at 21",1,0.091,14.034,False,True,False
+D1 earlier stop (cutoff 16),"inters at 17, slicks at 21",2,0.0765,14.034,False,True,False
+D1 earlier stop (cutoff 16),"inters at 17, slicks at 21",3,0.154,14.034,False,True,False
+D1 earlier stop (cutoff 16),"inters at 17, slicks at 21",4,0.6515,14.034,False,True,False
+D1 earlier stop (cutoff 16),"inters at 17, slicks at 21",5,0.019,14.034,False,True,False
+D1 earlier stop (cutoff 16),"inters at 17, slicks at 21",6,0.008,14.034,False,True,False
+D2 slicks (cutoff 20),call: slicks at 21 (double stack),4,1.0,12.0,False,False,True
+D2 slicks (cutoff 20),stay out: slicks at 22,1,0.7065,21.9015,False,True,False
+D2 slicks (cutoff 20),stay out: slicks at 22,2,0.062,21.9015,False,True,False
+D2 slicks (cutoff 20),stay out: slicks at 22,3,0.115,21.9015,False,True,False
+D2 slicks (cutoff 20),stay out: slicks at 22,4,0.1165,21.9015,False,True,False
+D2 earlier stop (cutoff 19),call: slicks at 21 (double stack),4,1.0,12.0,False,False,True
+D2 earlier stop (cutoff 19),slicks at 20,1,0.4975,19.378,False,True,False
+D2 earlier stop (cutoff 19),slicks at 20,3,0.3035,19.378,False,True,False
+D2 earlier stop (cutoff 19),slicks at 20,4,0.199,19.378,False,True,False

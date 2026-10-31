@@ -717,15 +717,6 @@ def overall(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
 NEUTRAL_DRAWS_PATH = FIG_DIR / "backtest_neutral_draws.csv"
 
 
-def saved_tables(fig_dir: Path = FIG_DIR) -> dict[str, pd.DataFrame]:
-    """The tables :func:`plot_all` needs, read back from the saved CSVs."""
-    tables = {
-        k: pd.read_csv(fig_dir / f"backtest_{k}.csv") for k in ("summary", "positions", "gaps")
-    }
-    tables["passes"] = pd.read_csv(fig_dir / NEUTRAL_DRAWS_PATH.name).assign(mode="random")
-    return tables
-
-
 def plot_all(tables: dict[str, pd.DataFrame], fig_dir: Path = FIG_DIR) -> list[Path]:
     """Calibration plots: PIT histograms, coverage per race, passes, SC/VSC counts."""
     import matplotlib

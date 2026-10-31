@@ -1,0 +1,7 @@
+panel,plan,is_call,mean_points
+D1 at lap 17: inters at 18?,"call: inters at 18, slicks at 21",True,12.0
+D1 at lap 17: inters at 18?,"inters at 19, slicks at 21",False,13.1225
+D1 at lap 17: inters at 18?,skip inters: slicks at 21,False,23.904
+D1 at lap 17: inters at 18?,skip inters: slicks at 22,False,24.9485
+D2 at lap 20: double stack at 21?,call: slicks at 21 (double stack),True,12.0
+D2 at lap 20: double stack at 21?,stay out: slicks at 22,False,21.9015

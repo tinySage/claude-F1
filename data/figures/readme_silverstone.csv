@@ -1,0 +1,5 @@
+source,passes,real,v2_hindsight_p1
+Real race,9.0,True,0.926
+Lap-38 forecast,3.119,False,0.926
+Hindsight replay (v1),1.175,False,0.926
+"Hindsight replay, restart layer (v2)",0.901,False,0.926
