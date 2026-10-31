@@ -101,6 +101,13 @@ It is reported next to the verdict, never mixed into it:
 - rivals on their **actual** plans; actual retirements;
 - Leclerc's candidate plans, as chosen at the decision lap, plus the best plan
   in hindsight among the same candidates.
+- **Stint effects in hindsight:** every stint that actually happened uses the
+  full fit's estimated stint effect, for every car, instead of a fresh draw.
+  - A focal stint that happened (same set fitted on the same lap) keeps its
+    effect for the whole stint, including laps beyond the actual stint's end
+    in plans that run it longer.
+  - Only stints that never happened draw fresh effects.
+  - (Added after the first Hungary run, which drew every future stint fresh.)
 
 ### Decision-lap inputs (shared by every case study)
 
@@ -298,6 +305,72 @@ selection set):
   and Leclerc's own hard stint effect, and the stint lies after the cutoff.
   So at the decision lap Ferrari's hard pace is a prior plus the season
   tendency. This is exactly what the hard-wear checks probe.
+
+### Second decision (lap 54): Leclerc onto used softs
+
+The first verdict attributed the as-run plan's 9-point loss to the lap-54
+switch, but measured it with lap-38 information. This decision gets its own
+verdict under the same rule. Written and committed before any simulation of
+it.
+
+**Decision point.**
+- **The switch:** Leclerc's in-lap was **lap 54** (pit entry 2:19:03), then
+  used softs (TyreLife 4) from lap 55.
+- **Cutoff: lap 53.**
+- **Rival stops on lap 53:** none. The latest known stops are Hamilton (lap
+  51, M → used S), Zhou (51, H → S), Tsunoda (51, S → used S), and Sainz
+  (lap 47, M → used S).
+- **State at the cutoff** (end of lap 53, 17 laps to go):
+
+| Pos | Driver | Gap (s) | Tyre |
+|---|---|---|---|
+| 1 | Verstappen | — | medium, 15 laps (new on lap 39) |
+| 2 | **Leclerc** | +7.8 | **hard, 14 laps** (new on lap 40) |
+| 3 | Russell | +8.1 | medium, 14 laps |
+| 4 | Sainz | +10.6 | soft, 9 laps (used set) |
+| 5 | Hamilton | +20.5 | soft, 4 laps (used set) |
+| 6 | Pérez | +26.4 | medium, 11 laps |
+
+**Leclerc's sets at the cutoff** (reconstructed; race-used sets back in the
+pool): new hard ×1, used soft (out-lap TyreLife 4 and 6), and both used race
+mediums (first stint, TyreLife 22; second stint, TyreLife 19). The tyre-age
+cap is recomputed from the data known at lap 53.
+
+**The call and the families.** The best plan in each family is chosen on the
+selection set.
+
+| Family | Plans |
+|---|---|
+| **Call: used softs at 54** | first stop lap 54, onto a used soft (TyreLife 4 or 6), any continuation |
+| Hards to the flag | no further stop (the 14-lap hards to lap 70) |
+| New hard at 54 | first stop lap 54, onto the remaining new hard |
+| Used medium at 54 | first stop lap 54, onto a used race medium |
+| Stay out, then used softs | first stop lap 55 or later, onto a used soft |
+| Stay out, then new hard | first stop lap 55 or later, onto the new hard |
+| Stay out, then used medium | first stop lap 55 or later, onto a used medium |
+| Best overall | any legal plan within the caps, found by the search |
+
+- **As run:** `H → 54 S(used 4)` to the flag; Leclerc finished P6. It is the
+  call family's actual member, reported alongside.
+- **Primary comparison:** the best plan overall against the best call-family
+  plan, on the fresh measurement set. Bands as in the rule.
+
+**Inputs, as for the lap-38 decision:**
+- **Refit** on data known at the end of lap 53 (`cutoff_inputs`) plus the
+  Hungary practice long runs. 0 divergences required.
+  - This fit contains Leclerc's own hard laps 40–53, so Ferrari's hard pace
+    is now partly observed.
+  - The stint in progress uses its fitted effect.
+- **Leakage-free parameters** from rounds before Hungary, with Hungary 2021
+  for pass difficulty.
+- **Pit losses** from Hungary's green-flag stops completed by lap 53.
+- **Rivals:** each on its own top-3 single-car plans from the same fit.
+- **Robustness:** the same checks (widening ×1.188, Ferrari hard wear and
+  pace at p10/p90 of the lap-53 posterior, SC/VSC ×0.5 and ×2).
+- **Hindsight replay:** with the stint-effect rule above.
+- **Also reported:** how Ferrari's hard-pace posterior moved between the
+  lap-38 and lap-53 cutoffs (team term, Leclerc's hard-stint effect, and
+  their sum).
 
 ### Results
 
