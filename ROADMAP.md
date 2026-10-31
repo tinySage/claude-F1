@@ -391,8 +391,8 @@ Open issues for Phase 6:
 **Done when:** each case study has a verdict on whether the call was within the range of good options, backed by leakage-free simulations, or a documented reason none is supported.
 
 ## Phase 7: Ship
-- [ ] Charts
-- [ ] README
+- [x] Charts (README banner, verdict cards, animation and restyled figures in dark and light; every figure drawn from its table in `data/figures/` by `pitwall figures`, no fits needed)
+- [x] README
 - [x] Clean modules (`pitwall` command line, ruff, dead code removed, fast tests in CI)
 - [ ] Portfolio case study page
 

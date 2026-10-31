@@ -13,4 +13,5 @@ and the validated pipeline judges the calls.
 Also:
 - [`../ROADMAP.md`](../ROADMAP.md): phase checklist, the decisions log, and what comes next.
 - [`../data/processed/README.md`](../data/processed/README.md): the processed data schema.
+- [`../data/figures/README.md`](../data/figures/README.md): the exact data behind every figure in these documents (`uv run pitwall figures` redraws them all).
 - Commands: `uv run pitwall --help` (the module commands quoted in these documents, `python -m f1strat.<module>`, still work).
