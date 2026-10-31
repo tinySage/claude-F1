@@ -25,7 +25,9 @@ def _status(rows: list[tuple[int, str]]) -> pd.DataFrame:
 
 def test_periods_from_track_status() -> None:
     """VSC deployed + ending is one VSC period; a VSC turning into a SC splits."""
-    ts = _status([(0, "1"), (10, "6"), (20, "7"), (30, "1"), (40, "6"), (50, "4"), (60, "5"), (70, "1")])
+    ts = _status(
+        [(0, "1"), (10, "6"), (20, "7"), (30, "1"), (40, "6"), (50, "4"), (60, "5"), (70, "1")]
+    )
     periods = neutralisation_periods(ts)
     got = {(k, p): (s.seconds, e.seconds) for k, p, s, e in periods.itertuples(index=False)}
     assert got == {

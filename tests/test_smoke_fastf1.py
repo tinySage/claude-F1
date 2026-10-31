@@ -5,6 +5,8 @@ from pathlib import Path
 import fastf1
 import pytest
 
+pytestmark = pytest.mark.network
+
 CACHE_DIR = Path(__file__).resolve().parents[1] / "cache"
 
 

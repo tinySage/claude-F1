@@ -16,14 +16,26 @@ from f1strat.data import LAPS_SCHEMA, PROCESSED_DIR, load_season
 def _lap(driver: str, lap: int, pos: int, end_s: float, **kw: object) -> dict:
     """One synthetic lap row with sensible green-flag defaults."""
     row = {
-        "RoundNumber": 1, "EventName": "Test GP", "Driver": driver, "Team": "T",
-        "LapNumber": lap, "LapTime": pd.Timedelta(seconds=90), "Stint": 1,
-        "Compound": "MEDIUM", "TyreLife": lap, "FreshTyre": True,
-        "PitInTime": None, "PitOutTime": None, "TrackStatus": "1",
-        "Position": pos, "Deleted": False, "IsAccurate": True,
+        "RoundNumber": 1,
+        "EventName": "Test GP",
+        "Driver": driver,
+        "Team": "T",
+        "LapNumber": lap,
+        "LapTime": pd.Timedelta(seconds=90),
+        "Stint": 1,
+        "Compound": "MEDIUM",
+        "TyreLife": lap,
+        "FreshTyre": True,
+        "PitInTime": None,
+        "PitOutTime": None,
+        "TrackStatus": "1",
+        "Position": pos,
+        "Deleted": False,
+        "IsAccurate": True,
         "Time": pd.Timedelta(seconds=end_s),
         "LapStartTime": pd.Timedelta(seconds=end_s - 90),
-        "TrackTemp": 30.0, "Rainfall": False,
+        "TrackTemp": 30.0,
+        "Rainfall": False,
     }
     row.update(kw)
     return row
@@ -59,7 +71,11 @@ def test_mixed_conditions_labels_whole_race() -> None:
     rows[3] = _lap("AAA", 4, 1, 360.0, Compound="INTERMEDIATE")
     got = clean_laps(_frame(rows), mixed_conditions={"Test GP"})["exclude_reason"]
     assert got.astype("object").tolist() == [
-        "lap_1", "mixed_conditions", "mixed_conditions", "wet_compound", "mixed_conditions"
+        "lap_1",
+        "mixed_conditions",
+        "mixed_conditions",
+        "wet_compound",
+        "mixed_conditions",
     ]
 
 

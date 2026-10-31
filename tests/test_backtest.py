@@ -1,7 +1,5 @@
 """Tests for the Phase 5 backtest layer (forced SC/VSC, retirements, counters)."""
 
-import dataclasses
-
 import numpy as np
 import pytest
 
@@ -25,14 +23,18 @@ def data():
     from f1strat.race_events import SimParams
 
     raw = load_season(2022)
-    return {"raw": raw, "race": load_season(2022, table="race"), "cleaned": clean_laps(raw),
-            "fitted": load_fit(THIN_FIT_PATH), "params": SimParams.load()}
+    return {
+        "raw": raw,
+        "race": load_season(2022, table="race"),
+        "cleaned": clean_laps(raw),
+        "fitted": load_fit(THIN_FIT_PATH),
+        "params": SimParams.load(),
+    }
 
 
 def test_count_passes_simple() -> None:
     """Car 1 passes car 0 on lap 1; lap 2 is an SC lap; car 2 pits on lap 3."""
-    t = np.array([[[0.0, 1.0, 2.0], [10.5, 10.0, 12.0], [20.0, 21.0, 22.0],
-                   [30.0, 31.0, 29.0]]])
+    t = np.array([[[0.0, 1.0, 2.0], [10.5, 10.0, 12.0], [20.0, 21.0, 22.0], [30.0, 31.0, 29.0]]])
     pit = np.zeros_like(t, dtype=bool)
     pit[0, 3, 2] = True
     green = np.array([False, True, False, True])
@@ -79,11 +81,11 @@ def test_forced_status_and_retirement(data) -> None:
     forced = np.full(65, GREEN, np.int8)
     forced[10:14] = SC
     losses = np.array([22.0])
-    field = build_field(data["fitted"], state, losses, data["params"], n_sims=20, seed=1,
-                        status=forced)
+    field = build_field(
+        data["fitted"], state, losses, data["params"], n_sims=20, seed=1, status=forced
+    )
     assert (field.status == forced[None, :]).all()
-    res = simulate_field(field, {d: Plan() for d in field.drivers}, retire={"VER": 30},
-                         record=True)
+    res = simulate_field(field, {d: Plan() for d in field.drivers}, retire={"VER": 30}, record=True)
     c = field.drivers.index("VER")
     assert np.isinf(res.times[:, c]).all()
     assert np.isfinite(res.history[:, 28, c]).all() and np.isinf(res.history[:, 29, c]).all()
@@ -91,8 +93,16 @@ def test_forced_status_and_retirement(data) -> None:
 
 
 def test_replay_backtest_runs(data) -> None:
-    bt = run_backtest(data["fitted"], data["raw"], data["race"], data["cleaned"],
-                      data["params"], SAUDI, "replay", n_sims=30)
+    bt = run_backtest(
+        data["fitted"],
+        data["raw"],
+        data["race"],
+        data["cleaned"],
+        data["params"],
+        SAUDI,
+        "replay",
+        n_sims=30,
+    )
     assert bt.positions.shape == (30, len(bt.drivers))
     # Finishers are ranked 1..n in every simulation; retired cars are nan.
     n_fin = len(bt.actual.order)

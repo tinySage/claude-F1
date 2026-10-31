@@ -85,8 +85,17 @@ def _synthetic_race(rng: np.random.Generator) -> pd.DataFrame:
             hard = 0.6 if compound == "HARD" else 0.0
             dirty = bool(rng.random() < 0.2)
             lap_s = 90 + offset + hard + deg * age - 0.05 * lap + 0.3 * dirty
-            rows.append({"RoundNumber": 1, "Driver": driver, "Compound": compound,
-                         "TyreLife": age, "race_lap": lap, "dirty_air": dirty, "lap_s": lap_s})
+            rows.append(
+                {
+                    "RoundNumber": 1,
+                    "Driver": driver,
+                    "Compound": compound,
+                    "TyreLife": age,
+                    "race_lap": lap,
+                    "dirty_air": dirty,
+                    "lap_s": lap_s,
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -120,8 +129,14 @@ def _synthetic_season(rng: np.random.Generator) -> pd.DataFrame:
     deg = {"SOFT": 0.10, "MEDIUM": 0.06, "HARD": 0.03}
     offset = {"SOFT": -0.4, "MEDIUM": 0.0, "HARD": 0.4}
     rows = []
-    drivers = [("AAA", "T1", -0.3), ("BBB", "T1", -0.1), ("CCC", "T2", 0.1),
-               ("DDD", "T2", 0.3), ("EEE", "T3", 0.0), ("FFF", "T3", 0.2)]
+    drivers = [
+        ("AAA", "T1", -0.3),
+        ("BBB", "T1", -0.1),
+        ("CCC", "T2", 0.1),
+        ("DDD", "T2", 0.3),
+        ("EEE", "T3", 0.0),
+        ("FFF", "T3", 0.2),
+    ]
     for rnd, base in [(1, 90.0), (2, 80.0), (3, 100.0), (4, 85.0), (5, 95.0)]:
         for i, (drv, team, pace) in enumerate(drivers):
             plan = [("SOFT", 10 + 2 * i), ("MEDIUM", 30 + 2 * i), ("HARD", 51)]
@@ -130,19 +145,38 @@ def _synthetic_season(rng: np.random.Generator) -> pd.DataFrame:
                 shift = rng.normal(0, 0.15) + (team_hard[team] + 0.3 if comp == "HARD" else 0.0)
                 for lap in range(start, end):
                     age = lap - start + 1
-                    y = (base + pace + offset[comp] + deg[comp] * age - 0.05 * lap
-                         + shift + rng.normal(0, 0.2))
-                    rows.append({
-                        "RoundNumber": rnd, "Driver": drv, "Team": team, "Compound": comp,
-                        "Stint": stint, "TyreLife": age, "race_lap": lap, "LapNumber": lap,
-                        "dirty_air": False, "Rainfall": False, "opening_laps": lap in (2, 3),
-                        "first_two_flying": stint > 1 and age in (1, 2), "lap_s": y,
-                        "final_stint": stint == len(plan),
-                    })
+                    y = (
+                        base
+                        + pace
+                        + offset[comp]
+                        + deg[comp] * age
+                        - 0.05 * lap
+                        + shift
+                        + rng.normal(0, 0.2)
+                    )
+                    rows.append(
+                        {
+                            "RoundNumber": rnd,
+                            "Driver": drv,
+                            "Team": team,
+                            "Compound": comp,
+                            "Stint": stint,
+                            "TyreLife": age,
+                            "race_lap": lap,
+                            "LapNumber": lap,
+                            "dirty_air": False,
+                            "Rainfall": False,
+                            "opening_laps": lap in (2, 3),
+                            "first_two_flying": stint > 1 and age in (1, 2),
+                            "lap_s": y,
+                            "final_stint": stint == len(plan),
+                        }
+                    )
                 start = end + 1
     return pd.DataFrame(rows)
 
 
+@pytest.mark.slow
 def test_bayesian_fit_recovers_deg_and_predicts() -> None:
     """A short fit on synthetic data recovers deg ordering and trend; predict works."""
     from f1strat.deg_model import fit, predict, season_deg_table
@@ -161,6 +195,7 @@ def test_bayesian_fit_recovers_deg_and_predicts() -> None:
     assert (pred.lo < pred.mean).all() and (pred.mean < pred.hi).all()
 
 
+@pytest.mark.slow
 def test_unseen_stint_widens_interval() -> None:
     """Holding out a stint: its laps get a stint draw, so a wider interval."""
     from f1strat.deg_model import fit, predict
@@ -169,7 +204,9 @@ def test_unseen_stint_widens_interval() -> None:
     held = (df["RoundNumber"] == 1) & (df["Driver"] == "AAA") & (df["Stint"] == 3)
     fitted = fit(df[~held], draws=200, tune=200, chains=2, seed=2)
     assert (1, "AAA", 3) not in fitted.stints
-    seen = predict(fitted, df[(df["RoundNumber"] == 1) & (df["Driver"] == "AAA") & (df["Stint"] == 2)])
+    seen = predict(
+        fitted, df[(df["RoundNumber"] == 1) & (df["Driver"] == "AAA") & (df["Stint"] == 2)]
+    )
     unseen = predict(fitted, df[held])
     assert (unseen.hi - unseen.lo).mean() > (seen.hi - seen.lo).mean()
 
@@ -200,6 +237,7 @@ def test_cutoff_inputs_use_no_future_laps() -> None:
     assert len(laps) == len(laps2)
 
 
+@pytest.mark.slow
 def test_practice_long_runs_join_the_model() -> None:
     """Practice laps add their own likelihood and share the race's tyre terms;
     without them the model is unchanged."""
@@ -209,10 +247,19 @@ def test_practice_long_runs_join_the_model() -> None:
     raw = load_season(2022)
     raw = raw[raw["RoundNumber"].isin([5, 6])]
     _, laps = cutoff_inputs(raw, Cutoff(6, 20))
-    practice = pd.DataFrame({
-        "RoundNumber": 6, "session": "FP2", "Driver": "VER", "Team": "Red Bull Racing",
-        "Compound": "HARD", "TyreLife": np.arange(2, 10), "lap_s": 81.0 + 0.1 * np.arange(8),
-        "run": "FP2_VER_1", "lap_in_run": np.arange(8)})
+    practice = pd.DataFrame(
+        {
+            "RoundNumber": 6,
+            "session": "FP2",
+            "Driver": "VER",
+            "Team": "Red Bull Racing",
+            "Compound": "HARD",
+            "TyreLife": np.arange(2, 10),
+            "lap_s": 81.0 + 0.1 * np.arange(8),
+            "run": "FP2_VER_1",
+            "lap_in_run": np.arange(8),
+        }
+    )
     base, _ = build_model(laps)
     with_p, meta = build_model(laps, practice)
     assert "practice_lap_time" in with_p.named_vars and "practice_lap_time" not in base.named_vars

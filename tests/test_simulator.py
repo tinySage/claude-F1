@@ -59,22 +59,22 @@ def _toy_state(compound: str = "SOFT", used: frozenset = frozenset({"SOFT"})) ->
 def test_two_compound_rule() -> None:
     state = _toy_state()
     car = state.cars["AAA"]
-    assert not is_legal(Plan(), car, state)                              # soft only
-    assert not is_legal(Plan((Stop(10, "SOFT"),)), car, state)           # soft only
+    assert not is_legal(Plan(), car, state)  # soft only
+    assert not is_legal(Plan((Stop(10, "SOFT"),)), car, state)  # soft only
     assert is_legal(Plan((Stop(10, "MEDIUM"),)), car, state)
     # Already used two compounds: no further stop needed.
     two = _toy_state(used=frozenset({"SOFT", "MEDIUM"}))
     assert is_legal(Plan(), two.cars["AAA"], two)
     plans = list(enumerate_plans(state, "AAA", max_stops=1, used_life=None))
     assert all(len({s.compound for s in p.stops} | {"SOFT"}) >= 2 for p in plans)
-    assert len(plans) == 14 * 2                                          # laps 6..19, M or H
+    assert len(plans) == 14 * 2  # laps 6..19, M or H
 
 
 def test_illegal_stop_laps() -> None:
     state = _toy_state()
     car = state.cars["AAA"]
-    assert not is_legal(Plan((Stop(5, "MEDIUM"),)), car, state)          # not after state lap
-    assert not is_legal(Plan((Stop(20, "MEDIUM"),)), car, state)         # last lap
+    assert not is_legal(Plan((Stop(5, "MEDIUM"),)), car, state)  # not after state lap
+    assert not is_legal(Plan((Stop(20, "MEDIUM"),)), car, state)  # last lap
     assert not is_legal(Plan((Stop(12, "MEDIUM"), Stop(10, "HARD"))), car, state)
 
 
@@ -94,9 +94,12 @@ def test_state_under_safety_car(raw) -> None:
 
 def test_closed_form_matches_lap_by_lap(spain_state, setup) -> None:
     model, draws = setup
-    plans = [Plan(), Plan((Stop(30, "SOFT", 4),)),
-             Plan((Stop(28, "HARD"), Stop(50, "SOFT", 4))),
-             Plan((Stop(25, "MEDIUM"), Stop(40, "MEDIUM"), Stop(55, "SOFT", 4)))]
+    plans = [
+        Plan(),
+        Plan((Stop(30, "SOFT", 4),)),
+        Plan((Stop(28, "HARD"), Stop(50, "SOFT", 4))),
+        Plan((Stop(25, "MEDIUM"), Stop(40, "MEDIUM"), Stop(55, "SOFT", 4))),
+    ]
     totals = plan_totals(model, spain_state, "VER", plans, draws)
     for p, plan in enumerate(plans):
         laps = simulate_laps(model, spain_state, "VER", plan, draws)
@@ -109,7 +112,7 @@ def test_search_mean_is_exact(spain_state, setup) -> None:
     model, draws = setup
     result = search(model, spain_state, "VER", draws, max_stops=2, min_stint=8, per_stratum=2)
     means = result.totals.mean(axis=1)
-    assert np.all(np.diff(means) >= -1e-6)                               # ranked by mean
+    assert np.all(np.diff(means) >= -1e-6)  # ranked by mean
     assert result.n_legal > 10
     # Stratified: every stop count / compound sequence that is legal appears.
     strata = {(len(p.stops), tuple(s.compound for s in p.stops)) for p in result.plans}
@@ -136,8 +139,13 @@ def test_common_random_numbers(spain_state, setup) -> None:
     a = plan_totals(model, spain_state, "VER", [plan, plan], draws)
     np.testing.assert_array_equal(a[0], a[1])
     # Plans differing only in pit lap differ only through tyre terms, not luck.
-    b = plan_totals(model, spain_state, "VER", [Plan((Stop(30, "SOFT", 4),)),
-                                                 Plan((Stop(31, "SOFT", 4),))], draws)
+    b = plan_totals(
+        model,
+        spain_state,
+        "VER",
+        [Plan((Stop(30, "SOFT", 4),)), Plan((Stop(31, "SOFT", 4),))],
+        draws,
+    )
     assert np.std(b[0] - b[1]) < 0.5 * np.std(b[0])
 
 
@@ -150,7 +158,7 @@ def test_stint_effect_is_constant_within_a_stint(spain_state, setup) -> None:
     # Final stint from lap 34 (out lap 31, post-stop laps 32-33): consecutive
     # laps differ only by deg and trend, the same for every lap pair, so the
     # second differences vanish.
-    final = no_noise[:, 34 - 21:]
+    final = no_noise[:, 34 - 21 :]
     np.testing.assert_allclose(np.diff(final, n=2, axis=1), 0, atol=1e-8)
 
 
@@ -158,10 +166,11 @@ def test_widening_scales_final_stint_spread(fitted, spain_state) -> None:
     rng = np.random.default_rng(1)
     idx = rng.integers(0, 1000, size=4000)
     on = car_model(fitted, SPAIN, "VER", "Red Bull Racing", idx, np.random.default_rng(2))
-    off = car_model(fitted, SPAIN, "VER", "Red Bull Racing", idx, np.random.default_rng(2),
-                    widening=1.0)
+    off = car_model(
+        fitted, SPAIN, "VER", "Red Bull Racing", idx, np.random.default_rng(2), widening=1.0
+    )
     np.testing.assert_allclose(on.sigma_stint_final, 1.188 * off.sigma_stint_final)
-    np.testing.assert_allclose(on.final_mean, off.final_mean)            # Spain has final data
+    np.testing.assert_allclose(on.final_mean, off.final_mean)  # Spain has final data
 
 
 # --- Part B: the whole field ---------------------------------------------------
@@ -190,13 +199,15 @@ def losses(raw):
 
 
 def _no_neutral(params: SimParams) -> SimParams:
-    return dataclasses.replace(params, neutral=dataclasses.replace(
-        params.neutral, p_sc_per_lap=0.0, p_vsc_per_lap=0.0))
+    return dataclasses.replace(
+        params, neutral=dataclasses.replace(params.neutral, p_sc_per_lap=0.0, p_vsc_per_lap=0.0)
+    )
 
 
 def _no_passing(params: SimParams) -> SimParams:
-    return dataclasses.replace(params, passing=dataclasses.replace(
-        params.passing, intercept=-50.0, circuit={}, slope=0.0))
+    return dataclasses.replace(
+        params, passing=dataclasses.replace(params.passing, intercept=-50.0, circuit={}, slope=0.0)
+    )
 
 
 def test_no_passing_keeps_order_and_gap(fitted, spain_state, params, losses) -> None:
@@ -223,8 +234,12 @@ def test_passing_happens_when_allowed(fitted, spain_state, params, losses) -> No
 def test_safety_car_bunches_the_field(fitted, raw, params, losses) -> None:
     """Five SC laps from lap 20: the field closes up to the queue gap."""
     state = RaceState.from_laps(raw, SPAIN, lap=20, total_laps=66)
-    prm = dataclasses.replace(params, neutral=dataclasses.replace(
-        params.neutral, sc_lengths=[5], p_sc_per_lap=0.0, p_vsc_per_lap=0.0))
+    prm = dataclasses.replace(
+        params,
+        neutral=dataclasses.replace(
+            params.neutral, sc_lengths=[5], p_sc_per_lap=0.0, p_vsc_per_lap=0.0
+        ),
+    )
     state_sc = dataclasses.replace(state, track_status="sc", neutral_laps=0)
     field = build_field(fitted, state_sc, losses, prm, n_sims=20, seed=4)
     assert (field.status[:, :5] == SC).all() and (field.status[:, 5:] != SC).all()
@@ -275,6 +290,7 @@ def test_rival_options_sampled_by_weight(fitted, spain_state, params, losses) ->
     field = build_field(fitted, spain_state, losses, params, n_sims=2000, seed=7)
     opts = [(Plan(), 3.0), (Plan((Stop(40, "HARD"),)), 1.0)]
     from f1strat.simulator import _select
+
     c = field.drivers.index("PER")
     _, pit = _select(field, c, opts)
     share_stop = (pit.sum(axis=1) > 0).mean()
@@ -287,9 +303,12 @@ def test_safety_car_closes_gradually(fitted, raw, params, losses) -> None:
     """Phase 5: gaps are kept on the first SC lap, then shrink by
     sc_close_ratio per lap, never below sc_gap_s."""
     state = RaceState.from_laps(raw, SPAIN, lap=20, total_laps=66)
-    prm = dataclasses.replace(params, neutral=dataclasses.replace(
-        params.neutral, sc_lengths=[5], p_sc_per_lap=0.0, p_vsc_per_lap=0.0,
-        sc_close_ratio=0.5))
+    prm = dataclasses.replace(
+        params,
+        neutral=dataclasses.replace(
+            params.neutral, sc_lengths=[5], p_sc_per_lap=0.0, p_vsc_per_lap=0.0, sc_close_ratio=0.5
+        ),
+    )
     state_sc = dataclasses.replace(state, track_status="sc", neutral_laps=0, total_laps=22)
     field = build_field(fitted, state_sc, losses, prm, n_sims=10, seed=4)
     res = simulate_field(field, {d: Plan() for d in field.drivers}, record=True)
@@ -317,11 +336,23 @@ def test_tyre_age_cap_and_family_filters(spain_state, setup) -> None:
             assert life0 + (end - prev_lap) - 1 <= cap[comp]
             if stop:
                 prev_lap, comp, life0 = stop.lap, stop.compound, stop.tyre_life
-    fam = search(model, spain_state, "VER", draws, max_stops=2, min_stint=5,
-                 first_laps=(20, 22), first_sets=[("HARD", 1)])
-    assert fam.plans and all(p.stops and 20 <= p.stops[0].lap <= 22
-                             and p.stops[0].compound == "HARD" and p.stops[0].tyre_life == 1
-                             for p in fam.plans)
+    fam = search(
+        model,
+        spain_state,
+        "VER",
+        draws,
+        max_stops=2,
+        min_stint=5,
+        first_laps=(20, 22),
+        first_sets=[("HARD", 1)],
+    )
+    assert fam.plans and all(
+        p.stops
+        and 20 <= p.stops[0].lap <= 22
+        and p.stops[0].compound == "HARD"
+        and p.stops[0].tyre_life == 1
+        for p in fam.plans
+    )
 
 
 def test_known_stint_effect_replaces_the_draw(spain_state, setup) -> None:
@@ -335,7 +366,7 @@ def test_known_stint_effect_replaces_the_draw(spain_state, setup) -> None:
     final = model.final_mean + model.sigma_stint_final * draws.z_final
     cols = np.arange(31, spain_state.total_laps + 1) - (spain_state.lap + 1)
     assert np.allclose((shifted - base)[:, cols], (2.0 - final)[:, None])
-    assert np.allclose((shifted - base)[:, :cols[0]], 0.0)
+    assert np.allclose((shifted - base)[:, : cols[0]], 0.0)
     # Totals agree with the lap-by-lap path.
     tot = plan_totals(known, spain_state, "VER", [plan], draws)[0]
     assert np.allclose(tot, spain_state.cars["VER"].race_time + shifted.sum(axis=1))
@@ -354,8 +385,9 @@ def test_double_stack_second_car_waits(fitted, spain_state, params, losses) -> N
     plans = {**rivals, "VER": stop, "PER": stop}
     col = 25 - (spain_state.lap + 1)
     base = simulate_field(field, plans, record=True)
-    stacked_field = dataclasses.replace(field, params=dataclasses.replace(
-        prm, double_stack={"green": 30.0, "sc": 30.0}))
+    stacked_field = dataclasses.replace(
+        field, params=dataclasses.replace(prm, double_stack={"green": 30.0, "sc": 30.0})
+    )
     stacked = simulate_field(stacked_field, plans, record=True)
     v, p = field.drivers.index("VER"), field.drivers.index("PER")
     a_v = base.history[:, col, v] - field.draws["VER"].pit_loss[:, 0]
@@ -369,8 +401,9 @@ def test_double_stack_second_car_waits(fitted, spain_state, params, losses) -> N
     assert stacked.double_stacks == int((wait > 0).sum()) > 0
     # Only one Red Bull stopping: nothing changes.
     solo = {**rivals, "VER": stop}
-    np.testing.assert_allclose(simulate_field(stacked_field, solo).times,
-                               simulate_field(field, solo).times)
+    np.testing.assert_allclose(
+        simulate_field(stacked_field, solo).times, simulate_field(field, solo).times
+    )
 
 
 def test_double_stack_loss_recovers_d() -> None:
@@ -393,12 +426,22 @@ def test_search_pit_factor_scales_stop_cost(spain_state, setup) -> None:
     full = plan_totals(model, spain_state, "VER", [plan], draws)[0]
     cheap = plan_totals(model, spain_state, "VER", [plan], draws, pit_factor=factor)[0]
     np.testing.assert_allclose(full - cheap, 0.5 * draws.pit_loss[:, 0])
-    res = search(model, spain_state, "VER", draws, max_stops=1, min_stint=5,
-                 per_stratum=1, pit_factor=factor, first_laps=(26, 34),
-                 first_sets=[("HARD", 1)])
-    assert res.plans[0].stops[0].lap == 30          # the discounted lap wins
-    assert np.allclose(res.totals, plan_totals(model, spain_state, "VER", res.plans, draws,
-                                               pit_factor=factor))
+    res = search(
+        model,
+        spain_state,
+        "VER",
+        draws,
+        max_stops=1,
+        min_stint=5,
+        per_stratum=1,
+        pit_factor=factor,
+        first_laps=(26, 34),
+        first_sets=[("HARD", 1)],
+    )
+    assert res.plans[0].stops[0].lap == 30  # the discounted lap wins
+    assert np.allclose(
+        res.totals, plan_totals(model, spain_state, "VER", res.plans, draws, pit_factor=factor)
+    )
 
 
 def test_session_timing_uses_the_clock(raw) -> None:
@@ -408,15 +451,18 @@ def test_session_timing_uses_the_clock(raw) -> None:
     clock = RaceState.from_laps(raw, 10, lap=38, total_laps=52, timing="session")
     gap = clock.cars["HAM"].race_time - clock.cars["LEC"].race_time
     assert gap == pytest.approx(6.125, abs=1e-3)
-    assert laps.cars["HAM"].race_time < laps.cars["LEC"].race_time   # the bug it fixes
+    assert laps.cars["HAM"].race_time < laps.cars["LEC"].race_time  # the bug it fixes
 
 
 def test_current_neutral_length_is_fixed(fitted, raw, params) -> None:
-    state = dataclasses.replace(RaceState.from_laps(raw, 10, lap=38, total_laps=52,
-                                                    timing="session"),
-                                track_status="sc", neutral_laps=0)
-    status = neutral_schedule(state, params.neutral, 100, np.random.default_rng(0),
-                              current_length=6)
+    state = dataclasses.replace(
+        RaceState.from_laps(raw, 10, lap=38, total_laps=52, timing="session"),
+        track_status="sc",
+        neutral_laps=0,
+    )
+    status = neutral_schedule(
+        state, params.neutral, 100, np.random.default_rng(0), current_length=6
+    )
     assert (status[:, :6] == SC).all() and (status[:, 6] != SC).all()
 
 
@@ -426,23 +472,37 @@ def test_restart_layer_applies_only_after_neutral_laps(fitted, raw, params, loss
     from f1strat.restart import RestartModel, laps_since_restart_sim
 
     status = np.array([[1, 1, 0, 0, 0, 0, 2, 0, 0]])
-    np.testing.assert_array_equal(laps_since_restart_sim(status, False),
-                                  [[0, 0, 1, 2, 3, 4, 0, 1, 2]])
+    np.testing.assert_array_equal(
+        laps_since_restart_sim(status, False), [[0, 0, 1, 2, 3, 4, 0, 1, 2]]
+    )
     np.testing.assert_array_equal(laps_since_restart_sim(np.array([[0, 0]]), True), [[1, 2]])
-    rs = RestartModel(pace=[[1.0, 0.0, 0.5, 0.0], [0.3, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]],
-                      pace_se=[[0] * 4] * 3, pass_mult=1.0, n_laps=[1] * 3, n_events=0,
-                      n_passes=0, expected_passes=0.0, rounds=[])
-    prm = dataclasses.replace(params, neutral=dataclasses.replace(
-        params.neutral, sc_lengths=[2], p_sc_per_lap=0.0, p_vsc_per_lap=0.0))
-    state = dataclasses.replace(RaceState.from_laps(raw, SPAIN, lap=20, total_laps=30),
-                                track_status="sc", neutral_laps=0)
+    rs = RestartModel(
+        pace=[[1.0, 0.0, 0.5, 0.0], [0.3, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]],
+        pace_se=[[0] * 4] * 3,
+        pass_mult=1.0,
+        n_laps=[1] * 3,
+        n_events=0,
+        n_passes=0,
+        expected_passes=0.0,
+        rounds=[],
+    )
+    prm = dataclasses.replace(
+        params,
+        neutral=dataclasses.replace(
+            params.neutral, sc_lengths=[2], p_sc_per_lap=0.0, p_vsc_per_lap=0.0
+        ),
+    )
+    state = dataclasses.replace(
+        RaceState.from_laps(raw, SPAIN, lap=20, total_laps=30), track_status="sc", neutral_laps=0
+    )
     fld = build_field(fitted, state, losses, prm, n_sims=10, seed=9)
     from f1strat.simulator import _car_laps
+
     base, _ = _car_laps(fld, "VER", Plan())
     fld_rs = dataclasses.replace(fld, params=dataclasses.replace(prm, restart=rs))
     with_rs, _ = _car_laps(fld_rs, "VER", Plan())
     hard = state.cars["VER"].compound == "HARD"
     expect = np.zeros(state.laps_remaining)
-    expect[2] = 1.0 + (0.5 if hard else 0.0)      # SC laps 21-22, restart lap 23
+    expect[2] = 1.0 + (0.5 if hard else 0.0)  # SC laps 21-22, restart lap 23
     expect[3] = 0.3
     np.testing.assert_allclose(with_rs - base, np.broadcast_to(expect, base.shape))
