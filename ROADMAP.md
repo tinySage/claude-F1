@@ -148,6 +148,16 @@ Case studies (2022):
 - **Divergence rule for result fits (Phase 5):** fits used for verdicts must
   have 0 divergences. `rehearsal.clean_fit` reruns with a new seed, then
   target acceptance 0.99.
+- **Phase 6 verdict rule (committed before any case-study simulation):**
+  `docs/case_studies.md`.
+  - **Metric:** Leclerc's 2022 points.
+  - **Best plan:** chosen on 1,000 simulations; the paired loss is measured on
+    a fresh 2,000.
+  - **Bands:** within ≤ 1 point; outside > 3 points with the actual plan
+    level or ahead in < 25% of simulations; marginal otherwise.
+  - **Robust** only if the band holds under widening ×1.188, Ferrari hard
+    wear at its 10th/90th percentile, and the SC rate ×0.5 and ×2.
+  - The hindsight replay is reported separately.
 - **Final-stint widening in Phase 6: 1.0 (Phase 5).** The replay backtests
   are better calibrated without the ×1.188 widening (fair position coverage
   0.57 / 0.85 vs 0.60 / 0.87; gaps 0.54 / 0.82 vs 0.55 / 0.84). Phase 6 uses
