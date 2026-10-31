@@ -94,7 +94,8 @@ def clean_fit(raw: pd.DataFrame, round_number: int, lap: int, mode: str) -> Baye
 
 def leakage_free_params(fitted: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
                         cleaned: pd.DataFrame, round_number: int, n_sims: int = 200,
-                        circuit_method: str = "previous"):
+                        circuit_method: str = "previous", in_race: bool = False,
+                        first_racing_lap: int = 1, exclude_teammates: bool = False):
     """Passing and SC/VSC parameters known before the decision race.
 
     - Pass model (slope, pooled intercept, held gaps) from the pass events of
@@ -111,6 +112,11 @@ def leakage_free_params(fitted: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
     ``"previous"`` (Phase 5 and Hungary) as above; ``"relative"`` (Silverstone
     and Monaco) is the pooled intercept shifted by the circuit's 2021 intercept
     minus the 2021 season average (:func:`race_events.relative_circuit_intercept`).
+
+    ``in_race`` (Phase 6, Silverstone; post-hoc for Hungary): the circuit
+    intercept from ``circuit_method`` is then updated with the decision race's
+    own on-track passes before the cutoff (:func:`race_events.in_race_pass_update`;
+    ``cleaned`` must be the cutoff data). The pit wall saw those passes.
 
     Returns:
         ``(params, info)``: the :class:`SimParams` and a dict for the report.
@@ -154,6 +160,14 @@ def leakage_free_params(fitted: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
                                                                    passing.intercept)
     else:
         raise ValueError(f"unknown circuit_method {circuit_method!r}")
+    in_race_info = None
+    if in_race:
+        from f1strat.race_events import in_race_pass_update
+
+        in_race_info = in_race_pass_update(cleaned, fitted, round_number,
+                                           passing.circuit[round_number], passing.slope,
+                                           first_racing_lap, exclude_teammates)
+        passing.circuit[round_number] = in_race_info["intercept"]
     neutral = fit_neutralisations(before, race_before)
     params = SimParams(passing, neutral)
     replay_rounds = [r for r in BACKTEST_ROUNDS if r < round_number]
@@ -163,7 +177,7 @@ def leakage_free_params(fitted: BayesFit, raw: pd.DataFrame, race: pd.DataFrame,
                             n_sims=n_sims)
     params = with_passing(params, round(shift, 3))
     dry_before = race_before[~race_before["EventName"].isin(list(MIXED_CONDITIONS_2022))]
-    info = {"circuit_method": circuit_method, "relative": relative,
+    info = {"circuit_method": circuit_method, "relative": relative, "in_race": in_race_info,
             "dry_rounds_before": sorted(int(r) for r in dry_before["RoundNumber"].unique()),
             "replay_rounds": replay_rounds, "previous_running": year,
             "previous_running_note": why,

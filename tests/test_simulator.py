@@ -339,3 +339,82 @@ def test_known_stint_effect_replaces_the_draw(spain_state, setup) -> None:
     # Totals agree with the lap-by-lap path.
     tot = plan_totals(known, spain_state, "VER", [plan], draws)[0]
     assert np.allclose(tot, spain_state.cars["VER"].race_time + shifted.sum(axis=1))
+
+
+# --- Phase 6 (Silverstone) additions ---------------------------------------------
+
+
+def test_double_stack_second_car_waits(fitted, spain_state, params, losses) -> None:
+    """Teammates pitting on the same lap: the car that arrives first is served
+    first and unchanged; the other waits max(0, D - arrival gap)."""
+    prm = _no_neutral(params)
+    field = build_field(fitted, spain_state, losses, prm, n_sims=40, seed=8)
+    rivals = {d: Plan() for d in field.drivers}
+    stop = Plan((Stop(25, "HARD", 1),))
+    plans = {**rivals, "VER": stop, "PER": stop}
+    col = 25 - (spain_state.lap + 1)
+    base = simulate_field(field, plans, record=True)
+    stacked_field = dataclasses.replace(field, params=dataclasses.replace(
+        prm, double_stack={"green": 30.0, "sc": 30.0}))
+    stacked = simulate_field(stacked_field, plans, record=True)
+    v, p = field.drivers.index("VER"), field.drivers.index("PER")
+    a_v = base.history[:, col, v] - field.draws["VER"].pit_loss[:, 0]
+    a_p = base.history[:, col, p] - field.draws["PER"].pit_loss[:, 0]
+    wait = np.maximum(0.0, 30.0 - np.abs(a_v - a_p))
+    first_v = a_v <= a_p
+    got_v = stacked.history[:, col, v] - base.history[:, col, v]
+    got_p = stacked.history[:, col, p] - base.history[:, col, p]
+    np.testing.assert_allclose(np.where(first_v, got_v, got_p), 0.0, atol=1e-9)
+    np.testing.assert_allclose(np.where(first_v, got_p, got_v), wait, atol=1e-9)
+    assert stacked.double_stacks == int((wait > 0).sum()) > 0
+    # Only one Red Bull stopping: nothing changes.
+    solo = {**rivals, "VER": stop}
+    np.testing.assert_allclose(simulate_field(stacked_field, solo).times,
+                               simulate_field(field, solo).times)
+
+
+def test_double_stack_loss_recovers_d() -> None:
+    from f1strat.race_events import double_stack_loss
+
+    gaps = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 12.0, 3.5, 2.5])
+    pairs = pd.DataFrame({"kind": "green", "gap_s": gaps, "extra_s": np.maximum(0, 6.0 - gaps)})
+    out = double_stack_loss(pairs, kinds=("green",))
+    assert out["green"]["D_s"] == pytest.approx(6.0, abs=0.051)
+    assert out["green"]["n_queued"] == int((gaps < 6.0).sum())
+
+
+def test_search_pit_factor_scales_stop_cost(spain_state, setup) -> None:
+    """SC-aware search: a stop on a lap with factor f costs f x its green loss,
+    and the search's scoring stays exact."""
+    model, draws = setup
+    factor = np.ones(spain_state.laps_remaining)
+    factor[30 - (spain_state.lap + 1)] = 0.5
+    plan = Plan((Stop(30, "HARD", 1),))
+    full = plan_totals(model, spain_state, "VER", [plan], draws)[0]
+    cheap = plan_totals(model, spain_state, "VER", [plan], draws, pit_factor=factor)[0]
+    np.testing.assert_allclose(full - cheap, 0.5 * draws.pit_loss[:, 0])
+    res = search(model, spain_state, "VER", draws, max_stops=1, min_stint=5,
+                 per_stratum=1, pit_factor=factor, first_laps=(26, 34),
+                 first_sets=[("HARD", 1)])
+    assert res.plans[0].stops[0].lap == 30          # the discounted lap wins
+    assert np.allclose(res.totals, plan_totals(model, spain_state, "VER", res.plans, draws,
+                                               pit_factor=factor))
+
+
+def test_session_timing_uses_the_clock(raw) -> None:
+    """Silverstone 2022 (lap 1 red-flagged, restart lap untimed): lap-time sums
+    give wrong gaps; the session clock gives the real gaps at the line."""
+    laps = RaceState.from_laps(raw, 10, lap=38, total_laps=52)
+    clock = RaceState.from_laps(raw, 10, lap=38, total_laps=52, timing="session")
+    gap = clock.cars["HAM"].race_time - clock.cars["LEC"].race_time
+    assert gap == pytest.approx(6.125, abs=1e-3)
+    assert laps.cars["HAM"].race_time < laps.cars["LEC"].race_time   # the bug it fixes
+
+
+def test_current_neutral_length_is_fixed(fitted, raw, params) -> None:
+    state = dataclasses.replace(RaceState.from_laps(raw, 10, lap=38, total_laps=52,
+                                                    timing="session"),
+                                track_status="sc", neutral_laps=0)
+    status = neutral_schedule(state, params.neutral, 100, np.random.default_rng(0),
+                              current_length=6)
+    assert (status[:, :6] == SC).all() and (status[:, 6] != SC).all()

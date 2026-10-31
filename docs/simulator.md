@@ -193,6 +193,32 @@ every car lap by lap, vectorised over simulations.
   - paired comparisons with a reference plan;
   - every car's position distribution (`field_positions`).
 
+### Phase 6 additions (Silverstone; off by default)
+
+Recorded before any Silverstone simulation (`docs/case_studies.md`). The
+defaults leave Phases 4–5 and Hungary unchanged.
+- **Session-clock state** (`RaceState.from_laps(timing="session")`): race
+  time is the session clock at the end of the lap, not a sum of lap times.
+  Silverstone 2022 needs it: lap 1 was red-flagged and the restart lap has no
+  lap time for any car, so the sums put Hamilton 1.8 s *ahead* of Leclerc at
+  lap 38 (really 6.1 s behind).
+- **SC deployed during the next lap:** `track_status="sc"` with
+  `neutral_laps=0` makes the next lap the period's first SC lap (gaps kept),
+  and its remaining length is drawn from all observed SC lengths.
+  `build_field(current_neutral_length=n)` fixes that length instead
+  (robustness check).
+- **Double-stack queue** (`SimParams.double_stack`). When teammates pit on
+  the same lap, the car that arrives first (earlier arrival without its pit
+  loss) is served first. The other waits `max(0, D − arrival gap)`. `D` (the
+  first car's stationary time plus a margin) is set per track status (green,
+  SC; VSC uses the SC value) and fitted on 2022 same-lap teammate stops
+  (`race_events.double_stack_loss`).
+- **SC-aware single-car search** (`search(pit_factor=...)`,
+  `rival_plan_options(sc_aware=True)`). Each stop's loss is scaled by its
+  lap's expected SC/VSC pit-loss factor over the field's simulations
+  (`expected_pit_factor`), so a rival's own search can choose to stop under
+  the SC. Without it every stop is costed at the green loss.
+
 ### Passing model (`race_events.py`)
 
 **Events:** 3,645 cases in the 18 dry races where a car ended a lap within 1 s

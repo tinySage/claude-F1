@@ -99,6 +99,12 @@ class SimParams:
     neutral: Neutralisations
     sc_gap_s: float = 0.8         # queue gap behind the car ahead under SC
     notes: list[str] = field(default_factory=list)
+    #: Phase 6 (Silverstone): double-stack queue. Per track status
+    #: (``"green"``, ``"sc"``, optional ``"vsc"``), ``D`` in seconds: when
+    #: teammates pit on the same lap, the car behind at pit entry waits
+    #: ``max(0, D − arrival gap)`` (:func:`double_stack_loss`). ``None``: no
+    #: queue (Phases 4–5 and Hungary).
+    double_stack: dict[str, float] | None = None
 
     def save(self, path: Path = PARAMS_PATH) -> Path:
         path.write_text(json.dumps(asdict(self), indent=1))
@@ -110,7 +116,7 @@ class SimParams:
         passing = d["passing"]
         passing["circuit"] = {int(k): v for k, v in passing["circuit"].items()}
         return cls(PassModel(**passing), Neutralisations(**d["neutral"]),
-                   d["sc_gap_s"], d.get("notes", []))
+                   d["sc_gap_s"], d.get("notes", []), d.get("double_stack"))
 
 
 def _dry(df: pd.DataFrame) -> pd.DataFrame:
@@ -314,6 +320,35 @@ def relative_circuit_intercept(event_name: str, pooled_now: float, year_ref: int
                                              ].to_dict("records")}
 
 
+def in_race_pass_update(cleaned_cut: pd.DataFrame, fitted, round_number: int,
+                        prior_intercept: float, slope: float, first_racing_lap: int = 1,
+                        exclude_teammates: bool = False) -> dict:
+    """Update a circuit's pass intercept with the race's own passes so far.
+
+    The events are those of :func:`pass_events` for ``round_number`` in the
+    cutoff data (the pace from the cutoff fit), so lap 1, in and out laps of
+    either car, SC/VSC laps and lapping are already excluded (pairs are
+    adjacent in the classification, within 1 s on the same lap number).
+    Outcome laps up to ``first_racing_lap`` are also dropped (Silverstone
+    2022: lap 1 was red-flagged and lap 2 was the restart's opening lap).
+    The intercept is :func:`circuit_intercept_from` with the slope fixed and
+    the deviation shrunk toward ``prior_intercept`` (the same L2 penalty as
+    the season fits). ``exclude_teammates`` drops same-team pairs (e.g. a
+    team-order swap).
+    """
+    ev = pass_events(cleaned_cut[cleaned_cut["RoundNumber"] == round_number], fitted)
+    ev = ev[ev["lap"] > first_racing_lap]
+    if exclude_teammates and len(ev):
+        team = cleaned_cut[cleaned_cut["RoundNumber"] == round_number] \
+            .groupby("Driver")["Team"].first()
+        ev = ev[ev["attacker"].map(team) != ev["defender"].map(team)]
+    value = circuit_intercept_from(ev, slope, prior_intercept)
+    return {"prior": prior_intercept, "intercept": value, "events": int(len(ev)),
+            "passes": int(ev["passed"].sum()) if len(ev) else 0,
+            "pass_list": ev.loc[ev["passed"], ["lap", "attacker", "defender", "pace_gap_s"]]
+            .round(3).to_dict("records") if len(ev) else []}
+
+
 def fit_pass_model(events: pd.DataFrame, penalty: float = 1.0) -> PassModel:
     """Logistic regression with per-circuit intercepts shrunk to the pooled one."""
     from sklearn.linear_model import LogisticRegression
@@ -412,7 +447,7 @@ def fit_neutralisations(cleaned: pd.DataFrame, race: pd.DataFrame) -> Neutralisa
         n_sc=starts["SafetyCar"], n_vsc=starts["VSC"], green_laps=green)
 
 
-def _neutral_pit_ratios(cleaned: pd.DataFrame) -> tuple[float, float]:
+def _neutral_pit_ratios(cleaned: pd.DataFrame, return_samples: bool = False):
     """Pit loss under SC / VSC as a ratio to the circuit's green-flag loss.
 
     For a stop whose in lap is under SC (or VSC): (in lap + out lap) minus the
@@ -444,7 +479,95 @@ def _neutral_pit_ratios(cleaned: pd.DataFrame) -> tuple[float, float]:
             continue
         loss = s["in_s"] + s["out_s"] - float(pair.median())
         out[kind].append(loss / green[rnd])
+    if return_samples:
+        return out["sc"], out["vsc"]
     return float(np.median(out["sc"])), float(np.median(out["vsc"]))
+
+
+def pit_lane_stops(raw: pd.DataFrame) -> pd.DataFrame:
+    """Every stop with its pit-lane time (pit entry to pit exit, s) and the
+    track status of its in or out lap (``green``, ``sc`` or ``vsc``).
+
+    FastF1 has no stationary times, so the pit-lane time is the only stop
+    duration available. Stops whose in lap is lap 1 and pit-lane times outside
+    10–60 s (red flags, garage stops) are left out.
+    """
+    laps = raw.sort_values(["RoundNumber", "Driver", "LapNumber"])
+    inl = laps.loc[laps["PitInTime"].notna(),
+                   ["RoundNumber", "EventName", "Driver", "Team", "LapNumber", "PitInTime",
+                    "TrackStatus"]]
+    out = laps.loc[laps["PitOutTime"].notna(),
+                   ["RoundNumber", "Driver", "LapNumber", "PitOutTime", "TrackStatus"]]
+    out = out.assign(LapNumber=out["LapNumber"] - 1)
+    st = inl.merge(out, on=["RoundNumber", "Driver", "LapNumber"], suffixes=("", "_out"))
+    st["lane_s"] = (st["PitOutTime"] - st["PitInTime"]).dt.total_seconds()
+    st = st[(st["LapNumber"] > 1) & st["lane_s"].between(10, 60)].copy()
+    code = st["TrackStatus"].fillna("").astype(str) + st["TrackStatus_out"].fillna("").astype(str)
+    st["kind"] = np.where(code.str.contains("4"), "sc",
+                          np.where(code.str.contains("[67]"), "vsc", "green"))
+    st["team_stops_on_lap"] = st.groupby(["RoundNumber", "Team", "LapNumber"])["Driver"] \
+        .transform("size")
+    return st.reset_index(drop=True)
+
+
+def double_stack_pairs(raw: pd.DataFrame) -> pd.DataFrame:
+    """Same-lap teammate stops: arrival gap at pit entry and the second car's
+    extra pit-lane time over the race's solo stops (same track status if that
+    race has 3+ such solo stops, else all its solo stops)."""
+    st = pit_lane_stops(raw)
+    solo = st[st["team_stops_on_lap"] == 1]
+    by_kind = solo.groupby(["RoundNumber", "kind"])["lane_s"].agg(["median", "size"])
+    by_race = solo.groupby("RoundNumber")["lane_s"].median()
+
+    def base(rnd: int, kind: str) -> float:
+        key = (rnd, kind)
+        if key in by_kind.index and by_kind.loc[key, "size"] >= 3:
+            return float(by_kind.loc[key, "median"])
+        return float(by_race[rnd])
+
+    rows = []
+    for (rnd, team, lap), g in st[st["team_stops_on_lap"] == 2].groupby(
+            ["RoundNumber", "Team", "LapNumber"]):
+        if rnd not in by_race.index:
+            continue
+        a, b = g.sort_values("PitInTime").iloc[0], g.sort_values("PitInTime").iloc[1]
+        ref = base(int(rnd), str(b["kind"]))
+        rows.append({"RoundNumber": int(rnd), "EventName": a["EventName"], "Team": team,
+                     "lap": int(lap), "first": a["Driver"], "second": b["Driver"],
+                     "kind": b["kind"],
+                     "gap_s": (b["PitInTime"] - a["PitInTime"]).total_seconds(),
+                     "first_extra_s": a["lane_s"] - ref, "extra_s": b["lane_s"] - ref})
+    return pd.DataFrame(rows)
+
+
+def double_stack_loss(pairs: pd.DataFrame, kinds=("green", "sc")) -> dict[str, dict]:
+    """``D`` per track status for the double-stack queue.
+
+    The second car waits for the first car's stationary time plus a margin
+    (``D``), less the gap by which it arrived later: ``extra = max(0, D − gap)``.
+    ``D`` is fitted by least absolute deviation (slow stops and timing noise
+    would dominate a squared-error fit) on a 0.05 s grid. Also reports how many
+    pairs arrived closer than ``D`` (the pairs that identify it).
+    """
+    out = {}
+    grid = np.arange(0.0, 15.0001, 0.05)
+    for kind in kinds:
+        k = pairs[pairs["kind"] == kind]
+        if k.empty:
+            out[kind] = {"D_s": None, "n_pairs": 0, "n_queued": 0}
+            continue
+        cost = [np.abs(k["extra_s"] - np.maximum(0.0, D - k["gap_s"])).sum() for D in grid]
+        D = float(grid[int(np.argmin(cost))])
+        out[kind] = {"D_s": round(D, 2), "n_pairs": int(len(k)),
+                     "n_queued": int((k["gap_s"] < D).sum())}
+    return out
+
+
+def neutral_pit_samples(cleaned: pd.DataFrame) -> dict[str, int]:
+    """How many SC and VSC stops the pit-loss ratios of
+    :func:`fit_neutralisations` rest on (same selection as the ratios)."""
+    sc, vsc = _neutral_pit_ratios(cleaned, return_samples=True)
+    return {"sc": len(sc), "vsc": len(vsc)}
 
 
 def estimate(fitted, cleaned: pd.DataFrame, race: pd.DataFrame) -> SimParams:

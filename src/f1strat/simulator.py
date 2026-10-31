@@ -111,7 +111,10 @@ class RaceState:
     #: Dry sets still available per car, as (compound, out-lap TyreLife); the
     #: set on the car is not included. ``None``: unknown (unlimited in search).
     sets: dict[str, tuple[tuple[str, int], ...]] | None = None
-    #: Laps already run under the current SC/VSC (0 if green).
+    #: Laps already run under the current SC/VSC (0 if green). With
+    #: ``track_status="sc"`` and ``neutral_laps=0``, the SC was deployed during
+    #: the next lap (e.g. a decision made on the deployment lap): that lap is
+    #: the period's first SC lap.
     neutral_laps: int = 0
 
     @property
@@ -120,7 +123,7 @@ class RaceState:
 
     @classmethod
     def from_laps(cls, raw_laps: pd.DataFrame, round_number: int, lap: int,
-                  total_laps: int) -> "RaceState":
+                  total_laps: int, timing: str = "laps") -> "RaceState":
         """Build the actual state of a 2022 race at the end of ``lap``.
 
         Args:
@@ -128,12 +131,20 @@ class RaceState:
             round_number: Race round.
             lap: Last completed lap (>= 1).
             total_laps: Race distance.
+            timing: ``"laps"`` (default): race time is the sum of the car's lap
+                times. ``"session"``: the session clock at the end of ``lap``
+                minus the leader's start of lap 2, so gaps are the real gaps at
+                the line. Needed when lap times are missing for every car (e.g.
+                Silverstone 2022: lap 1 red-flagged, the restart lap untimed).
         """
+        if timing not in ("laps", "session"):
+            raise ValueError(f"unknown timing {timing!r}")
         if lap < 1:
             raise ValueError("lap must be >= 1 (lap 1 is not modelled)")
         race = raw_laps[raw_laps["RoundNumber"] == round_number]
         upto = race[race["LapNumber"] <= lap]
         now = upto[upto["LapNumber"] == lap]
+        origin = race.loc[race["LapNumber"] == 2, "LapStartTime"].min()
         cars = {}
         for _, row in now.iterrows():
             mine = upto[upto["Driver"] == row["Driver"]]
@@ -142,7 +153,8 @@ class RaceState:
                 driver=row["Driver"],
                 team=row["Team"],
                 position=int(row["Position"]) if pd.notna(row["Position"]) else 99,
-                race_time=float(mine["LapTime"].dt.total_seconds().sum()),
+                race_time=(float(mine["LapTime"].dt.total_seconds().sum()) if timing == "laps"
+                           else float((row["Time"] - origin).total_seconds())),
                 compound=str(row["Compound"]),
                 tyre_life=int(row["TyreLife"]),
                 laps_since_stop=int(lap - stint_laps["LapNumber"].min()),
@@ -512,11 +524,13 @@ def simulate_laps(model: CarModel, state: RaceState, driver: str, plan: Plan,
 
 
 def plan_totals(model: CarModel, state: RaceState, driver: str, plans: Sequence[Plan],
-                draws: Draws) -> np.ndarray:
+                draws: Draws, pit_factor: np.ndarray | None = None) -> np.ndarray:
     """Race time at the flag (s), shape (n_plans, n_sims), in closed form.
 
     Equal to ``state race_time + simulate_laps(...).sum(axis=1)`` for each
-    plan, without building the lap matrix.
+    plan, without building the lap matrix. ``pit_factor`` (one value per
+    remaining lap, see :func:`expected_pit_factor`) scales each stop's loss by
+    its lap's expected SC/VSC discount; ``None`` keeps green losses.
     """
     car = state.cars[driver]
     common = car.race_time + _common_laps(model, state, draws).sum(axis=1)
@@ -529,8 +543,9 @@ def plan_totals(model: CarModel, state: RaceState, driver: str, plans: Sequence[
             warm = sum(1 for k in range(n) if st.since0 + k in POST_STOP_LAPS) if st.from_stop else 0
             total += (n * model.compound[:, c] + model.deg[:, c] * age_sum
                       + warm * model.post_stop[:, c] + n * _stint_effect(model, draws, st))
-        for j in range(len(plan.stops)):
-            total += draws.pit_loss[:, j]
+        for j, stop in enumerate(plan.stops):
+            f = 1.0 if pit_factor is None else float(pit_factor[stop.lap - (state.lap + 1)])
+            total += f * draws.pit_loss[:, j]
         out[p] = total
     return out
 
@@ -640,6 +655,7 @@ def search(
     first_laps: tuple[int, int] | None = None,
     first_sets: Collection[tuple[str, int]] | None = None,
     n_capped_kept: int = 5,
+    pit_factor: np.ndarray | None = None,
 ) -> SearchResult:
     """Score every legal plan on expected race time, then Monte Carlo a
     stratified shortlist.
@@ -662,6 +678,10 @@ def search(
     - **Family filters** (Phase 6): ``first_laps`` (inclusive lap range of the
       first stop) and ``first_sets`` ((compound, out-lap TyreLife) allowed at
       the first stop) restrict the search to plans with at least one stop.
+    - **SC-aware pit loss** (``pit_factor``, Phase 6 Silverstone): each stop's
+      expected loss is scaled by the expected SC/VSC discount on its lap
+      (:func:`expected_pit_factor`), so a car can prefer to stop under a
+      safety car. ``None``: every stop costs the green loss (as before).
     """
     if max_stops > draws.z_stint.shape[1]:
         raise ValueError("draws were made for fewer stops than max_stops")
@@ -710,7 +730,11 @@ def search(
         cur = _stint_mean_cost(n_laps[:, 0], car.laps_since_stop + 1,
                                float(car.stint_started_with_stop), car.tyre_life + 1,
                                a[cur_c], b[cur_c], ps[cur_c], e[cur_kind])
-        base = cur + pit_mean[:k].sum()
+        if pit_factor is None or k == 0:
+            base = cur + pit_mean[:k].sum()
+        else:
+            base = cur + (np.asarray(pit_factor)[combos - (state.lap + 1)]
+                          * pit_mean[None, :k]).sum(axis=1)
         sequences = (_set_sequences(Counter((COMPOUNDS.index(c), life) for c, life in inventory), k)
                      if inventory is not None else itertools.product(sets, repeat=k))
         for seq in sequences:
@@ -749,7 +773,7 @@ def search(
     chosen = [Plan(tuple(Stop(int(lap), COMPOUNDS[c], life) for lap, (c, life) in zip(lps, seq)))
               for _, (lps, seq) in candidates]
     chosen += [p for p in include if p not in chosen]
-    totals = plan_totals(model, state, driver, chosen, draws)
+    totals = plan_totals(model, state, driver, chosen, draws, pit_factor)
     capped.sort(key=lambda x: x[0])
     capped_plans = [(t, Plan(tuple(Stop(int(lap), COMPOUNDS[c], life)
                                    for lap, (c, life) in zip(lps, seq))))
@@ -815,11 +839,14 @@ class Field:
 
 
 def neutral_schedule(state: RaceState, neutral, n_sims: int,
-                     rng: np.random.Generator) -> np.ndarray:
+                     rng: np.random.Generator,
+                     current_length: int | None = None) -> np.ndarray:
     """SC/VSC status per simulation and remaining lap (plan-independent).
 
     A state already under SC/VSC continues it: the remaining length is drawn
-    from the observed lengths longer than the laps already run. On green laps,
+    from the observed lengths longer than the laps already run (with
+    ``current_length``, the period's total length is fixed instead, e.g. a
+    Phase 6 robustness check at a quantile of that distribution). On green laps,
     an SC starts with probability ``p_sc_per_lap`` and a VSC with
     ``p_vsc_per_lap``, each with a length drawn from the observed lengths.
     After any SC/VSC the next lap is green (the restart), so periods never run
@@ -835,6 +862,8 @@ def neutral_schedule(state: RaceState, neutral, n_sims: int,
             lengths = sc_len if state.track_status == "sc" else vsc_len
             longer = lengths[lengths > state.neutral_laps]
             remaining = (rng.choice(longer) - state.neutral_laps) if len(longer) else 1
+            if current_length is not None:
+                remaining = max(1, current_length - state.neutral_laps)
             code = SC if state.track_status == "sc" else VSC
             out[i, :remaining] = code
             j = remaining + 1
@@ -888,6 +917,7 @@ def build_field(
     use_fitted_current_stint: bool = True,
     final_race_prior: bool = False,
     status: np.ndarray | None = None,
+    current_neutral_length: int | None = None,
 ) -> Field:
     """Draw everything plan-independent for every car (common random numbers).
 
@@ -895,6 +925,8 @@ def build_field(
     draws the race's ``final_race`` from its prior (see :func:`car_model`).
     ``status`` (GREEN / SC / VSC per remaining lap) forces the SC/VSC schedule
     in every simulation instead of drawing it (Phase 5 replay backtests).
+    ``current_neutral_length`` fixes the total length of an SC/VSC the state
+    is already under (see :func:`neutral_schedule`).
     """
     rng = np.random.default_rng(seed)
     total = fitted.posterior.sizes["chain"] * fitted.posterior.sizes["draw"]
@@ -908,7 +940,7 @@ def build_field(
         models[d] = car_model(fitted, state.round_number, d, car.team, idx, rng,
                               current_stint=stint, widening=widening, final_race_z=fr_z)
         draws[d] = make_draws(models[d], state.laps_remaining, pit_losses, max_stops, rng)
-    drawn = neutral_schedule(state, params.neutral, n_sims, rng)
+    drawn = neutral_schedule(state, params.neutral, n_sims, rng, current_neutral_length)
     if status is not None:
         drawn = np.broadcast_to(np.asarray(status, np.int8), drawn.shape).copy()
     status = drawn
@@ -967,6 +999,8 @@ class FieldResult:
     history: np.ndarray | None = None
     #: With ``record=True``: car on an in or out lap, same shape.
     pit_laps: np.ndarray | None = None
+    #: Same-lap teammate stops in which the second car queued (all sims).
+    double_stacks: int = 0
 
 
 def simulate_field(field: Field, plans: dict[str, PlanOptions],
@@ -1011,6 +1045,13 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions],
         sc_lap[:, j] = run
     history = np.empty((n, L, C)) if record else None
     pit_laps = np.zeros((n, L, C), dtype=bool) if record else None
+    # Teammate pairs (column indices) for the double-stack queue.
+    ds = getattr(prm, "double_stack", None)
+    teams: dict[str, list[int]] = {}
+    for c, d in enumerate(field.drivers):
+        teams.setdefault(st.cars[d].team, []).append(c)
+    mates = [tuple(v) for v in teams.values() if len(v) == 2] if ds else []
+    stacks = 0
     for j in range(L):
         F, P, s = free[:, j, :], pit[:, j, :], field.status[:, j]
         pace_mean = F - noise[:, j, :]
@@ -1095,6 +1136,22 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions],
                 q = np.maximum(own, prev + 0.05)
                 prev = np.where(pitting[rows, car], prev, q)
                 A[rows, car] = np.where(vsc, q + neu.vsc_pit_ratio * P[rows, car], A[rows, car])
+        # --- double stack: teammates pitting on the same lap ----------------------
+        if mates:
+            eff = np.where(sc, neu.sc_pit_ratio, np.where(vsc, neu.vsc_pit_ratio, 1.0))
+            d_s = np.where(sc, ds["sc"], np.where(vsc, ds.get("vsc", ds["sc"]), ds["green"]))
+            for c1, c2 in mates:
+                both = pitting[:, c1] & pitting[:, c2] & ~gone[:, c1] & ~gone[:, c2]
+                if not both.any():
+                    continue
+                # Arrival without the pit loss; the car ahead on track is served
+                # first and the second waits max(0, D - arrival gap).
+                a1 = A[:, c1] - eff * P[:, c1]
+                a2 = A[:, c2] - eff * P[:, c2]
+                wait = np.where(both, np.maximum(0.0, d_s - np.abs(a2 - a1)), 0.0)
+                second = np.where(a1 <= a2, c2, c1)
+                A[rows, second] += wait
+                stacks += int((wait > 0).sum())
         A[:, st.lap + 1 + j > last] = np.inf
         T = A
         if record:
@@ -1103,7 +1160,7 @@ def simulate_field(field: Field, plans: dict[str, PlanOptions],
     positions = np.argsort(np.argsort(T, axis=1), axis=1) + 1
     return FieldResult(field.drivers, T, positions, passes, holds, attempts,
                        np.concatenate(attempt_pace) if attempt_pace else None,
-                       history, pit_laps)
+                       history, pit_laps, stacks)
 
 
 @dataclass
@@ -1175,16 +1232,31 @@ def field_search(field: Field, focal: str, candidates: Sequence[Plan],
                              np.stack(positions), np.stack(times), field.drivers)
 
 
+def expected_pit_factor(field: Field) -> np.ndarray:
+    """Per remaining lap, the mean (over simulations) factor on a stop's green
+    pit loss: 1 on green laps, ``sc_pit_ratio`` under SC, ``vsc_pit_ratio``
+    under VSC. Used to make single-car searches SC-aware (Phase 6)."""
+    neu = field.params.neutral
+    f = np.where(field.status == SC, neu.sc_pit_ratio,
+                 np.where(field.status == VSC, neu.vsc_pit_ratio, 1.0))
+    return f.mean(axis=0)
+
+
 def rival_plan_options(field: Field, driver: str, top: int = 3, temperature_s: float = 3.0,
                        max_stops: int = 3, min_stint: int = 5,
-                       max_age: dict[str, int] | None = None) -> list[tuple[Plan, float]]:
+                       max_age: dict[str, int] | None = None,
+                       sc_aware: bool = False) -> list[tuple[Plan, float]]:
     """A rival's plan options from its own single-car search (no hindsight).
 
     The ``top`` plans by expected time (one per compound sequence, best
-    first), weighted by ``exp(−(mean − best) / temperature_s)``.
+    first), weighted by ``exp(−(mean − best) / temperature_s)``. With
+    ``sc_aware``, stops are costed at their lap's expected SC/VSC pit loss
+    (:func:`expected_pit_factor`), so a rival can choose to stop under a
+    safety car.
     """
     res = search(field.models[driver], field.state, driver, field.draws[driver],
-                 max_stops=max_stops, min_stint=min_stint, per_stratum=1, max_age=max_age)
+                 max_stops=max_stops, min_stint=min_stint, per_stratum=1, max_age=max_age,
+                 pit_factor=expected_pit_factor(field) if sc_aware else None)
     means = res.totals.mean(axis=1)
     order = np.argsort(means)[:top]
     w = np.exp(-(means[order] - means[order[0]]) / temperature_s)
