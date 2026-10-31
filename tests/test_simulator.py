@@ -322,3 +322,20 @@ def test_tyre_age_cap_and_family_filters(spain_state, setup) -> None:
     assert fam.plans and all(p.stops and 20 <= p.stops[0].lap <= 22
                              and p.stops[0].compound == "HARD" and p.stops[0].tyre_life == 1
                              for p in fam.plans)
+
+
+def test_known_stint_effect_replaces_the_draw(spain_state, setup) -> None:
+    """Phase 6 hindsight: a plan stint matching a known stint (first lap,
+    compound, TyreLife) uses the known effect for all its laps."""
+    model, draws = setup
+    plan = Plan((Stop(30, "HARD", 1),))
+    base = simulate_laps(model, spain_state, "VER", plan, draws)
+    known = dataclasses.replace(model, known_stints={(31, "HARD", 1): np.full(draws.n_sims, 2.0)})
+    shifted = simulate_laps(known, spain_state, "VER", plan, draws)
+    final = model.final_mean + model.sigma_stint_final * draws.z_final
+    cols = np.arange(31, spain_state.total_laps + 1) - (spain_state.lap + 1)
+    assert np.allclose((shifted - base)[:, cols], (2.0 - final)[:, None])
+    assert np.allclose((shifted - base)[:, :cols[0]], 0.0)
+    # Totals agree with the lap-by-lap path.
+    tot = plan_totals(known, spain_state, "VER", [plan], draws)[0]
+    assert np.allclose(tot, spain_state.cars["VER"].race_time + shifted.sum(axis=1))

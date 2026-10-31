@@ -299,6 +299,10 @@ class CarModel:
     final_mean: np.ndarray    # mu_final + final_race (prior draw widened if no data)
     sigma_stint_final: np.ndarray  # already multiplied by the widening factor
     current_stint: np.ndarray | None  # fitted effect of the stint in progress
+    #: Hindsight replays (Phase 6): fitted effects of stints that actually
+    #: happened, keyed by (first lap, compound, TyreLife on that lap). A plan
+    #: stint with the same key uses it for all its laps instead of a draw.
+    known_stints: dict[tuple[int, str, int], np.ndarray] = field(default_factory=dict)
 
 
 def car_model(
@@ -466,6 +470,10 @@ def _stint_effect(model: CarModel, draws: Draws, stint: _Stint) -> np.ndarray:
     """One draw per stint (shared by its laps), per simulation."""
     if stint.kind.startswith("current") and model.current_stint is not None:
         return model.current_stint
+    if model.known_stints and not stint.kind.startswith("current"):
+        known = model.known_stints.get((stint.first_lap, COMPOUNDS[stint.compound], stint.life0))
+        if known is not None:
+            return known
     if stint.kind in ("final", "current_final"):
         return model.final_mean + model.sigma_stint_final * draws.z_final
     if stint.kind == "current":
