@@ -1095,7 +1095,14 @@ The committed checks, plus the additions. The band is recomputed under each:
 - **Ferrari's hard pace** has no practice data. It rests on Sainz's and
   Leclerc's race laps on hards and the season tendency.
 
-### Results
+### Results (v1)
+
+> **Status of v1: within range given the model; not supported, because the
+> hindsight replay doesn't reproduce the race.** With the actual SC and the
+> rivals' actual plans, the replay has Leclerc winning 95% of the time; he
+> finished P4. A model that cannot reproduce the race in hindsight cannot
+> judge the call. Every v1 number below is kept on record; v2 (below) follows
+> the diagnosis.
 
 Run: `uv run python -m f1strat.case_study silverstone` (hindsight and reality
 check alone: `--hindsight-only`); exploratory break-even: `silverstone-break-even`.
@@ -1125,7 +1132,8 @@ Outputs in `reports/figures/`:
 - **Candidates:** 70 plans. The tyre-age cap removed 2 (the 24-lap medium
   run past 35 laps).
 
-**Verdict: within range, robust.**
+**v1 verdict (not supported; see the status note above): within range,
+robust given the model.**
 - **The best plan overall is the call itself:** stay out on the hards to the
   flag (`H`).
 - The primary loss is 0 on the measurement set (10th–90th percentile 0 to
@@ -1295,9 +1303,12 @@ pace shifted (both Ferraris; only Leclerc runs hards after lap 39):
   (0.15 s). That is right at the break-even, before the restart passes are
   counted.
 
-### Verdict
+### Verdict (v1)
 
-**Stay out at lap 39: within range, robust.**
+**v1: within range given the model; not supported, because the hindsight
+replay doesn't reproduce the race.**
+
+The v1 model's verdict, kept on record:
 - With the information at the end of lap 38, staying out on the 14-lap hards
   was the model's best plan (23.3 points, P1 in 78% of simulations). New
   softs at 39 came second with 21.4.
