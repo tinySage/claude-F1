@@ -1895,7 +1895,7 @@ cutoff.**
 **Limits specific to Monaco.**
 - **Ferrari's pit wall had information this dataset lacks:** track and
   weather sensors, live sector and mini-sector times, tyre temperatures, and
-  driver feedback (Sainz asked for slicks). "Not assessable" is about the
+  driver feedback. "Not assessable" is about the
   public timing data used here. It does not say whether the right call was
   knowable at the time.
 - **No wet or crossover pace model:** compound pace comes from other cars on

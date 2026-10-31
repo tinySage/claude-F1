@@ -25,6 +25,9 @@ src/f1strat/        Package code. All logic lives here.
   backtest.py       Phase 5 backtests and calibration (passing, SC closing)
   practice.py       FP1-FP3 long runs for cutoff fits
   rehearsal.py      Cutoff pipeline: refit, leakage-free parameters, search, compare
+  case_study.py     Phase 6 verdicts (Hungary, Silverstone): rule, checks, hindsight
+  restart.py        Restart layer (Silverstone v2): pace offset and pass multiplier
+  monaco.py         Monaco track-position accounting (wet crossover; no simulator)
 models/             Posteriors; only the thinned full fit is committed
 docs/               model.md, simulator.md, validation.md, case_studies.md (verdict rule, results)
 notebooks/          Exploration and plots only. Imports from f1strat.
