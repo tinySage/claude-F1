@@ -11,7 +11,7 @@ For each, the question is: using only what the pit wall knew at the decision lap
 was the call within the range of good options?
 
 ## Current phase
-**Phase 6: Case studies.** Phases 0–5 are complete. Model: `docs/model.md`; simulator: `docs/simulator.md`; validation and the Phase 6 dress rehearsal: `docs/validation.md`. The simulator reads the committed thinned posterior `models/deg_full_2022_thin.nc`; the full posterior is gitignored (rebuild: `uv run python -m f1strat.deg_model full`, ~40 min, also rewrites the thinned file). Case-study fits go through `f1strat.rehearsal` (cutoff data, practice long runs, leakage-free parameters, divergence-free fits). See `ROADMAP.md` for the full plan and checkpoints.
+**Phase 7: Ship.** Phases 0–6 are complete (case-study verdicts and their limits: `docs/case_studies.md`). Model: `docs/model.md`; simulator: `docs/simulator.md`; validation and the Phase 6 dress rehearsal: `docs/validation.md`. The simulator reads the committed thinned posterior `models/deg_full_2022_thin.nc`; the full posterior is gitignored (rebuild: `uv run python -m f1strat.deg_model full`, ~40 min, also rewrites the thinned file). Case-study fits go through `f1strat.rehearsal` (cutoff data, practice long runs, leakage-free parameters, divergence-free fits). See `ROADMAP.md` for the full plan and checkpoints.
 
 ## Repo layout
 ```

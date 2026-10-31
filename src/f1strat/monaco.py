@@ -597,7 +597,7 @@ def plot_gap_timeline(raw: pd.DataFrame, race: pd.DataFrame, path) -> object:
             c = g.at[L, "c"]
             if isinstance(c, str):
                 ax.plot(L, gap.at[L, d], marks.get(c, "o"), color=col, ms=5, mec=SURFACE)
-            if bool(g.at[L, "in_lap"]):
+            if bool(g.at[L, "in_lap"]) and L < 27:   # stops, not the red-flag pit entry
                 ax.annotate(f"{d} in", (L, gap.at[L, d]), textcoords="offset points",
                             xytext=(4, 6), fontsize=7, color=col)
     ax.set_ylim(28, -2)
@@ -652,7 +652,8 @@ def plot_positions(out: dict, path) -> object:
     ax.set_xlim(0, 1)
     ax.set_xlabel("share of draws (hindsight, 2,000); Leclerc's position at the end of lap 23",
                   color=INK2, fontsize=9)
-    ax.set_title("Monaco 2022: Leclerc's position under each counterfactual (hindsight)",
+    ax.set_title("Monaco 2022: Leclerc's position under each counterfactual "
+                 "(hindsight outcomes, not verdicts)",
                  fontsize=10, color=INK, loc="left")
     fig.tight_layout()
     fig.savefig(path, dpi=130)

@@ -376,7 +376,17 @@ Open issues for Phase 6:
   cold-tyre penalty and green-flag pass rates. Silverstone had 9 passes in
   the first three restart laps against 3.1 simulated. State it for any
   verdict that turns on a restart.
-- [ ] Monaco (wet crossover; state limitations)
+- [x] Monaco (`docs/case_studies.md`; track-position accounting,
+  `f1strat.monaco`): **D1 (inters at 18) and D2 (double stack at 21): not
+  assessable at the cutoff.**
+  - The public timing data had no usable slick pace at either decision (no
+    hard cell identified by 2+ cars on 2+ laps).
+  - Exploratory lap-20 reading (one lap, two cars): slicks still 3.8 s/lap
+    slower than inters. No verdict drawn.
+  - Hindsight outcomes, not verdicts: skipping inters, or staying out to 22,
+    would likely have kept Leclerc P1 (22–25 points against 12). The queue
+    cost at most one place, within the noise.
+  - Ferrari's pit wall had more information than this dataset.
 
 **Done when:** each case study has a verdict on whether the call was within the range of good options, backed by leakage-free simulations, or a documented reason none is supported.
 

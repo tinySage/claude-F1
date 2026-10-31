@@ -1780,3 +1780,131 @@ as approved in Part A:
   time (as in every case study).
 - **Yellow-flag laps** (code 2) are kept as eligible: the lap-18 and lap-21
   yellows affected nearly every car.
+
+### Results
+
+Run: `uv run python -m f1strat.monaco verdict`. Outputs:
+`reports/figures/case_monaco_results.json` (every number below), figures
+`case_monaco_gaps.png` (the crossover) and `case_monaco_positions.png`
+(Leclerc's position under each counterfactual, hindsight).
+
+![Ferrari and Red Bull through the crossover](../reports/figures/case_monaco_gaps.png)
+
+### Decision-lap verdicts (the committed rule)
+
+**D1 (inters at 18) and D2 (slicks at 21 behind Sainz): not assessable at
+the cutoff.** The same holds for each earlier-stop comparison at its own
+cutoff (16 and 19).
+- **The public timing data had no usable slick pace when Ferrari decided.**
+- **Cutoffs 16 and 17:**
+  - no compound-lap cell on hards has 2 or more cars;
+  - the only car on hards, Latifi (from lap 4), ran nothing else, so his car
+    pace and the hard pace cannot be separated.
+- **Cutoff 19:** still no identified hard cell. The first car to switch to
+  hards (Schumacher) had a single eligible lap, lap 19.
+- **Cutoff 20:** one identified hard lap (lap 20: Schumacher and Albon). The
+  pre-registered trend needs 2.
+- Every plan ends the cycle on hards, so every plan needs that pace, the call
+  included.
+
+This is the same kind of answer as Silverstone's "inconclusive": the method
+cannot judge the call from this dataset. It is not a judgement that the call
+was right or wrong.
+
+**Exploratory, not a verdict: the cutoff-20 reading on one lap of two cars.**
+- **Setup:** holding lap 20's hard cell constant (persistence, instead of
+  the committed trend).
+  - That cell is Schumacher (91.4 s) and Albon (98.9 s) on lap 20.
+  - It puts hards **3.8 s/lap slower than inters** on lap 20.
+  - The rest of the reading inherits that figure. It is single-lap and
+    two-car (not Latifi: his laps cannot identify slick pace).
+- **On that basis:**
+  - staying out to 22 scores 17.7 points against 13.7 for the double stack
+    at 21 (loss 4.0, 10–90%: 0 to 13);
+  - the call is level or ahead in 33% of draws.
+  - The numbers would read "marginal". **No verdict is drawn from it.** The
+    point is only this: what the public data showed at lap 20 was that
+    slicks were still slower, not that it was time to switch.
+
+### Hindsight outcomes: what would have happened (not verdicts)
+
+Fit on laps 3–26, actual lap times where a car's laps are unchanged, D =
+5.5 s; 2,000 measurement draws; the best alternative was chosen on a separate
+1,000. Lap-time noise σ = 1.43 s. These are outcomes, reported with the
+bands' numbers; they are not decision-lap verdicts.
+
+| Comparison | Best alternative (hindsight) | Leclerc: call → best (points) | Mean loss (10–90%) | Call level or ahead | Bands' reading | Too close to call? |
+|---|---|---|---|---|---|---|
+| D1 at 17: inters at 18 | **skip inters: slicks at 22** | 12.0 (P4) → 24.9 (P1 in 99%) | 12.9 (13 to 13) | 0% | outside range | no (P1, 14.3 s ahead of the next car) |
+| D1 at 16: inters at 18 vs 17 | inters at 17 | 12.0 → 14.0 (P1 9%, P3 15%, P4 65%) | 2.0 (0 to 6) | 68% | marginal | no |
+| D2 at 20: stack at 21 | **stay out: slicks at 22** | 12.0 → 21.9 (P1 71%, P3 12%, P4 12%) | 9.9 (0 to 13) | 12% | outside range | no (P1 in most draws; 3.7 s to the car behind) |
+| D2 at 19: stack at 21 vs slicks at 20 | slicks at 20 | 12.0 → 19.4 (P1 50%, P3 30%, P4 20%) | 7.4 (0 to 13) | 20% | outside range | no |
+
+Every D1 alternative at cutoff 17, in hindsight:
+
+| Plan | Points | Position |
+|---|---|---|
+| Call: inters at 18, slicks at 21 (as run) | 12.0 | P4 |
+| Inters at 19, slicks at 21 | 13.1 | P4 78%, P3 17%, P1 5% |
+| Skip inters: slicks at 21 (Sainz's lap; Leclerc ahead, so Sainz queues) | 23.9 | P1 90% |
+| Skip inters: slicks at 22 | 24.9 | P1 99% |
+
+- **What the hindsight outcomes say:**
+  - Leclerc's track position was lost at lap 18. Pérez's lap-16 inters
+    undercut and Sainz's wets-to-slicks run both got ahead of him.
+  - Staying on wets with Sainz and going straight to slicks would have kept
+    him P1 in about 9 of 10 replays.
+  - At lap 21, staying out one more lap (to 22) would have put him ahead of
+    the Red Bulls' lap-22 stops in about 7 of 10.
+- **Robust to the pace forecast:** holding the last value instead of the
+  trend changes no reading (loss 12.9, 2.0, 10.0, 7.5).
+  - The hindsight fit has no car on wets after lap 20. The wets laps 21–22
+    that the skip-inters plans need are forecast, and flagged.
+- **Too close to call:** none of the best alternatives rests on a gap below σ
+  (1.43 s) once a P1 draw counts as having no car ahead (corrected before
+  this write-up; the first run's flags were wrong).
+- **The call in hindsight is the actual race:** P4, 1.15 s behind
+  Verstappen at the end of lap 23. It has no rebuilt laps, so no modelled
+  noise.
+
+**Diagnostic: what the double stack cost.**
+- **In hindsight:** without the 2.45 s queue, Leclerc is ahead of Verstappen
+  at the end of lap 23: P3, +3 points. But the gap to Verstappen behind is
+  1.30 s, **below the 1.43 s noise, so by the amended rule P3 is too close to
+  call.**
+- **In the exploratory cutoff-20 reading** (the single lap of two cars
+  above): +1.3 points.
+- So the queue plausibly cost one place (P3 → P4), but within the noise.
+  Most of the loss came from the stop timing, not the queue.
+
+![Leclerc's position under each counterfactual](../reports/figures/case_monaco_positions.png)
+
+### Monaco verdict
+
+**D1 (inters at 18) and D2 (double stack at 21): not assessable at the
+cutoff.**
+- Under the committed rule, the public timing data had no usable slick pace
+  at either decision. The one exploratory reading at lap 20 (one lap, two
+  cars) said slicks were still slower.
+- **In hindsight** (outcomes, not verdicts), the stop timing cost Leclerc the
+  win:
+  - skipping inters, or staying out to lap 22 at the second decision, would
+    likely have kept him P1 (22–25 points against 12);
+  - the double stack's queue cost at most one more place, within the noise.
+
+**Limits specific to Monaco.**
+- **Ferrari's pit wall had information this dataset lacks:** track and
+  weather sensors, live sector and mini-sector times, tyre temperatures, and
+  driver feedback (Sainz asked for slicks). "Not assessable" is about the
+  public timing data used here. It does not say whether the right call was
+  knowable at the time.
+- **No wet or crossover pace model:** compound pace comes from other cars on
+  that compound that lap. Wets after lap 20 are forecast even in hindsight.
+- **No passing modelled** (2022 had no top-8 pass outside the stops). An
+  alternative that puts Leclerc ahead on a slower compound assumes he holds
+  the place. Monaco makes that likely, but it is not certain.
+- **Rivals keep their actual stop laps.** If Leclerc had stayed out, Red
+  Bull's lap-22 stop could have changed.
+- **The red flag's free tyre change** erased tyre differences after lap 29,
+  which is why the lap-23 order is taken as final.
+- **The no-queue result** rests on a 1.30 s gap, inside the lap-time noise.

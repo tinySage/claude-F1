@@ -8,7 +8,7 @@
     "cutoff": 17,
     "best": "skip inters: slicks at 22",
     "call": "call: inters at 18, slicks at 21",
-    "band": "too close to call",
+    "band": "outside range",
     "band_by_points": "outside range",
     "mean_loss": 12.9485,
     "loss_p10": 13.0,
@@ -18,8 +18,8 @@
     "too_close": {
      "call: inters at 18, slicks at 21": false,
      "inters at 19, slicks at 21": false,
-     "skip inters: slicks at 21": true,
-     "skip inters: slicks at 22": true
+     "skip inters: slicks at 21": false,
+     "skip inters: slicks at 22": false
     },
     "plans": {
      "call: inters at 18, slicks at 21": {
@@ -43,7 +43,7 @@
        "5": 0.0015,
        "6": 0.0015
       },
-      "median_gap_ahead_s": 3.768352822173256,
+      "median_gap_ahead_s": 4.094582147366054,
       "median_gap_behind_s": 7.129738126943266
      },
      "skip inters: slicks at 21": {
@@ -56,7 +56,7 @@
        "3": 0.052,
        "4": 0.0365
       },
-      "median_gap_ahead_s": 0.680000000000291,
+      "median_gap_ahead_s": null,
       "median_gap_behind_s": 7.633210110039727
      },
      "skip inters: slicks at 22": {
@@ -69,7 +69,7 @@
        "3": 0.0025,
        "4": 0.0015
       },
-      "median_gap_ahead_s": 0.9528651434375206,
+      "median_gap_ahead_s": null,
       "median_gap_behind_s": 14.334391142906497
      }
     },
@@ -97,7 +97,7 @@
     "cutoff": 17,
     "best": "skip inters: slicks at 22",
     "call": "call: inters at 18, slicks at 21",
-    "band": "too close to call",
+    "band": "outside range",
     "band_by_points": "outside range",
     "mean_loss": 12.918,
     "loss_p10": 13.0,
@@ -107,8 +107,8 @@
     "too_close": {
      "call: inters at 18, slicks at 21": false,
      "inters at 19, slicks at 21": false,
-     "skip inters: slicks at 21": true,
-     "skip inters: slicks at 22": true
+     "skip inters: slicks at 21": false,
+     "skip inters: slicks at 22": false
     },
     "plans": {
      "call: inters at 18, slicks at 21": {
@@ -132,7 +132,7 @@
        "5": 0.0015,
        "6": 0.0015
       },
-      "median_gap_ahead_s": 3.707247142747292,
+      "median_gap_ahead_s": 3.9515397418581415,
       "median_gap_behind_s": 7.210663857834334
      },
      "skip inters: slicks at 21": {
@@ -145,7 +145,7 @@
        "3": 0.057,
        "4": 0.041
       },
-      "median_gap_ahead_s": 0.7636273692387476,
+      "median_gap_ahead_s": null,
       "median_gap_behind_s": 7.334555442238525
      },
      "skip inters: slicks at 22": {
@@ -158,7 +158,7 @@
        "3": 0.0045,
        "4": 0.0015
       },
-      "median_gap_ahead_s": 0.7379560331319226,
+      "median_gap_ahead_s": null,
       "median_gap_behind_s": 12.925987368384085
      }
     },
@@ -246,7 +246,7 @@
        "5": 0.019,
        "6": 0.008
       },
-      "median_gap_ahead_s": 2.715266862937824,
+      "median_gap_ahead_s": 3.358531040876187,
       "median_gap_behind_s": 6.410274938713883
      }
     },
@@ -297,7 +297,7 @@
        "5": 0.019,
        "6": 0.008
       },
-      "median_gap_ahead_s": 2.572999999998501,
+      "median_gap_ahead_s": 3.165453086562593,
       "median_gap_behind_s": 6.312142986919753
      }
     },
@@ -336,7 +336,7 @@
     "cutoff": 20,
     "best": "stay out: slicks at 22",
     "call": "call: slicks at 21 (double stack)",
-    "band": "too close to call",
+    "band": "outside range",
     "band_by_points": "outside range",
     "mean_loss": 9.9015,
     "loss_p10": 0.0,
@@ -345,7 +345,7 @@
     "sigma_s": 1.4342257168118382,
     "too_close": {
      "call: slicks at 21 (double stack)": false,
-     "stay out: slicks at 22": true
+     "stay out: slicks at 22": false
     },
     "plans": {
      "call: slicks at 21 (double stack)": {
@@ -368,7 +368,7 @@
        "3": 0.115,
        "4": 0.1165
       },
-      "median_gap_ahead_s": 0.8963264066715055,
+      "median_gap_ahead_s": null,
       "median_gap_behind_s": 3.725470893635247
      }
     },
@@ -385,7 +385,7 @@
     "cutoff": 20,
     "best": "stay out: slicks at 22",
     "call": "call: slicks at 21 (double stack)",
-    "band": "too close to call",
+    "band": "outside range",
     "band_by_points": "outside range",
     "mean_loss": 10.0395,
     "loss_p10": 0.0,
@@ -394,7 +394,7 @@
     "sigma_s": 1.4342257168118382,
     "too_close": {
      "call: slicks at 21 (double stack)": false,
-     "stay out: slicks at 22": true
+     "stay out: slicks at 22": false
     },
     "plans": {
      "call: slicks at 21 (double stack)": {
@@ -417,7 +417,7 @@
        "3": 0.1125,
        "4": 0.1105
       },
-      "median_gap_ahead_s": 0.947494030470807,
+      "median_gap_ahead_s": null,
       "median_gap_behind_s": 3.73534723245848
      }
     },
@@ -467,7 +467,7 @@
        "4": 0.588,
        "5": 0.0075
       },
-      "median_gap_ahead_s": 4.231316801276989,
+      "median_gap_ahead_s": 4.33265432880853,
       "median_gap_behind_s": 8.351622043149291
      },
      "stay out: slicks at 22": {
@@ -480,7 +480,7 @@
        "3": 0.2865,
        "4": 0.1235
       },
-      "median_gap_ahead_s": 2.786891234187351,
+      "median_gap_ahead_s": 3.7282164870603083,
       "median_gap_behind_s": 3.7557921727038774
      }
     },
@@ -528,7 +528,7 @@
     "cutoff": 19,
     "best": "slicks at 20",
     "call": "call: slicks at 21 (double stack)",
-    "band": "too close to call",
+    "band": "outside range",
     "band_by_points": "outside range",
     "mean_loss": 7.378,
     "loss_p10": 0.0,
@@ -537,7 +537,7 @@
     "sigma_s": 1.4342257168118382,
     "too_close": {
      "call: slicks at 21 (double stack)": false,
-     "slicks at 20": true
+     "slicks at 20": false
     },
     "plans": {
      "call: slicks at 21 (double stack)": {
@@ -559,7 +559,7 @@
        "3": 0.3035,
        "4": 0.199
       },
-      "median_gap_ahead_s": 0.8678328861878981,
+      "median_gap_ahead_s": 11.303133916736442,
       "median_gap_behind_s": 2.836942613618703
      }
     },
@@ -576,7 +576,7 @@
     "cutoff": 19,
     "best": "slicks at 20",
     "call": "call: slicks at 21 (double stack)",
-    "band": "too close to call",
+    "band": "outside range",
     "band_by_points": "outside range",
     "mean_loss": 7.4905,
     "loss_p10": 0.0,
@@ -585,7 +585,7 @@
     "sigma_s": 1.4342257168118382,
     "too_close": {
      "call: slicks at 21 (double stack)": false,
-     "slicks at 20": true
+     "slicks at 20": false
     },
     "plans": {
      "call: slicks at 21 (double stack)": {
@@ -607,7 +607,7 @@
        "3": 0.302,
        "4": 0.1915
       },
-      "median_gap_ahead_s": 0.8535591018553532,
+      "median_gap_ahead_s": null,
       "median_gap_behind_s": 2.8314739185207145
      }
     },
@@ -675,7 +675,7 @@
      "4": 0.588,
      "5": 0.0075
     },
-    "median_gap_ahead_s": 4.231316801276989,
+    "median_gap_ahead_s": 4.33265432880853,
     "median_gap_behind_s": 8.351622043149291
    },
    "no queue (diagnostic)": {
@@ -689,7 +689,7 @@
      "4": 0.397,
      "5": 0.0005
     },
-    "median_gap_ahead_s": 3.0233372596749177,
+    "median_gap_ahead_s": 3.221266279847441,
     "median_gap_behind_s": 6.021101548584738
    },
    "points_cost_of_queue": 1.2735
