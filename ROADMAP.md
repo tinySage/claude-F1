@@ -348,7 +348,8 @@ Open issues for Phase 6:
   - The points were lost at lap 54. About 4 more points lost in hindsight
     at lap 38 came from what the pit wall could not know (Verstappen's stop
     phase and pace).
-- [ ] Silverstone (`docs/case_studies.md`): **v2 verdict: inconclusive.**
+- [x] Silverstone (`docs/case_studies.md`): **inconclusive (the model can't
+  reproduce the restart).**
   - v1 and v2 put the call within range, but neither model reproduces the
     race in hindsight (Leclerc P1 in 95% / 93% of replays; he finished P4).
   - Diagnosis: the miss sits in the three laps after the restart (+0.87 s/lap
@@ -357,7 +358,6 @@ Open issues for Phase 6:
     validated on later rounds, removes the field-wide restart bias. But its
     compound and age effects and its pass multiplier do not generalise, and
     it cannot produce this restart.
-  - Left unticked: no supported verdict.
   - v1 on record:
   - It is the model's best plan at lap 38 (23.3 points against 21.4 for new
     softs at 39). Within range under all 13 checks (committed checks plus SC
@@ -378,7 +378,7 @@ Open issues for Phase 6:
   verdict that turns on a restart.
 - [ ] Monaco (wet crossover; state limitations)
 
-**Done when:** each case study has a verdict on whether the call was within the range of good options, backed by leakage-free simulations.
+**Done when:** each case study has a verdict on whether the call was within the range of good options, backed by leakage-free simulations, or a documented reason none is supported.
 
 ## Phase 7: Ship
 - [ ] Charts

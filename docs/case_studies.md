@@ -1081,6 +1081,19 @@ The committed checks, plus the additions. The band is recomputed under each:
 
 ### Silverstone-specific limits
 
+- **Candidate explanation for the restart miss (unverified).**
+  - The simulator swaps positions at no time cost: when a car is passed, only
+    the passer's arrival time is adjusted (`simulate_field`), and the
+    defender's lap time is unchanged.
+  - In reality, defending costs the defender lap time: defensive lines,
+    braking early, dirty air from the attacker alongside. Leclerc defended
+    against three cars (Sainz, Hamilton, Pérez) on laps 43–45, and again
+    against Hamilton on lap 48. His slow laps (92.6 and 93.1 s, and 93.1 s on
+    lap 48) are those laps.
+  - So part of the 1.56 s/lap Leclerc − Sainz gap on the restart laps may be
+    the cost of defending, not tyre pace.
+  - Not tested here: it would need a defending-cost term estimated from 2022
+    pass events, applied to the defender on laps with a pass attempt.
 - **The SC pit loss is a pooled ratio** (0.72 from 38 stops in rounds 1–9)
   on Silverstone's 18 green stops, and lap 39 is simulated as a full SC lap.
 - **The SC length rests on 6 pre-race SCs** (4–6 laps). Shorter SCs (3 laps,
