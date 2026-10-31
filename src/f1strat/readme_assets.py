@@ -572,7 +572,13 @@ def fig_calibration(theme: str) -> Path:
         h2 = plt.Line2D(
             [], [], ls="", marker="o", ms=8, color=c["red"], mec=c["bg"], label="Achieved"
         )
-        ax.legend(handles=[h1, h2], loc="lower left", labelcolor=c["ink2"])
+        ax.legend(
+            handles=[h1, h2],
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.32),
+            ncol=2,
+            labelcolor=c["ink2"],
+        )
         fig.tight_layout()
         return _save(fig, "fig_calibration", theme)
 
@@ -644,8 +650,14 @@ def hero(theme: str, fan: pd.DataFrame, real: pd.Series) -> tuple[Path, Path]:
                 fontsize=9,
             )
             if upto >= 40:
-                ax.text(39.5, lo + 2.5, "laps 39–40:\nboth cars pit", ha="center",
-                        color=c["muted"], fontsize=8.5)
+                ax.text(
+                    39.5,
+                    lo + 2.5,
+                    "laps 39–40:\nboth cars pit",
+                    ha="center",
+                    color=c["muted"],
+                    fontsize=8.5,
+                )
             if upto >= 54:
                 ax.annotate(
                     "lap 54: second stop\n(judged separately)",

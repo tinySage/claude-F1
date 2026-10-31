@@ -17,4 +17,4 @@ jobs:
       - name: Lint
         run: uv run --with ruff ruff check src tests notebooks
       - name: Fast tests (slow and network tests are deselected by default)
-        run: uv run pytest -q
+        run: uv run pytest -q --durations=10
