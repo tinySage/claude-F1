@@ -9,7 +9,9 @@ Two halves:
 - **Extract** (:data:`EXTRACTORS`, ``pitwall figures --export``): build each
   table from the heavy sources (case-study result JSON, processed laps, the
   committed thinned fits, the backtest tables) and write it. Run after any
-  step that changes results.
+  step that changes results. Tables from the lap model always use the
+  committed thinned fits (:data:`THIN_ONLY`), even where a full posterior is
+  saved locally, so a fresh clone reproduces them exactly.
 - **Load**: read a table back, and for figures whose plot function takes a
   result dict, rebuild exactly the fields it uses (:func:`points_main`,
   :func:`hindsight_dicts`, ...). Floats are written at full precision, so the
@@ -381,6 +383,9 @@ def backtest_plot_tables() -> dict[str, pd.DataFrame]:
 
 # --- Notebook figures (EDA and the lap model) -----------------------------------------
 
+#: The lap-model tables are built from the committed thinned fits only.
+THIN_ONLY: bool = True
+
 
 def clean_laps_table() -> pd.DataFrame:
     """Every clean 2022 lap: round, event, compound, tyre age, lap time."""
@@ -439,10 +444,10 @@ def deg_curves_table() -> pd.DataFrame:
     """Tyre effect per compound vs a new medium (field-average car, 80% band)."""
     from f1strat.clean import clean_laps
     from f1strat.data import load_season
-    from f1strat.deg_model import FULL_FIT_PATH, deg_curve, load_fit_or_thin, prepare
+    from f1strat.deg_model import FULL_FIT_PATH, deg_curve, load_fit, prepare, thin_path
 
     laps = prepare(clean_laps(load_season(2022)))
-    full = load_fit_or_thin(FULL_FIT_PATH)
+    full = load_fit(thin_path(FULL_FIT_PATH))
     out = []
     for rnd, name in DEG_CURVE_RACES:
         rl = laps[laps["RoundNumber"] == rnd]
@@ -464,18 +469,19 @@ def long_tyre_tables() -> dict[str, pd.DataFrame]:
         SPLITS,
         fit_baseline,
         fit_xgboost,
-        load_fit_or_thin,
+        load_fit,
         predict,
         predict_baseline,
         predict_xgboost,
         prepare,
         split_fit_path,
+        thin_path,
     )
 
     laps = prepare(clean_laps(load_season(2022)))
     train, test = SPLITS["long_tyre"](laps)
     xgb = predict_xgboost(fit_xgboost(train), test)
-    bayes = predict(load_fit_or_thin(split_fit_path("long_tyre")), test)
+    bayes = predict(load_fit(thin_path(split_fit_path("long_tyre"))), test)
     base = predict_baseline(fit_baseline(train), test)
     age_bin = pd.cut(test["TyreLife"], np.arange(15, 51, 5))
     err = (
@@ -516,13 +522,13 @@ def leclerc_hungary_hard_table() -> pd.DataFrame:
     """Leclerc's Hungary hard stint (laps 41–53): actual laps and the full fit."""
     from f1strat.clean import clean_laps
     from f1strat.data import load_season
-    from f1strat.deg_model import FULL_FIT_PATH, load_fit_or_thin, predict, prepare
+    from f1strat.deg_model import FULL_FIT_PATH, load_fit, predict, prepare, thin_path
 
     laps = prepare(clean_laps(load_season(2022)))
     lec = laps[
         (laps["RoundNumber"] == 13) & (laps["Driver"] == "LEC") & laps["race_lap"].between(41, 53)
     ]
-    pred = predict(load_fit_or_thin(FULL_FIT_PATH), lec)
+    pred = predict(load_fit(thin_path(FULL_FIT_PATH)), lec)
     return pd.DataFrame(
         {
             "race_lap": lec["race_lap"].to_numpy(),
