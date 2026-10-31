@@ -50,13 +50,13 @@ The animation's 300 futures come from a rerun of the lap-38 cutoff fit (same dat
 ## How it works
 
 ```mermaid
-flowchart LR
-    A["FastF1<br/>2022 timing data"] --> B["Cleaning<br/>exclude reasons, dirty air,<br/>pit losses"]
-    B --> C["Bayesian lap model<br/>PyMC: car, tyre, wear,<br/>fuel, stint effects"]
-    C --> D["Race simulator<br/>whole field, traffic,<br/>passing, SC/VSC"]
-    D --> E["Cutoff refits<br/>only laps known<br/>at the decision"]
-    E --> F["Verdict rule<br/>committed before results"]
-    E -. separately .-> G["Hindsight replay<br/>full data, actual events"]
+flowchart TD
+    A["FastF1: 2022 timing data"] --> B["Cleaning: exclude reasons, dirty air, pit losses"]
+    B --> C["Bayesian lap model (PyMC): car, tyre, wear, fuel, stint effects"]
+    C --> D["Race simulator: whole field, traffic, passing, SC/VSC"]
+    D --> E["Cutoff refits: only laps known at the decision"]
+    E --> F["Verdict rule, committed before any results"]
+    E -. reported separately .-> G["Hindsight replay: full data, actual events"]
 ```
 
 1. **Data and cleaning.** Every 2022 race lap from FastF1, with one exclude reason per unusable lap (in and out laps, SC/VSC, wet compounds, outliers) and a per-circuit green-flag pit loss.
