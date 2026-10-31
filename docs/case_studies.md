@@ -122,8 +122,41 @@ Part B/C):
 - **Leakage-free simulator parameters:**
   - passing, SC/VSC rates, SC closing ratio and pass shift from the dry
     rounds before the decision race;
-  - the circuit's pass intercept from its previous running
-    (`rehearsal.leakage_free_params`).
+  - the circuit's pass intercept (see "Circuit pass difficulty" below;
+    `rehearsal.leakage_free_params`).
+
+### Circuit pass difficulty
+
+**Hungary (committed, kept):** the circuit's intercept was estimated from its
+previous running (Hungary 2021), shrunk toward the pooled 2022 intercept of
+the rounds before it.
+
+**Silverstone and Monaco (method change, recorded before any simulation for
+them):**
+
+```
+intercept[circuit] = a_2022(rounds before the decision race)
+                   + (c_2021[circuit] − a_2021)
+```
+
+- `a_2022` is the pooled 2022 intercept from the dry rounds before the
+  decision race.
+- `c_2021[circuit]` and `a_2021` come from **one** pass model fitted to every
+  dry 2021 race that downloads (`race_events.season_pass_events`,
+  `relative_circuit_intercept`). Both use the same stint-line pace proxy,
+  slope and shrinkage.
+  - A race counts as dry if at least half its laps with a compound are on
+    dry compounds.
+  - Races that do not download, or are wet, are listed with the results.
+- **Why:** the 2022 cars were designed to follow more closely.
+  - An absolute 2021 intercept carries 2021's general difficulty of passing
+    into 2022. At Hungary, 2021 gave −4.60 against −2.78 pooled for 2022
+    (and −2.74 from Hungary 2022's own race, known only in hindsight).
+  - Only the circuit's difficulty **relative to its season** is taken from
+    2021; the level comes from 2022.
+- **Found after the Hungary results**, so Hungary's committed verdicts keep
+  the previous-running method. The relative method is reported for Hungary as
+  a labelled post-hoc sensitivity.
 - **Pit losses** resampled from the decision race's green-flag stops
   completed by the cutoff.
 - **Race state** at the cutoff; **tyre sets** as above, with the tyre-age cap.

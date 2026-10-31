@@ -158,6 +158,16 @@ Case studies (2022):
   - **Robust** only if the band holds under widening ×1.188, Ferrari hard
     wear at its 10th/90th percentile, and the SC rate ×0.5 and ×2.
   - The hindsight replay is reported separately.
+- **Circuit pass difficulty for Silverstone and Monaco (Phase 6, recorded
+  before simulating them):** the 2022 pooled intercept from the rounds before
+  the decision race, shifted by (the circuit's 2021 intercept − the 2021
+  season average). Both 2021 terms come from one model over every dry 2021
+  race.
+  - **Why:** 2022 cars follow more closely, so absolute 2021 values
+    overstate difficulty (Hungary 2021: −4.60, against −2.78 pooled for
+    2022).
+  - Hungary's committed verdicts keep the previous-running intercept; the
+    relative method is a post-hoc sensitivity there (`docs/case_studies.md`).
 - **Final-stint widening in Phase 6: 1.0 (Phase 5).** The replay backtests
   are better calibrated without the ×1.188 widening (fair position coverage
   0.57 / 0.85 vs 0.60 / 0.87; gaps 0.54 / 0.82 vs 0.55 / 0.84). Phase 6 uses
@@ -295,8 +305,8 @@ Open issues for Phase 6:
   Negligible, but state it.
 - **Monaco has no pass-difficulty estimate.** It currently gets the season
   average (pooled) intercept, which is wrong for Monaco, where passing is
-  nearly impossible. Phase 6 must set it, e.g. from Monaco 2021
-  (downloadable).
+  nearly impossible. Phase 6 sets it with the relative method (Decisions log),
+  from Monaco 2021.
 - **Hungary inventory mismatches.** Hungary's reconstructed inventory had 8
   mismatches, including new softs that the "softs first" return assumption
   sent back. Phase 6 must print Ferrari's reconstructed Hungary sets and
