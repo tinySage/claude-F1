@@ -20,12 +20,18 @@ information enters.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
 from f1strat.clean import MIXED_CONDITIONS_2022
+
+if TYPE_CHECKING:
+    from f1strat.deg_model import BayesFit
+    from f1strat.race_events import PassModel, SimParams
 
 RESTART_LAPS = 3
 NEUTRAL_CODES = "4567"
@@ -56,11 +62,16 @@ class RestartModel:
         row = p[np.clip(k - 1, 0, len(p) - 1)]
         soft = (np.asarray(compound) == COMPOUNDS.index("SOFT")).astype(float)
         hard = (np.asarray(compound) == COMPOUNDS.index("HARD")).astype(float)
-        out = (row[..., 0] + row[..., 1] * soft + row[..., 2] * hard
-               + row[..., 3] * np.asarray(age, float) / 10.0)
+        out = (
+            row[..., 0]
+            + row[..., 1] * soft
+            + row[..., 2] * hard
+            + row[..., 3] * np.asarray(age, float) / 10.0
+        )
         return np.where(on, out, 0.0)
 
     def to_dict(self) -> dict:
+        """The layer as a JSON-ready dict."""
         return asdict(self)
 
 
@@ -81,27 +92,34 @@ def laps_since_restart(laps: pd.DataFrame) -> pd.Series:
     return pd.Series(out, index=df.index).reindex(laps.index)
 
 
-def restart_laps(cleaned: pd.DataFrame, rounds) -> pd.DataFrame:
+def restart_laps(cleaned: pd.DataFrame, rounds: Sequence[int]) -> pd.DataFrame:
     """The first :data:`RESTART_LAPS` green laps after an SC/VSC, dry
     compounds, in chosen rounds; in and out laps, lap 1, and laps the cleaning
     drops for other reasons (deleted, inaccurate, wet...) are left out. The
     restart lap itself (``exclude_reason == "restart_lap"``) is kept."""
     from f1strat.deg_model import lap_features
 
-    df = cleaned[cleaned["RoundNumber"].isin(list(rounds))
-                 & ~cleaned["EventName"].isin(list(MIXED_CONDITIONS_2022))]
+    df = cleaned[
+        cleaned["RoundNumber"].isin(list(rounds))
+        & ~cleaned["EventName"].isin(list(MIXED_CONDITIONS_2022))
+    ]
     f = lap_features(df)
     f = f[f["Compound"].isin(DRY)].copy()
     f["k"] = laps_since_restart(f)
-    keep = (f["k"].between(1, RESTART_LAPS) & f["PitInTime"].isna() & f["PitOutTime"].isna()
-            & (f["LapNumber"] > 1) & f["lap_s"].notna()
-            & (f["exclude_reason"].isna() | (f["exclude_reason"] == "restart_lap")))
+    keep = (
+        f["k"].between(1, RESTART_LAPS)
+        & f["PitInTime"].isna()
+        & f["PitOutTime"].isna()
+        & (f["LapNumber"] > 1)
+        & f["lap_s"].notna()
+        & (f["exclude_reason"].isna() | (f["exclude_reason"] == "restart_lap"))
+    )
     f = f[keep].copy()
     f["dirty_air"] = f["dirty_air"].fillna(False).astype(bool)
     return f
 
 
-def residuals(laps: pd.DataFrame, fitted, n_draws: int = 500) -> pd.Series:
+def residuals(laps: pd.DataFrame, fitted: BayesFit, n_draws: int = 500) -> pd.Series:
     """Lap time minus the lap model's posterior mean."""
     from f1strat.deg_model import predict
 
@@ -113,8 +131,14 @@ def fit_pace(laps: pd.DataFrame) -> tuple[list[list[float]], list[list[float]], 
     pace, se, n = [], [], []
     for k in range(1, RESTART_LAPS + 1):
         x = laps[(laps["k"] == k) & laps["res"].notna()]
-        A = np.column_stack([np.ones(len(x)), x["Compound"].eq("SOFT"),
-                             x["Compound"].eq("HARD"), x["TyreLife"] / 10.0]).astype(float)
+        A = np.column_stack(
+            [
+                np.ones(len(x)),
+                x["Compound"].eq("SOFT"),
+                x["Compound"].eq("HARD"),
+                x["TyreLife"] / 10.0,
+            ]
+        ).astype(float)
         y = x["res"].to_numpy(float)
         beta, *_ = np.linalg.lstsq(A, y, rcond=None)
         r = y - A @ beta
@@ -125,7 +149,9 @@ def fit_pace(laps: pd.DataFrame) -> tuple[list[list[float]], list[list[float]], 
     return pace, se, n
 
 
-def restart_pass_events(cleaned: pd.DataFrame, fitted, rounds) -> pd.DataFrame:
+def restart_pass_events(
+    cleaned: pd.DataFrame, fitted: BayesFit, rounds: Sequence[int]
+) -> pd.DataFrame:
     """Pass events (:func:`f1strat.race_events.pass_events`) in chosen rounds,
     with ``k`` of the outcome lap for the attacker."""
     from f1strat.race_events import pass_events
@@ -133,19 +159,26 @@ def restart_pass_events(cleaned: pd.DataFrame, fitted, rounds) -> pd.DataFrame:
     df = cleaned[cleaned["RoundNumber"].isin(list(rounds))]
     ev = pass_events(df, fitted)
     k = laps_since_restart(df)
-    kmap = pd.Series(k.to_numpy(), index=pd.MultiIndex.from_frame(
-        df[["RoundNumber", "Driver", "LapNumber"]].astype({"LapNumber": int})))
-    ev["k"] = [int(kmap.get((r, d, int(l)), 99)) for r, d, l in
-               zip(ev["RoundNumber"], ev["attacker"], ev["lap"])]
+    kmap = pd.Series(
+        k.to_numpy(),
+        index=pd.MultiIndex.from_frame(
+            df[["RoundNumber", "Driver", "LapNumber"]].astype({"LapNumber": int})
+        ),
+    )
+    ev["k"] = [
+        int(kmap.get((r, d, int(lap)), 99))
+        for r, d, lap in zip(ev["RoundNumber"], ev["attacker"], ev["lap"])
+    ]
     return ev
 
 
-def expected_pass(ev: pd.DataFrame, passing) -> np.ndarray:
+def expected_pass(ev: pd.DataFrame, passing: PassModel) -> np.ndarray:
+    """Pass probability of each event under the pass model (no restart multiplier)."""
     a = np.array([passing.circuit.get(int(r), passing.intercept) for r in ev["RoundNumber"]])
     return 1.0 / (1.0 + np.exp(-(a + passing.slope * ev["pace_gap_s"].to_numpy(float))))
 
 
-def estimate(cleaned: pd.DataFrame, fitted, rounds) -> RestartModel:
+def estimate(cleaned: pd.DataFrame, fitted: BayesFit, rounds: Sequence[int]) -> RestartModel:
     """Restart layer from ``rounds`` with lap model ``fitted``.
 
     The pass multiplier is (passes on restart-lap events) / (passes the pass
@@ -160,9 +193,16 @@ def estimate(cleaned: pd.DataFrame, fitted, rounds) -> RestartModel:
     pm = fit_pass_model(ev)
     r = ev[ev["k"].between(1, RESTART_LAPS)]
     exp = float(expected_pass(r, pm).sum())
-    return RestartModel(pace=pace, pace_se=se, pass_mult=round(float(r["passed"].sum()) / exp, 4),
-                        n_laps=n, n_events=int(len(r)), n_passes=int(r["passed"].sum()),
-                        expected_passes=round(exp, 2), rounds=sorted(int(x) for x in rounds))
+    return RestartModel(
+        pace=pace,
+        pace_se=se,
+        pass_mult=round(float(r["passed"].sum()) / exp, 4),
+        n_laps=n,
+        n_events=int(len(r)),
+        n_passes=int(r["passed"].sum()),
+        expected_passes=round(exp, 2),
+        rounds=sorted(int(x) for x in rounds),
+    )
 
 
 def laps_since_restart_sim(status: np.ndarray, start_neutral: bool) -> np.ndarray:
@@ -170,7 +210,7 @@ def laps_since_restart_sim(status: np.ndarray, start_neutral: bool) -> np.ndarra
     otherwise. ``start_neutral``: the state lap itself was neutral."""
     n, L = status.shape
     k = np.zeros((n, L), dtype=int)
-    since = np.where(start_neutral, 0, -1) * np.ones(n, dtype=int)   # -1: no restart yet
+    since = np.where(start_neutral, 0, -1) * np.ones(n, dtype=int)  # -1: no restart yet
     for j in range(L):
         green = status[:, j] == 0
         since = np.where(~green, 0, np.where(since >= 0, since + 1, -1))
@@ -184,8 +224,12 @@ def laps_since_restart_sim(status: np.ndarray, start_neutral: bool) -> np.ndarra
 VALIDATION_ROUNDS: tuple[int, ...] = (12, 14, 15, 16, 19, 20, 21, 22)
 
 
-def validate_pace(model: RestartModel, cleaned: pd.DataFrame, fitted,
-                  rounds=VALIDATION_ROUNDS) -> pd.DataFrame:
+def validate_pace(
+    model: RestartModel,
+    cleaned: pd.DataFrame,
+    fitted: BayesFit,
+    rounds: Sequence[int] = VALIDATION_ROUNDS,
+) -> pd.DataFrame:
     """Restart-lap residuals in ``rounds`` before (lap model alone) and after
     (lap model + restart offset): mean and mean absolute error per ``k``, and
     the hard-minus-soft mean residual."""
@@ -194,24 +238,40 @@ def validate_pace(model: RestartModel, cleaned: pd.DataFrame, fitted,
     laps = restart_laps(cleaned, rounds)
     laps["res"] = residuals(laps, fitted)
     comp = laps["Compound"].map(COMPOUNDS.index).to_numpy()
-    laps["res_after"] = laps["res"] - model.offset(laps["k"].to_numpy(), comp,
-                                                   laps["TyreLife"].to_numpy())
+    laps["res_after"] = laps["res"] - model.offset(
+        laps["k"].to_numpy(), comp, laps["TyreLife"].to_numpy()
+    )
     rows = []
     for k, g in laps.groupby("k"):
         hs = {}
         for col in ("res", "res_after"):
             by = g.groupby("Compound")[col].mean()
             hs[col] = float(by.get("HARD", np.nan) - by.get("SOFT", np.nan))
-        rows.append({"k": int(k), "laps": len(g),
-                     "mean_before": g["res"].mean(), "mean_after": g["res_after"].mean(),
-                     "mae_before": g["res"].abs().mean(), "mae_after": g["res_after"].abs().mean(),
-                     "hard_minus_soft_before": hs["res"], "hard_minus_soft_after": hs["res_after"]})
+        rows.append(
+            {
+                "k": int(k),
+                "laps": len(g),
+                "mean_before": g["res"].mean(),
+                "mean_after": g["res_after"].mean(),
+                "mae_before": g["res"].abs().mean(),
+                "mae_after": g["res_after"].abs().mean(),
+                "hard_minus_soft_before": hs["res"],
+                "hard_minus_soft_after": hs["res_after"],
+            }
+        )
     return pd.DataFrame(rows).round(3)
 
 
-def validate_passes(model: RestartModel, fitted, raw: pd.DataFrame, race: pd.DataFrame,
-                    cleaned: pd.DataFrame, params, rounds=VALIDATION_ROUNDS,
-                    n_sims: int = 300) -> pd.DataFrame:
+def validate_passes(
+    model: RestartModel,
+    fitted: BayesFit,
+    raw: pd.DataFrame,
+    race: pd.DataFrame,
+    cleaned: pd.DataFrame,
+    params: SimParams,
+    rounds: Sequence[int] = VALIDATION_ROUNDS,
+    n_sims: int = 300,
+) -> pd.DataFrame:
     """Replay backtests (actual plans, SC/VSC and retirements) of ``rounds``
     with and without the restart layer: passes in the first laps after each
     restart, simulated (mean) vs actual, and all passes."""
@@ -222,10 +282,13 @@ def validate_passes(model: RestartModel, fitted, raw: pd.DataFrame, race: pd.Dat
     rows = []
     for rnd in rounds:
         out = {"round": int(rnd)}
-        for tag, prm in (("before", replace(params, restart=None)),
-                         ("after", replace(params, restart=model))):
-            bt = run_backtest(fitted, raw, race, cleaned, prm, rnd, mode="replay",
-                              n_sims=n_sims, widening=1.0)
+        for tag, prm in (
+            ("before", replace(params, restart=None)),
+            ("after", replace(params, restart=model)),
+        ):
+            bt = run_backtest(
+                fitted, raw, race, cleaned, prm, rnd, mode="replay", n_sims=n_sims, widening=1.0
+            )
             out[f"restart_passes_{tag}"] = float(bt.restart_passes.mean())
             out[f"all_passes_{tag}"] = float(bt.passes.mean())
             out["restart_passes_actual"] = bt.actual_restart_passes
@@ -250,13 +313,13 @@ def main() -> None:
     from f1strat.data import load_season
     from f1strat.deg_model import THIN_FIT_PATH, load_fit, thin_fit
     from f1strat.race_events import SimParams
-    from f1strat.rehearsal import fit_path
+    from f1strat.rehearsal import cutoff_fit
 
     logging.disable(logging.WARNING)
     raw, race = load_season(2022), load_season(2022, table="race")
     cleaned = clean_laps(raw)
-    before = [r for r in (1, 2, 3, 5, 6, 8, 9)]           # dry rounds before Silverstone
-    cut = thin_fit(load_fit(fit_path(10, 38, "cutoff")))
+    before = [r for r in (1, 2, 3, 5, 6, 8, 9)]  # dry rounds before Silverstone
+    cut = thin_fit(cutoff_fit(raw, 10, 38))
     model = estimate(cleaned, cut, before)
     print(json.dumps(model.to_dict(), indent=1), flush=True)
     full = load_fit(THIN_FIT_PATH)

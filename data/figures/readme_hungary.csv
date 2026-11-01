@@ -1,0 +1,14 @@
+panel,family,is_call,decision_points,hindsight_points
+Lap 38 decision: hards at 39,call: hards at 39,True,19.8655,15.747
+Lap 38 decision: hards at 39,used softs at 39,False,12.064,12.478
+Lap 38 decision: hards at 39,used medium at 39,False,10.4995,9.138
+Lap 38 decision: hards at 39,"stay out, then hards",False,18.8275,18.101
+Lap 38 decision: hards at 39,"stay out, then used softs",False,17.2055,19.697
+Lap 38 decision: hards at 39,"stay out, then used medium",False,9.8625,9.125
+Lap 53 decision: used softs at 54,call: used softs at 54,True,13.0985,10.349
+Lap 53 decision: used softs at 54,hards to the flag,False,18.2375,16.071
+Lap 53 decision: used softs at 54,new hard at 54,False,10.736,8.868
+Lap 53 decision: used softs at 54,used medium at 54,False,9.534,8.132
+Lap 53 decision: used softs at 54,"stay out, then used softs",False,13.452,10.72
+Lap 53 decision: used softs at 54,"stay out, then new hard",False,10.871,8.813
+Lap 53 decision: used softs at 54,"stay out, then used medium",False,9.7325,8.165

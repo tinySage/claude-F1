@@ -1,0 +1,9 @@
+check,band,mean_loss,p10,p90,call_label
+main,outside range,5.139,0.0,10.0,used softs at 54
+widening x1.188,outside range,5.0685,0.0,10.0,used softs at 54
+Ferrari hard wear p10,outside range,5.567,0.0,10.0,used softs at 54
+Ferrari hard wear p90,outside range,4.8355,0.0,8.0,used softs at 54
+Ferrari hard pace p10,outside range,5.475,0.0,10.0,used softs at 54
+Ferrari hard pace p90,outside range,4.833,0.0,8.0,used softs at 54
+SC/VSC rate x0.5,outside range,5.1535,0.0,10.0,used softs at 54
+SC/VSC rate x2,outside range,5.0685,0.0,10.0,used softs at 54

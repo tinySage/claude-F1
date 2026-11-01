@@ -10,6 +10,7 @@ from FP1–FP3 of a race; :func:`f1strat.deg_model.fit` takes them through its
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import pandas as pd
 
@@ -24,16 +25,18 @@ NEUTRAL = "4567"
 log = logging.getLogger(__name__)
 
 
-def practice_path(year: int, round_number: int, event_name: str):
+def practice_path(year: int, round_number: int, event_name: str) -> Path:
     """``data/processed/<year>/<RR>_<event>_practice_long_runs.parquet``."""
     laps_path, _ = race_paths(year, round_number, event_name)
-    return laps_path.with_name(laps_path.name.replace("_laps.parquet",
-                                                      "_practice_long_runs.parquet"))
+    return laps_path.with_name(
+        laps_path.name.replace("_laps.parquet", "_practice_long_runs.parquet")
+    )
 
 
 def _session_laps(year: int, round_number: int, name: str) -> pd.DataFrame:
-    from f1strat.data import configure_cache
     import fastf1
+
+    from f1strat.data import configure_cache
 
     configure_cache()
     s = fastf1.get_session(year, round_number, name)
@@ -48,8 +51,9 @@ def _session_laps(year: int, round_number: int, name: str) -> pd.DataFrame:
     return laps
 
 
-def long_runs_from_laps(laps: pd.DataFrame, race_drivers: set[str],
-                        min_laps: int = MIN_RUN_LAPS) -> pd.DataFrame:
+def long_runs_from_laps(
+    laps: pd.DataFrame, race_drivers: set[str], min_laps: int = MIN_RUN_LAPS
+) -> pd.DataFrame:
     """Clean practice laps and keep runs of ``min_laps``+ consecutive clean laps.
 
     Args:
@@ -66,7 +70,8 @@ def long_runs_from_laps(laps: pd.DataFrame, race_drivers: set[str],
     df["lap_s"] = df["LapTime"].dt.total_seconds()
     status = df["TrackStatus"].fillna("").astype(str)
     ok = (
-        df["PitInTime"].isna() & df["PitOutTime"].isna()
+        df["PitInTime"].isna()
+        & df["PitOutTime"].isna()
         & ~df["Deleted"].fillna(False).astype(bool)
         & df["IsAccurate"].fillna(False).astype(bool)
         & df["lap_s"].notna()
@@ -84,16 +89,33 @@ def long_runs_from_laps(laps: pd.DataFrame, race_drivers: set[str],
     df["block"] = gap.cumsum()
     size = df.groupby("block")["LapNumber"].transform("size")
     df = df[size >= min_laps].copy()
-    df["run"] = (df["session"] + "_" + df["Driver"] + "_"
-                 + df["block"].rank(method="dense").astype(int).astype(str))
+    df["run"] = (
+        df["session"]
+        + "_"
+        + df["Driver"]
+        + "_"
+        + df["block"].rank(method="dense").astype(int).astype(str)
+    )
     df["lap_in_run"] = df.groupby("run").cumcount()
     df["TyreLife"] = df["TyreLife"].astype(int)
-    return df[["session", "Driver", "Team", "Compound", "TyreLife", "LapNumber", "lap_s",
-               "run", "lap_in_run"]].reset_index(drop=True)
+    return df[
+        [
+            "session",
+            "Driver",
+            "Team",
+            "Compound",
+            "TyreLife",
+            "LapNumber",
+            "lap_s",
+            "run",
+            "lap_in_run",
+        ]
+    ].reset_index(drop=True)
 
 
-def long_runs(raw: pd.DataFrame, round_number: int, year: int = 2022,
-              refresh: bool = False) -> pd.DataFrame:
+def long_runs(
+    raw: pd.DataFrame, round_number: int, year: int = 2022, refresh: bool = False
+) -> pd.DataFrame:
     """FP1–FP3 long runs of a race, cached in ``data/processed``.
 
     Args:
@@ -113,6 +135,8 @@ def long_runs(raw: pd.DataFrame, round_number: int, year: int = 2022,
             try:
                 frames.append(_session_laps(year, round_number, name))
             except Exception as err:  # noqa: BLE001 - sprint weekends have no FP2/FP3 long runs
+                if type(err).__name__ == "RateLimitExceededError":
+                    raise  # transient: do not save a partial practice table
                 log.warning("no %s for round %s: %s", name, round_number, err)
         out = long_runs_from_laps(pd.concat(frames, ignore_index=True), drivers)
         # Race teams (FastF1 practice team names can differ in spelling).
@@ -125,7 +149,12 @@ def long_runs(raw: pd.DataFrame, round_number: int, year: int = 2022,
 
 def summary(runs: pd.DataFrame) -> pd.DataFrame:
     """Runs and laps per session and compound."""
-    return (runs.groupby(["session", "Compound"])
-            .agg(runs=("run", "nunique"), laps=("lap_s", "size"),
-                 median_run=("run", lambda r: r.value_counts().median()))
-            .reset_index())
+    return (
+        runs.groupby(["session", "Compound"])
+        .agg(
+            runs=("run", "nunique"),
+            laps=("lap_s", "size"),
+            median_run=("run", lambda r: r.value_counts().median()),
+        )
+        .reset_index()
+    )

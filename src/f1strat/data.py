@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import re
 import traceback
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import fastf1
@@ -107,19 +107,6 @@ def load_race_session(year: int, event: int | str) -> fastf1.core.Session:
     return session
 
 
-def load_race_laps(year: int, event: int | str) -> pd.DataFrame:
-    """Load one race's laps with track temperature and rainfall per lap.
-
-    Args:
-        year: Championship year.
-        event: Round number or event name as FastF1 accepts it.
-
-    Returns:
-        DataFrame with the columns of :data:`LAPS_SCHEMA`.
-    """
-    return laps_table(load_race_session(year, event))
-
-
 def laps_table(session: fastf1.core.Session) -> pd.DataFrame:
     """Build the per-lap table from a loaded session.
 
@@ -158,9 +145,7 @@ def race_table(session: fastf1.core.Session) -> pd.DataFrame:
         DataFrame with the columns of :data:`RACE_SCHEMA`.
     """
     laps = session.laps
-    lap_start = (
-        laps.groupby("LapNumber")["LapStartTime"].min().sort_index()
-    )
+    lap_start = laps.groupby("LapNumber")["LapStartTime"].min().sort_index()
     race_end = laps["Time"].max()
     lap_end = lap_start.shift(-1).fillna(race_end)
 
@@ -230,9 +215,7 @@ def neutralisation_periods(
     return pd.DataFrame(rows, columns=["kind", "period", "start", "end"])
 
 
-def _check_against_race_control(
-    session: fastf1.core.Session, race: pd.DataFrame
-) -> None:
+def _check_against_race_control(session: fastf1.core.Session, race: pd.DataFrame) -> None:
     """Log a warning if period counts disagree with race control messages.
 
     Track status gives the timing; race control messages are an independent
@@ -249,8 +232,7 @@ def _check_against_race_control(
     finished = status.loc[status["Status"] == "Finished", "Time"]
     if chequered.empty or finished.empty:
         logger.warning(
-            "%s: cannot align race control messages to session time; "
-            "skipping cross-check",
+            "%s: cannot align race control messages to session time; skipping cross-check",
             session.event["EventName"],
         )
         return
@@ -336,7 +318,7 @@ def build_season(year: int = 2022, out_dir: Path = PROCESSED_DIR) -> list[int]:
             logger.exception("failed to load round %d %s", rnd, name)
             failures.append((rnd, name, traceback.format_exc()))
 
-    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    stamp = datetime.now(UTC).isoformat(timespec="seconds")
     with open(year_dir / "load_failures.log", "w") as f:
         f.write(f"build_season({year}) run at {stamp}\n")
         f.write(f"{len(schedule)} races scheduled, {len(failures)} failed\n")
@@ -393,9 +375,7 @@ def season_summary(laps: pd.DataFrame, race: pd.DataFrame) -> pd.DataFrame:
         VSCPeriods=("VSCPeriod", "nunique"),
         RedFlags=("RedFlagPeriod", "nunique"),
     )
-    return per_laps.reset_index().merge(
-        per_race.reset_index(), on="RoundNumber"
-    )
+    return per_laps.reset_index().merge(per_race.reset_index(), on="RoundNumber")
 
 
 def main() -> None:

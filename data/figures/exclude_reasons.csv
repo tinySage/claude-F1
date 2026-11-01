@@ -1,0 +1,309 @@
+EventName,reason,laps,event_order,reason_order
+Bahrain Grand Prix,clean,870,0,0
+Bahrain Grand Prix,lap_1,20,0,1
+Bahrain Grand Prix,after_chequered,0,0,2
+Bahrain Grand Prix,in_lap,59,0,3
+Bahrain Grand Prix,out_lap,58,0,4
+Bahrain Grand Prix,sc,91,0,5
+Bahrain Grand Prix,vsc,3,0,6
+Bahrain Grand Prix,restart_lap,19,0,7
+Bahrain Grand Prix,deleted,4,0,8
+Bahrain Grand Prix,inaccurate,1,0,9
+Bahrain Grand Prix,missing_compound,0,0,10
+Bahrain Grand Prix,wet_compound,0,0,11
+Bahrain Grand Prix,mixed_conditions,0,0,12
+Bahrain Grand Prix,outlier,0,0,13
+Saudi Arabian Grand Prix,clean,609,1,0
+Saudi Arabian Grand Prix,lap_1,18,1,1
+Saudi Arabian Grand Prix,after_chequered,0,1,2
+Saudi Arabian Grand Prix,in_lap,21,1,3
+Saudi Arabian Grand Prix,out_lap,18,1,4
+Saudi Arabian Grand Prix,sc,66,1,5
+Saudi Arabian Grand Prix,vsc,44,1,6
+Saudi Arabian Grand Prix,restart_lap,30,1,7
+Saudi Arabian Grand Prix,deleted,11,1,8
+Saudi Arabian Grand Prix,inaccurate,2,1,9
+Saudi Arabian Grand Prix,missing_compound,0,1,10
+Saudi Arabian Grand Prix,wet_compound,0,1,11
+Saudi Arabian Grand Prix,mixed_conditions,0,1,12
+Saudi Arabian Grand Prix,outlier,1,1,13
+Australian Grand Prix,clean,758,2,0
+Australian Grand Prix,lap_1,20,2,1
+Australian Grand Prix,after_chequered,0,2,2
+Australian Grand Prix,in_lap,22,2,3
+Australian Grand Prix,out_lap,21,2,4
+Australian Grand Prix,sc,137,2,5
+Australian Grand Prix,vsc,32,2,6
+Australian Grand Prix,restart_lap,54,2,7
+Australian Grand Prix,deleted,0,2,8
+Australian Grand Prix,inaccurate,0,2,9
+Australian Grand Prix,missing_compound,0,2,10
+Australian Grand Prix,wet_compound,0,2,11
+Australian Grand Prix,mixed_conditions,0,2,12
+Australian Grand Prix,outlier,1,2,13
+Emilia Romagna Grand Prix,clean,0,3,0
+Emilia Romagna Grand Prix,lap_1,20,3,1
+Emilia Romagna Grand Prix,after_chequered,0,3,2
+Emilia Romagna Grand Prix,in_lap,26,3,3
+Emilia Romagna Grand Prix,out_lap,25,3,4
+Emilia Romagna Grand Prix,sc,55,3,5
+Emilia Romagna Grand Prix,vsc,0,3,6
+Emilia Romagna Grand Prix,restart_lap,19,3,7
+Emilia Romagna Grand Prix,deleted,8,3,8
+Emilia Romagna Grand Prix,inaccurate,0,3,9
+Emilia Romagna Grand Prix,missing_compound,0,3,10
+Emilia Romagna Grand Prix,wet_compound,210,3,11
+Emilia Romagna Grand Prix,mixed_conditions,769,3,12
+Emilia Romagna Grand Prix,outlier,0,3,13
+Miami Grand Prix,clean,856,4,0
+Miami Grand Prix,lap_1,20,4,1
+Miami Grand Prix,after_chequered,0,4,2
+Miami Grand Prix,in_lap,29,4,3
+Miami Grand Prix,out_lap,25,4,4
+Miami Grand Prix,sc,94,4,5
+Miami Grand Prix,vsc,11,4,6
+Miami Grand Prix,restart_lap,17,4,7
+Miami Grand Prix,deleted,5,4,8
+Miami Grand Prix,inaccurate,0,4,9
+Miami Grand Prix,missing_compound,0,4,10
+Miami Grand Prix,wet_compound,0,4,11
+Miami Grand Prix,mixed_conditions,0,4,12
+Miami Grand Prix,outlier,0,4,13
+Spanish Grand Prix,clean,1087,5,0
+Spanish Grand Prix,lap_1,20,5,1
+Spanish Grand Prix,after_chequered,0,5,2
+Spanish Grand Prix,in_lap,53,5,3
+Spanish Grand Prix,out_lap,53,5,4
+Spanish Grand Prix,sc,0,5,5
+Spanish Grand Prix,vsc,0,5,6
+Spanish Grand Prix,restart_lap,0,5,7
+Spanish Grand Prix,deleted,14,5,8
+Spanish Grand Prix,inaccurate,0,5,9
+Spanish Grand Prix,missing_compound,0,5,10
+Spanish Grand Prix,wet_compound,0,5,11
+Spanish Grand Prix,mixed_conditions,0,5,12
+Spanish Grand Prix,outlier,3,5,13
+Monaco Grand Prix,clean,0,6,0
+Monaco Grand Prix,lap_1,20,6,1
+Monaco Grand Prix,after_chequered,0,6,2
+Monaco Grand Prix,in_lap,53,6,3
+Monaco Grand Prix,out_lap,51,6,4
+Monaco Grand Prix,sc,72,6,5
+Monaco Grand Prix,vsc,16,6,6
+Monaco Grand Prix,restart_lap,17,6,7
+Monaco Grand Prix,deleted,13,6,8
+Monaco Grand Prix,inaccurate,0,6,9
+Monaco Grand Prix,missing_compound,34,6,10
+Monaco Grand Prix,wet_compound,295,6,11
+Monaco Grand Prix,mixed_conditions,608,6,12
+Monaco Grand Prix,outlier,0,6,13
+Azerbaijan Grand Prix,clean,728,7,0
+Azerbaijan Grand Prix,lap_1,20,7,1
+Azerbaijan Grand Prix,after_chequered,0,7,2
+Azerbaijan Grand Prix,in_lap,30,7,3
+Azerbaijan Grand Prix,out_lap,27,7,4
+Azerbaijan Grand Prix,sc,0,7,5
+Azerbaijan Grand Prix,vsc,49,7,6
+Azerbaijan Grand Prix,restart_lap,35,7,7
+Azerbaijan Grand Prix,deleted,0,7,8
+Azerbaijan Grand Prix,inaccurate,1,7,9
+Azerbaijan Grand Prix,missing_compound,0,7,10
+Azerbaijan Grand Prix,wet_compound,0,7,11
+Azerbaijan Grand Prix,mixed_conditions,0,7,12
+Azerbaijan Grand Prix,outlier,1,7,13
+Canadian Grand Prix,clean,969,8,0
+Canadian Grand Prix,lap_1,20,8,1
+Canadian Grand Prix,after_chequered,0,8,2
+Canadian Grand Prix,in_lap,32,8,3
+Canadian Grand Prix,out_lap,31,8,4
+Canadian Grand Prix,sc,97,8,5
+Canadian Grand Prix,vsc,55,8,6
+Canadian Grand Prix,restart_lap,53,8,7
+Canadian Grand Prix,deleted,7,8,8
+Canadian Grand Prix,inaccurate,0,8,9
+Canadian Grand Prix,missing_compound,0,8,10
+Canadian Grand Prix,wet_compound,0,8,11
+Canadian Grand Prix,mixed_conditions,0,8,12
+Canadian Grand Prix,outlier,0,8,13
+British Grand Prix,clean,635,9,0
+British Grand Prix,lap_1,20,9,1
+British Grand Prix,after_chequered,0,9,2
+British Grand Prix,in_lap,32,9,3
+British Grand Prix,out_lap,47,9,4
+British Grand Prix,sc,40,9,5
+British Grand Prix,vsc,0,9,6
+British Grand Prix,restart_lap,14,9,7
+British Grand Prix,deleted,8,9,8
+British Grand Prix,inaccurate,0,9,9
+British Grand Prix,missing_compound,0,9,10
+British Grand Prix,wet_compound,0,9,11
+British Grand Prix,mixed_conditions,0,9,12
+British Grand Prix,outlier,19,9,13
+Austrian Grand Prix,clean,853,10,0
+Austrian Grand Prix,lap_1,20,10,1
+Austrian Grand Prix,after_chequered,0,10,2
+Austrian Grand Prix,in_lap,43,10,3
+Austrian Grand Prix,out_lap,41,10,4
+Austrian Grand Prix,sc,0,10,5
+Austrian Grand Prix,vsc,39,10,6
+Austrian Grand Prix,restart_lap,17,10,7
+Austrian Grand Prix,deleted,65,10,8
+Austrian Grand Prix,inaccurate,0,10,9
+Austrian Grand Prix,missing_compound,245,10,10
+Austrian Grand Prix,wet_compound,0,10,11
+Austrian Grand Prix,mixed_conditions,0,10,12
+Austrian Grand Prix,outlier,1,10,13
+French Grand Prix,clean,789,11,0
+French Grand Prix,lap_1,20,11,1
+French Grand Prix,after_chequered,0,11,2
+French Grand Prix,in_lap,28,11,3
+French Grand Prix,out_lap,25,11,4
+French Grand Prix,sc,23,11,5
+French Grand Prix,vsc,29,11,6
+French Grand Prix,restart_lap,33,11,7
+French Grand Prix,deleted,10,11,8
+French Grand Prix,inaccurate,0,11,9
+French Grand Prix,missing_compound,0,11,10
+French Grand Prix,wet_compound,0,11,11
+French Grand Prix,mixed_conditions,0,11,12
+French Grand Prix,outlier,1,11,13
+Hungarian Grand Prix,clean,1151,12,0
+Hungarian Grand Prix,lap_1,20,12,1
+Hungarian Grand Prix,after_chequered,0,12,2
+Hungarian Grand Prix,in_lap,42,12,3
+Hungarian Grand Prix,out_lap,42,12,4
+Hungarian Grand Prix,sc,0,12,5
+Hungarian Grand Prix,vsc,76,12,6
+Hungarian Grand Prix,restart_lap,39,12,7
+Hungarian Grand Prix,deleted,11,12,8
+Hungarian Grand Prix,inaccurate,0,12,9
+Hungarian Grand Prix,missing_compound,0,12,10
+Hungarian Grand Prix,wet_compound,0,12,11
+Hungarian Grand Prix,mixed_conditions,0,12,12
+Hungarian Grand Prix,outlier,2,12,13
+Belgian Grand Prix,clean,622,13,0
+Belgian Grand Prix,lap_1,20,13,1
+Belgian Grand Prix,after_chequered,0,13,2
+Belgian Grand Prix,in_lap,38,13,3
+Belgian Grand Prix,out_lap,38,13,4
+Belgian Grand Prix,sc,51,13,5
+Belgian Grand Prix,vsc,0,13,6
+Belgian Grand Prix,restart_lap,18,13,7
+Belgian Grand Prix,deleted,5,13,8
+Belgian Grand Prix,inaccurate,0,13,9
+Belgian Grand Prix,missing_compound,0,13,10
+Belgian Grand Prix,wet_compound,0,13,11
+Belgian Grand Prix,mixed_conditions,0,13,12
+Belgian Grand Prix,outlier,0,13,13
+Dutch Grand Prix,clean,1094,14,0
+Dutch Grand Prix,lap_1,20,14,1
+Dutch Grand Prix,after_chequered,0,14,2
+Dutch Grand Prix,in_lap,72,14,3
+Dutch Grand Prix,out_lap,60,14,4
+Dutch Grand Prix,sc,57,14,5
+Dutch Grand Prix,vsc,44,14,6
+Dutch Grand Prix,restart_lap,37,14,7
+Dutch Grand Prix,deleted,7,14,8
+Dutch Grand Prix,inaccurate,0,14,9
+Dutch Grand Prix,missing_compound,0,14,10
+Dutch Grand Prix,wet_compound,0,14,11
+Dutch Grand Prix,mixed_conditions,0,14,12
+Dutch Grand Prix,outlier,1,14,13
+Italian Grand Prix,clean,745,15,0
+Italian Grand Prix,lap_1,20,15,1
+Italian Grand Prix,after_chequered,0,15,2
+Italian Grand Prix,in_lap,30,15,3
+Italian Grand Prix,out_lap,28,15,4
+Italian Grand Prix,sc,92,15,5
+Italian Grand Prix,vsc,23,15,6
+Italian Grand Prix,restart_lap,19,15,7
+Italian Grand Prix,deleted,14,15,8
+Italian Grand Prix,inaccurate,0,15,9
+Italian Grand Prix,missing_compound,0,15,10
+Italian Grand Prix,wet_compound,0,15,11
+Italian Grand Prix,mixed_conditions,0,15,12
+Italian Grand Prix,outlier,0,15,13
+Singapore Grand Prix,clean,0,16,0
+Singapore Grand Prix,lap_1,20,16,1
+Singapore Grand Prix,after_chequered,0,16,2
+Singapore Grand Prix,in_lap,23,16,3
+Singapore Grand Prix,out_lap,21,16,4
+Singapore Grand Prix,sc,103,16,5
+Singapore Grand Prix,vsc,100,16,6
+Singapore Grand Prix,restart_lap,72,16,7
+Singapore Grand Prix,deleted,0,16,8
+Singapore Grand Prix,inaccurate,1,16,9
+Singapore Grand Prix,missing_compound,0,16,10
+Singapore Grand Prix,wet_compound,343,16,11
+Singapore Grand Prix,mixed_conditions,262,16,12
+Singapore Grand Prix,outlier,0,16,13
+Japanese Grand Prix,clean,0,17,0
+Japanese Grand Prix,lap_1,20,17,1
+Japanese Grand Prix,after_chequered,1,17,2
+Japanese Grand Prix,in_lap,41,17,3
+Japanese Grand Prix,out_lap,41,17,4
+Japanese Grand Prix,sc,0,17,5
+Japanese Grand Prix,vsc,0,17,6
+Japanese Grand Prix,restart_lap,0,17,7
+Japanese Grand Prix,deleted,0,17,8
+Japanese Grand Prix,inaccurate,1,17,9
+Japanese Grand Prix,missing_compound,0,17,10
+Japanese Grand Prix,wet_compound,403,17,11
+Japanese Grand Prix,mixed_conditions,0,17,12
+Japanese Grand Prix,outlier,0,17,13
+United States Grand Prix,clean,735,18,0
+United States Grand Prix,lap_1,20,18,1
+United States Grand Prix,after_chequered,0,18,2
+United States Grand Prix,in_lap,36,18,3
+United States Grand Prix,out_lap,36,18,4
+United States Grand Prix,sc,122,18,5
+United States Grand Prix,vsc,0,18,6
+United States Grand Prix,restart_lap,17,18,7
+United States Grand Prix,deleted,26,18,8
+United States Grand Prix,inaccurate,0,18,9
+United States Grand Prix,missing_compound,0,18,10
+United States Grand Prix,wet_compound,0,18,11
+United States Grand Prix,mixed_conditions,0,18,12
+United States Grand Prix,outlier,0,18,13
+Mexico City Grand Prix,clean,1264,19,0
+Mexico City Grand Prix,lap_1,20,19,1
+Mexico City Grand Prix,after_chequered,0,19,2
+Mexico City Grand Prix,in_lap,24,19,3
+Mexico City Grand Prix,out_lap,23,19,4
+Mexico City Grand Prix,sc,0,19,5
+Mexico City Grand Prix,vsc,28,19,6
+Mexico City Grand Prix,restart_lap,18,19,7
+Mexico City Grand Prix,deleted,2,19,8
+Mexico City Grand Prix,inaccurate,0,19,9
+Mexico City Grand Prix,missing_compound,0,19,10
+Mexico City Grand Prix,wet_compound,0,19,11
+Mexico City Grand Prix,mixed_conditions,0,19,12
+Mexico City Grand Prix,outlier,0,19,13
+São Paulo Grand Prix,clean,904,20,0
+São Paulo Grand Prix,lap_1,20,20,1
+São Paulo Grand Prix,after_chequered,0,20,2
+São Paulo Grand Prix,in_lap,44,20,3
+São Paulo Grand Prix,out_lap,44,20,4
+São Paulo Grand Prix,sc,188,20,5
+São Paulo Grand Prix,vsc,22,20,6
+São Paulo Grand Prix,restart_lap,33,20,7
+São Paulo Grand Prix,deleted,4,20,8
+São Paulo Grand Prix,inaccurate,0,20,9
+São Paulo Grand Prix,missing_compound,0,20,10
+São Paulo Grand Prix,wet_compound,0,20,11
+São Paulo Grand Prix,mixed_conditions,0,20,12
+São Paulo Grand Prix,outlier,0,20,13
+Abu Dhabi Grand Prix,clean,1008,21,0
+Abu Dhabi Grand Prix,lap_1,20,21,1
+Abu Dhabi Grand Prix,after_chequered,0,21,2
+Abu Dhabi Grand Prix,in_lap,34,21,3
+Abu Dhabi Grand Prix,out_lap,31,21,4
+Abu Dhabi Grand Prix,sc,0,21,5
+Abu Dhabi Grand Prix,vsc,0,21,6
+Abu Dhabi Grand Prix,restart_lap,0,21,7
+Abu Dhabi Grand Prix,deleted,24,21,8
+Abu Dhabi Grand Prix,inaccurate,0,21,9
+Abu Dhabi Grand Prix,missing_compound,0,21,10
+Abu Dhabi Grand Prix,wet_compound,0,21,11
+Abu Dhabi Grand Prix,mixed_conditions,0,21,12
+Abu Dhabi Grand Prix,outlier,0,21,13

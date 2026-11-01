@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+title: "What the Pit Wall Knew: judging Ferrari's 2022 strategy calls using only what was known at the time"
+type: software
+authors:
+  - family-names: Mohapatra
+    given-names: Muktanan
+version: 1.0.0
+date-released: 2026-10-31
+license: MIT
+repository-code: "https://github.com/tinySage/what-the-pit-wall-knew"
+abstract: >-
+  A Bayesian lap-time model and a whole-field race simulator, refitted at each
+  decision lap on the data available then, used to judge three of Ferrari's
+  2022 strategy calls (Hungary, Silverstone, Monaco) against a verdict rule
+  committed before any results.
+keywords:
+  - Formula 1
+  - race strategy
+  - Bayesian modelling
+  - Monte Carlo simulation
+  - FastF1

@@ -91,9 +91,7 @@ def _after_chequered(laps: pd.DataFrame) -> pd.Series:
     )
     final_lap_per_row = laps["RoundNumber"].map(final_lap)
     finish_per_row = laps["RoundNumber"].map(finish)
-    return (laps["LapNumber"] > final_lap_per_row) | (
-        laps["LapStartTime"] >= finish_per_row
-    )
+    return (laps["LapNumber"] > final_lap_per_row) | (laps["LapStartTime"] >= finish_per_row)
 
 
 def _restart_lap(laps: pd.DataFrame) -> pd.Series:
@@ -111,9 +109,7 @@ def _gap_ahead_s(laps: pd.DataFrame) -> pd.Series:
     key = ["RoundNumber", "LapNumber", "Position"]
     ahead = laps.loc[laps["Position"].notna(), key + ["Time"]].copy()
     ahead["Position"] = ahead["Position"] + 1  # this car is directly ahead of P+1
-    merged = laps[key].merge(
-        ahead.rename(columns={"Time": "TimeAhead"}), on=key, how="left"
-    )
+    merged = laps[key].merge(ahead.rename(columns={"Time": "TimeAhead"}), on=key, how="left")
     merged.index = laps.index
     return (laps["Time"] - merged["TimeAhead"]).dt.total_seconds()
 
@@ -169,9 +165,9 @@ def clean_laps(
         reason = reason.mask(reason.isna() & hit.fillna(False).astype(bool), name)
 
     lap_s = df["LapTime"].dt.total_seconds()
-    median = lap_s.where(reason.isna()).groupby(
-        [df["RoundNumber"], df["Driver"]]
-    ).transform("median")
+    median = (
+        lap_s.where(reason.isna()).groupby([df["RoundNumber"], df["Driver"]]).transform("median")
+    )
     reason = reason.mask(reason.isna() & (lap_s > OUTLIER_RATIO * median), "outlier")
 
     df["exclude_reason"] = pd.Categorical(reason, categories=EXCLUDE_REASONS)
@@ -208,20 +204,26 @@ def pit_stops(cleaned: pd.DataFrame) -> pd.DataFrame:
     out_laps = base.loc[base["PitOutTime"].notna(), cols].assign(
         LapNumber=lambda d: d["LapNumber"] - 1
     )
-    stops = in_laps.merge(
-        out_laps, on=_DRIVER_RACE + ["LapNumber"], suffixes=("_in", "_out")
-    )
-    stops = stops.rename(
-        columns={"LapNumber": "InLap", "lap_s_in": "in_s", "lap_s_out": "out_s"}
-    )
+    stops = in_laps.merge(out_laps, on=_DRIVER_RACE + ["LapNumber"], suffixes=("_in", "_out"))
+    stops = stops.rename(columns={"LapNumber": "InLap", "lap_s_in": "in_s", "lap_s_out": "out_s"})
     stops["loss_s"] = stops["in_s"] + stops["out_s"] - 2 * stops["median_clean_s"]
     stops["green"] = ~stops["neutral_in"] & ~stops["neutral_out"] & (stops["InLap"] > 1)
-    stops["dry_to_dry"] = stops["Compound_in"].isin(DRY_COMPOUNDS) & stops[
-        "Compound_out"
-    ].isin(DRY_COMPOUNDS)
+    stops["dry_to_dry"] = stops["Compound_in"].isin(DRY_COMPOUNDS) & stops["Compound_out"].isin(
+        DRY_COMPOUNDS
+    )
     return stops[
-        ["RoundNumber", "EventName", "Driver", "InLap", "in_s", "out_s",
-         "median_clean_s", "loss_s", "green", "dry_to_dry"]
+        [
+            "RoundNumber",
+            "EventName",
+            "Driver",
+            "InLap",
+            "in_s",
+            "out_s",
+            "median_clean_s",
+            "loss_s",
+            "green",
+            "dry_to_dry",
+        ]
     ].reset_index(drop=True)
 
 
@@ -263,9 +265,7 @@ def pit_loss(
     """
     stops = pit_stops(cleaned)
     keep = (
-        stops["green"]
-        & stops["loss_s"].notna()
-        & ~stops["EventName"].isin(list(mixed_conditions))
+        stops["green"] & stops["loss_s"].notna() & ~stops["EventName"].isin(list(mixed_conditions))
     )
     out = _summarise_stops(stops[keep])
     circuits = race.groupby("RoundNumber")["Circuit"].first()
@@ -307,17 +307,16 @@ def reference_pit_loss(
         if year == exclude_year:
             continue
         schedule = fastf1.get_event_schedule(year, include_testing=False)
-        match = schedule[
-            (schedule["EventName"] == event_name) & (schedule["EventDate"] < today)
-        ]
+        match = schedule[(schedule["EventName"] == event_name) & (schedule["EventDate"] < today)]
         if match.empty:
             continue
         rnd = int(match["RoundNumber"].iloc[0])
         try:
             laps = laps_table(load_race_session(year, rnd))
         except fastf1.exceptions.DataNotLoadedError:
-            logger.info("%d %s: timing data unavailable; trying an earlier season",
-                        year, event_name)
+            logger.info(
+                "%d %s: timing data unavailable; trying an earlier season", year, event_name
+            )
             continue
         logger.info("loaded %d %s as pit loss reference candidate", year, event_name)
         if laps["Compound"].isin(WET_COMPOUNDS).any():
@@ -366,10 +365,15 @@ def pit_loss_with_references(
             ref["pit_loss_status"] = "reference"
         else:
             ref = pd.DataFrame(
-                {"EventName": [row["EventName"]], "pit_loss_s": [float("nan")],
-                 "q25_s": [float("nan")], "q75_s": [float("nan")],
-                 "n_stops": [0], "source_year": [pd.NA],
-                 "pit_loss_status": ["not_needed"]}
+                {
+                    "EventName": [row["EventName"]],
+                    "pit_loss_s": [float("nan")],
+                    "q25_s": [float("nan")],
+                    "q75_s": [float("nan")],
+                    "n_stops": [0],
+                    "source_year": [pd.NA],
+                    "pit_loss_status": ["not_needed"],
+                }
             )
         ref.insert(0, "RoundNumber", rnd)
         ref.insert(2, "Circuit", row["Circuit"])
@@ -382,9 +386,7 @@ def pit_loss_with_references(
     return out
 
 
-def save_pit_loss(
-    pit: pd.DataFrame, year: int = 2022, out_dir: Path = PROCESSED_DIR
-) -> Path:
+def save_pit_loss(pit: pd.DataFrame, year: int = 2022, out_dir: Path = PROCESSED_DIR) -> Path:
     """Write the pit loss table to ``<out_dir>/<year>/pit_loss.parquet``."""
     path = out_dir / str(year) / "pit_loss.parquet"
     pit.to_parquet(path, index=False)

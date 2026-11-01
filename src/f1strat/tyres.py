@@ -65,11 +65,12 @@ class TyreSet:
     set_id: int
     laps: int = 0
     returned: bool = False
-    protected: str = ""          # "q3" or "race" while it may not be returned
+    protected: str = ""  # "q3" or "race" while it may not be returned
     history: list[str] = field(default_factory=list)
 
     @property
     def new(self) -> bool:
+        """True if the set has run no laps."""
         return self.laps == 0
 
 
@@ -82,22 +83,19 @@ class Inventory:
     notes: list[str] = field(default_factory=list)
 
     def available(self) -> list[TyreSet]:
+        """Sets not returned to the supplier."""
         return [s for s in self.sets if not s.returned]
-
-    def race_sets(self) -> list[tuple[str, int]]:
-        """(compound, out-lap TyreLife) for every set available for the race.
-
-        A new set's out lap is TyreLife 1; a used set's is its laps + 1.
-        """
-        return sorted((s.compound, s.laps + 1) for s in self.available())
 
     def summary(self) -> str:
         """E.g. ``"S new×3, S(4)×2, M new×2, H new×2"``."""
         parts = []
         for comp in DRY:
-            for laps, count in pd.Series(
-                [s.laps for s in self.available() if s.compound == comp]
-            ).value_counts().sort_index().items():
+            for laps, count in (
+                pd.Series([s.laps for s in self.available() if s.compound == comp])
+                .value_counts()
+                .sort_index()
+                .items()
+            ):
                 tag = "new" if laps == 0 else f"({laps + 1})"
                 parts.append(f"{comp[0]} {tag}×{count}")
         return ", ".join(parts)
@@ -117,13 +115,15 @@ def _new_inventory(driver: str, fmt: str) -> Inventory:
     return inv
 
 
-def _use_stint(inv: Inventory, session: str, compound: str, fresh: bool,
-               life_first: int, life_last: int) -> None:
+def _use_stint(
+    inv: Inventory, session: str, compound: str, fresh: bool, life_first: int, life_last: int
+) -> None:
     """Apply one session stint to the inventory."""
     pool = [s for s in inv.available() if s.compound == compound]
     if fresh or life_first <= 1:
-        new = [s for s in pool if s.new and s.protected != "q3"] or \
-              ([s for s in pool if s.new] if session == "Q" else [])
+        new = [s for s in pool if s.new and s.protected != "q3"] or (
+            [s for s in pool if s.new] if session == "Q" else []
+        )
         if not new:
             inv.notes.append(f"{session}: new {compound} fitted but none left")
             return
@@ -140,24 +140,35 @@ def _use_stint(inv: Inventory, session: str, compound: str, fresh: bool,
         else:
             below = [s for s in used if s.laps < target]
             if not below:
-                inv.notes.append(f"{session}: used {compound} at TyreLife {life_first} "
-                                 "but no matching set")
+                inv.notes.append(
+                    f"{session}: used {compound} at TyreLife {life_first} but no matching set"
+                )
                 return
             chosen = max(below, key=lambda s: s.laps)
-            inv.notes.append(f"{session}: used {compound} at TyreLife {life_first} "
-                             f"matched to set with {chosen.laps} laps")
+            inv.notes.append(
+                f"{session}: used {compound} at TyreLife {life_first} "
+                f"matched to set with {chosen.laps} laps"
+            )
     chosen.laps = max(chosen.laps, life_last)
     chosen.history.append(f"{session}:{life_first}-{life_last}")
 
 
-def _return(inv: Inventory, n: int, when: str, compound: str | None = None,
-            most_laps_in: str | None = None,
-            unused_order: tuple[str, ...] = ("SOFT", "MEDIUM", "HARD")) -> None:
+def _return(
+    inv: Inventory,
+    n: int,
+    when: str,
+    compound: str | None = None,
+    most_laps_in: str | None = None,
+    unused_order: tuple[str, ...] = ("SOFT", "MEDIUM", "HARD"),
+) -> None:
     """Return ``n`` sets: most-used eligible set first; if none is used, an
     unused set in ``unused_order`` of compounds."""
     for _ in range(n):
-        pool = [s for s in inv.available() if not s.protected
-                and (compound is None or s.compound == compound)]
+        pool = [
+            s
+            for s in inv.available()
+            if not s.protected and (compound is None or s.compound == compound)
+        ]
         if most_laps_in is not None:
             pool = [s for s in pool if any(h.startswith(most_laps_in) for h in s.history)] or pool
         used = [s for s in pool if not s.new]
@@ -177,11 +188,18 @@ def _session_stints(session: fastf1.core.Session) -> pd.DataFrame:
     """One row per driver stint on a dry compound, in time order."""
     laps = session.laps
     laps = laps[laps["Compound"].isin(DRY)]
-    return (laps.groupby(["Driver", "Stint"])
-            .agg(compound=("Compound", "first"), fresh=("FreshTyre", "first"),
-                 life_first=("TyreLife", "min"), life_last=("TyreLife", "max"),
-                 start=("LapStartTime", "min"))
-            .reset_index().sort_values(["Driver", "start"]))
+    return (
+        laps.groupby(["Driver", "Stint"])
+        .agg(
+            compound=("Compound", "first"),
+            fresh=("FreshTyre", "first"),
+            life_first=("TyreLife", "min"),
+            life_last=("TyreLife", "max"),
+            start=("LapStartTime", "min"),
+        )
+        .reset_index()
+        .sort_values(["Driver", "start"])
+    )
 
 
 def _load(year: int, round_number: int, name: str) -> fastf1.core.Session:
@@ -199,8 +217,11 @@ def _stand_ins(session: fastf1.core.Session, race_drivers: set[str]) -> dict[str
     mapping = {}
     for driver in present - race_drivers:
         team = teams[driver]
-        absent = [d for d in race_drivers - present
-                  if d in RACE_TEAMS.get(session.event["RoundNumber"], {}).get(team, set())]
+        absent = [
+            d
+            for d in race_drivers - present
+            if d in RACE_TEAMS.get(session.event["RoundNumber"], {}).get(team, set())
+        ]
         if len(absent) == 1:
             mapping[driver] = absent[0]
     return mapping
@@ -227,13 +248,11 @@ def reconstruct_inventories(
     configure_cache()
     event = fastf1.get_event(year, round_number)
     fmt = "sprint" if "sprint" in str(event["EventFormat"]).lower() else "conventional"
-    order = (["FP1", "FP2", "FP3", "Q"] if fmt == "conventional"
-             else ["FP1", "Q", "FP2", "Sprint"])
+    order = ["FP1", "FP2", "FP3", "Q"] if fmt == "conventional" else ["FP1", "Q", "FP2", "Sprint"]
     sessions = {name: _load(year, round_number, name) for name in order}
     race = _load(year, round_number, "R")
     race_drivers = set(race.laps["Driver"].unique()) | set(race.results["Abbreviation"])
-    RACE_TEAMS[round_number] = (race.results.groupby("TeamName")["Abbreviation"]
-                                .apply(set).to_dict())
+    RACE_TEAMS[round_number] = race.results.groupby("TeamName")["Abbreviation"].apply(set).to_dict()
     drivers = sorted(race_drivers)
     q3 = set(sessions["Q"].results.loc[sessions["Q"].results["Q3"].notna(), "Abbreviation"])
     invs = {d: _new_inventory(d, fmt) for d in drivers}
@@ -243,13 +262,20 @@ def reconstruct_inventories(
         for _, st in stints.iterrows():
             owner = stand_in.get(st["Driver"], st["Driver"])
             if owner not in invs:
-                logger.warning("%s %s: %s has no race driver to charge", round_number, name,
-                               st["Driver"])
+                logger.warning(
+                    "%s %s: %s has no race driver to charge", round_number, name, st["Driver"]
+                )
                 continue
             if owner != st["Driver"]:
                 invs[owner].notes.append(f"{name}: run by stand-in {st['Driver']}")
-            _use_stint(invs[owner], name, st["compound"], bool(st["fresh"]),
-                       int(st["life_first"]), int(st["life_last"]))
+            _use_stint(
+                invs[owner],
+                name,
+                st["compound"],
+                bool(st["fresh"]),
+                int(st["life_first"]),
+                int(st["life_last"]),
+            )
         for d, inv in invs.items():
             if fmt == "conventional":
                 if name in ("FP1", "FP2", "FP3"):
@@ -281,8 +307,9 @@ def _release(inv: Inventory, tag: str) -> None:
             s.protected = ""
 
 
-def validate_against_race(invs: dict[str, Inventory], raw_laps: pd.DataFrame,
-                          round_number: int) -> pd.DataFrame:
+def validate_against_race(
+    invs: dict[str, Inventory], raw_laps: pd.DataFrame, round_number: int
+) -> pd.DataFrame:
     """Check every set each car fitted in the race exists in its inventory.
 
     Race stints consume sets in order: a new set needs an unused set of that
@@ -295,52 +322,89 @@ def validate_against_race(invs: dict[str, Inventory], raw_laps: pd.DataFrame,
     Returns:
         One row per race stint that could not be matched (empty if none).
     """
-    race = raw_laps[(raw_laps["RoundNumber"] == round_number)
-                    & raw_laps["Compound"].isin(DRY)]
+    race = raw_laps[(raw_laps["RoundNumber"] == round_number) & raw_laps["Compound"].isin(DRY)]
     rows = []
     for driver, laps in race.groupby("Driver"):
         inv = invs.get(driver)
-        stints = (laps.groupby("Stint").agg(compound=("Compound", "first"),
-                                             fresh=("FreshTyre", "first"),
-                                             life=("TyreLife", "min"),
-                                             life_last=("TyreLife", "max"),
-                                             first_lap=("LapNumber", "min"),
-                                             last_lap=("LapNumber", "max"))
-                  .sort_values("first_lap"))
+        stints = (
+            laps.groupby("Stint")
+            .agg(
+                compound=("Compound", "first"),
+                fresh=("FreshTyre", "first"),
+                life=("TyreLife", "min"),
+                life_last=("TyreLife", "max"),
+                first_lap=("LapNumber", "min"),
+                last_lap=("LapNumber", "max"),
+            )
+            .sort_values("first_lap")
+        )
         avail = [] if inv is None else [[s.compound, s.laps] for s in inv.available()]
         for _, st in stints.iterrows():
             if pd.isna(st["life"]) and not bool(st["fresh"]):
-                rows.append({"Driver": driver, "first_lap": int(st["first_lap"]),
-                             "compound": st["compound"], "set": "TyreLife missing in race data",
-                             "laps_needed": None, "nearest_laps": None, "off_by": None,
-                             "inventory": "" if inv is None else inv.summary()})
+                rows.append(
+                    {
+                        "Driver": driver,
+                        "first_lap": int(st["first_lap"]),
+                        "compound": st["compound"],
+                        "set": "TyreLife missing in race data",
+                        "laps_needed": None,
+                        "nearest_laps": None,
+                        "off_by": None,
+                        "inventory": "" if inv is None else inv.summary(),
+                    }
+                )
                 continue
             need_new = bool(st["fresh"]) or pd.isna(st["life"]) or st["life"] <= 1
-            match = next((i for i, (c, n) in enumerate(avail)
-                          if c == st["compound"] and (n == 0 if need_new else n == st["life"] - 1)),
-                         None)
+            match = next(
+                (
+                    i
+                    for i, (c, n) in enumerate(avail)
+                    if c == st["compound"] and (n == 0 if need_new else n == st["life"] - 1)
+                ),
+                None,
+            )
             if match is None:
                 same = sorted(n for c, n in avail if c == st["compound"])
                 want = 0 if need_new else int(st["life"]) - 1
                 nearest = min(same, key=lambda n: abs(n - want)) if same else None
-                rows.append({"Driver": driver, "first_lap": int(st["first_lap"]),
-                             "compound": st["compound"],
-                             "set": "new" if need_new else f"used, TyreLife {int(st['life'])}",
-                             "laps_needed": want,
-                             "nearest_laps": nearest,
-                             "off_by": None if nearest is None else nearest - want,
-                             "inventory": "" if inv is None else inv.summary()})
+                rows.append(
+                    {
+                        "Driver": driver,
+                        "first_lap": int(st["first_lap"]),
+                        "compound": st["compound"],
+                        "set": "new" if need_new else f"used, TyreLife {int(st['life'])}",
+                        "laps_needed": want,
+                        "nearest_laps": nearest,
+                        "off_by": None if nearest is None else nearest - want,
+                        "inventory": "" if inv is None else inv.summary(),
+                    }
+                )
             else:
                 comp, laps_before = avail.pop(match)
-                ran = (int(st["life_last"]) if pd.notna(st["life_last"])
-                       else laps_before + int(st["last_lap"] - st["first_lap"] + 1))
+                ran = (
+                    int(st["life_last"])
+                    if pd.notna(st["life_last"])
+                    else laps_before + int(st["last_lap"] - st["first_lap"] + 1)
+                )
                 avail.append([comp, ran])
-    return pd.DataFrame(rows, columns=["Driver", "first_lap", "compound", "set", "laps_needed",
-                                       "nearest_laps", "off_by", "inventory"])
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "Driver",
+            "first_lap",
+            "compound",
+            "set",
+            "laps_needed",
+            "nearest_laps",
+            "off_by",
+            "inventory",
+        ],
+    )
 
 
-def sets_left(inv: Inventory, raw_laps: pd.DataFrame, round_number: int,
-              upto_lap: int) -> list[tuple[str, int]]:
+def sets_left(
+    inv: Inventory, raw_laps: pd.DataFrame, round_number: int, upto_lap: int
+) -> list[tuple[str, int]]:
     """Sets still available after the race's stints that started by ``upto_lap``.
 
     Every stint that began on or before ``upto_lap`` (including the one on the
@@ -348,35 +412,50 @@ def sets_left(inv: Inventory, raw_laps: pd.DataFrame, round_number: int,
     that cannot be matched takes the closest set of its compound. Returns
     (compound, out-lap TyreLife) pairs.
     """
-    laps = raw_laps[(raw_laps["RoundNumber"] == round_number)
-                    & (raw_laps["Driver"] == inv.driver) & raw_laps["Compound"].isin(DRY)
-                    & (raw_laps["LapNumber"] <= upto_lap)]
+    laps = raw_laps[
+        (raw_laps["RoundNumber"] == round_number)
+        & (raw_laps["Driver"] == inv.driver)
+        & raw_laps["Compound"].isin(DRY)
+        & (raw_laps["LapNumber"] <= upto_lap)
+    ]
     avail = [[s.compound, s.laps] for s in inv.available()]
-    stints = (laps.groupby("Stint").agg(compound=("Compound", "first"),
-                                         fresh=("FreshTyre", "first"),
-                                         life=("TyreLife", "min"),
-                                         first_lap=("LapNumber", "min"))
-              .sort_values("first_lap"))
+    stints = (
+        laps.groupby("Stint")
+        .agg(
+            compound=("Compound", "first"),
+            fresh=("FreshTyre", "first"),
+            life=("TyreLife", "min"),
+            first_lap=("LapNumber", "min"),
+        )
+        .sort_values("first_lap")
+    )
     for _, st in stints.iterrows():
         same = [i for i, (c, _) in enumerate(avail) if c == st["compound"]]
         if not same:
             continue
-        want = 0 if (bool(st["fresh"]) or pd.isna(st["life"]) or st["life"] <= 1) \
+        want = (
+            0
+            if (bool(st["fresh"]) or pd.isna(st["life"]) or st["life"] <= 1)
             else int(st["life"]) - 1
+        )
         avail.pop(min(same, key=lambda i: abs(avail[i][1] - want)))
     return sorted((c, n + 1) for c, n in avail)
 
 
-def race_used_sets(raw_laps: pd.DataFrame, round_number: int, driver: str,
-                   upto_lap: int) -> list[tuple[str, int]]:
+def race_used_sets(
+    raw_laps: pd.DataFrame, round_number: int, driver: str, upto_lap: int
+) -> list[tuple[str, int]]:
     """Sets the car already fitted in the race and took off by ``upto_lap``.
 
     Refitting a used race set is legal (Phase 6). Each completed dry stint
     gives one set, as (compound, out-lap TyreLife) = (compound, its last
     TyreLife + 1). The stint on the car at ``upto_lap`` is not included.
     """
-    laps = raw_laps[(raw_laps["RoundNumber"] == round_number)
-                    & (raw_laps["Driver"] == driver) & (raw_laps["LapNumber"] <= upto_lap)]
+    laps = raw_laps[
+        (raw_laps["RoundNumber"] == round_number)
+        & (raw_laps["Driver"] == driver)
+        & (raw_laps["LapNumber"] <= upto_lap)
+    ]
     if laps.empty:
         return []
     current = laps.loc[laps["LapNumber"].idxmax(), "Stint"]

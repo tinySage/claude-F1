@@ -9,6 +9,9 @@ counterfactual accounting is added only after its method is pre-registered.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -25,7 +28,7 @@ def race_laps(raw: pd.DataFrame) -> pd.DataFrame:
     return s
 
 
-def stops(raw: pd.DataFrame, drivers=FERRARI_RB) -> pd.DataFrame:
+def stops(raw: pd.DataFrame, drivers: Sequence[str] = FERRARI_RB) -> pd.DataFrame:
     """Each stop: in lap, compounds off and on, pit entry, pit-lane time (s)."""
     from f1strat.race_events import pit_lane_stops
 
@@ -35,15 +38,24 @@ def stops(raw: pd.DataFrame, drivers=FERRARI_RB) -> pd.DataFrame:
     rows = []
     for _, r in pl.sort_values(["LapNumber", "PitInTime"]).iterrows():
         d, L = r["Driver"], int(r["LapNumber"])
-        rows.append({"driver": d, "in_lap": L, "off": s.at[(d, L), "Compound"],
-                     "on": s.at[(d, L + 1), "Compound"],
-                     "on_tyre_life": s.at[(d, L + 1), "TyreLife"],
-                     "pit_entry": str(r["PitInTime"])[7:18], "lane_s": round(r["lane_s"], 3),
-                     "team_stops_on_lap": int(r["team_stops_on_lap"])})
+        rows.append(
+            {
+                "driver": d,
+                "in_lap": L,
+                "off": s.at[(d, L), "Compound"],
+                "on": s.at[(d, L + 1), "Compound"],
+                "on_tyre_life": s.at[(d, L + 1), "TyreLife"],
+                "pit_entry": str(r["PitInTime"])[7:18],
+                "lane_s": round(r["lane_s"], 3),
+                "team_stops_on_lap": int(r["team_stops_on_lap"]),
+            }
+        )
     return pd.DataFrame(rows)
 
 
-def order_and_gaps(raw: pd.DataFrame, laps=range(12, 33), drivers=TOP8) -> tuple[pd.DataFrame, pd.DataFrame]:
+def order_and_gaps(
+    raw: pd.DataFrame, laps: Iterable[int] = range(12, 33), drivers: Sequence[str] = TOP8
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """(positions, gap to the leader in s at the line) per lap for ``drivers``."""
     s = race_laps(raw)
     pos = s.pivot(index="LapNumber", columns="Driver", values="Position")
@@ -63,21 +75,30 @@ def queue_time(raw: pd.DataFrame, driver: str = "LEC", lap: int = 21) -> dict:
     pl = pl[pl["RoundNumber"] == ROUND]
     solo = pl[(pl["team_stops_on_lap"] == 1) & (pl["kind"] == "green")]
     me = pl[(pl["Driver"] == driver) & (pl["LapNumber"] == lap)].iloc[0]
-    mate = pl[(pl["Team"] == me["Team"]) & (pl["LapNumber"] == lap)
-              & (pl["Driver"] != driver)].iloc[0]
+    mate = pl[
+        (pl["Team"] == me["Team"]) & (pl["LapNumber"] == lap) & (pl["Driver"] != driver)
+    ].iloc[0]
     own_other = pl[(pl["Driver"] == driver) & (pl["LapNumber"] != lap) & (pl["kind"] == "green")]
     gap = (me["PitInTime"] - mate["PitInTime"]).total_seconds()
     D = double_stack_loss(double_stack_pairs(raw))["green"]["D_s"]
     q = me["lane_s"] - solo["lane_s"].median()
-    return {"driver": driver, "lap": lap, "behind": mate["Driver"], "lane_s": round(me["lane_s"], 3),
-            "teammate_lane_s": round(mate["lane_s"], 3),
-            "solo_green_median_s": round(float(solo["lane_s"].median()), 3),
-            "n_solo_green": int(len(solo)),
-            "queue_vs_solo_s": round(float(q), 3),
-            "queue_vs_own_other_stop_s": (round(float(me["lane_s"] - own_other["lane_s"].median()), 3)
-                                          if len(own_other) else None),
-            "arrival_gap_s": round(gap, 3), "implied_D_s": round(float(q + gap), 3),
-            "season_D_s": D, "season_model_queue_s": round(max(0.0, D - gap), 3)}
+    return {
+        "driver": driver,
+        "lap": lap,
+        "behind": mate["Driver"],
+        "lane_s": round(me["lane_s"], 3),
+        "teammate_lane_s": round(mate["lane_s"], 3),
+        "solo_green_median_s": round(float(solo["lane_s"].median()), 3),
+        "n_solo_green": int(len(solo)),
+        "queue_vs_solo_s": round(float(q), 3),
+        "queue_vs_own_other_stop_s": (
+            round(float(me["lane_s"] - own_other["lane_s"].median()), 3) if len(own_other) else None
+        ),
+        "arrival_gap_s": round(gap, 3),
+        "implied_D_s": round(float(q + gap), 3),
+        "season_D_s": D,
+        "season_model_queue_s": round(max(0.0, D - gap), 3),
+    }
 
 
 def passes(raw: pd.DataFrame, race: pd.DataFrame) -> dict:
@@ -94,20 +115,31 @@ def passes(raw: pd.DataFrame, race: pd.DataFrame) -> dict:
         a, b = act.times[L - 1], act.times[L]
         for i, di in enumerate(act.drivers):
             for j, dj in enumerate(act.drivers):
-                if (np.isfinite(a[i]) and np.isfinite(a[j]) and np.isfinite(b[i])
-                        and np.isfinite(b[j]) and a[i] < a[j] and b[i] > b[j]
-                        and not act.pit_laps[L, i] and not act.pit_laps[L, j]):
+                if (
+                    np.isfinite(a[i])
+                    and np.isfinite(a[j])
+                    and np.isfinite(b[i])
+                    and np.isfinite(b[j])
+                    and a[i] < a[j]
+                    and b[i] > b[j]
+                    and not act.pit_laps[L, i]
+                    and not act.pit_laps[L, j]
+                ):
                     out.append({"lap": L, "passer": dj, "passed": di})
     df = pd.DataFrame(out)
     top8 = set(act.order[:8])
-    return {"n": len(df), "list": df.to_dict("records"),
-            "involving_top8": int((df["passer"].isin(top8) | df["passed"].isin(top8)).sum())
-            if len(df) else 0,
-            "after_lap_23": int((df["lap"] > 23).sum()) if len(df) else 0,
-            "finish_order": act.order}
+    return {
+        "n": len(df),
+        "list": df.to_dict("records"),
+        "involving_top8": int((df["passer"].isin(top8) | df["passed"].isin(top8)).sum())
+        if len(df)
+        else 0,
+        "after_lap_23": int((df["lap"] > 23).sum()) if len(df) else 0,
+        "finish_order": act.order,
+    }
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     """``python -m f1strat.monaco``: write the Part A reconstruction to
     ``reports/figures/case_monaco_reconstruction.json``;
     ``python -m f1strat.monaco verdict``: Part B (:func:`run_monaco`)."""
@@ -115,7 +147,8 @@ def main() -> None:
     import logging
     import sys
 
-    if sys.argv[1:] == ["verdict"]:
+    args = sys.argv[1:] if argv is None else argv
+    if args == ["verdict"]:
         logging.disable(logging.WARNING)
         run_monaco()
         return
@@ -126,26 +159,30 @@ def main() -> None:
     logging.disable(logging.WARNING)
     raw, race = load_season(2022), load_season(2022, table="race")
     pos, gap = order_and_gaps(raw)
-    out = {"stops": stops(raw).to_dict("records"),
-           "positions": {int(k): v for k, v in pos.astype(float).to_dict("index").items()},
-           "gaps": {int(k): v for k, v in gap.to_dict("index").items()},
-           "queue": queue_time(raw), "queue_red_bull": queue_time(raw, "VER", 22),
-           "passes": passes(raw, race)}
+    out = {
+        "stops": stops(raw).to_dict("records"),
+        "positions": {int(k): v for k, v in pos.astype(float).to_dict("index").items()},
+        "gaps": {int(k): v for k, v in gap.to_dict("index").items()},
+        "queue": queue_time(raw),
+        "queue_red_bull": queue_time(raw, "VER", 22),
+        "passes": passes(raw, race),
+    }
     (FIG_DIR / "case_monaco_reconstruction.json").write_text(json.dumps(out, indent=1, default=str))
-    print(json.dumps({k: out[k] for k in ("stops", "queue", "queue_red_bull")}, indent=1,
-                     default=str))
+    print(
+        json.dumps({k: out[k] for k in ("stops", "queue", "queue_red_bull")}, indent=1, default=str)
+    )
     print({k: v for k, v in out["passes"].items() if k != "list"})
 
 
 # --- Part B: track-position accounting (method pre-registered in docs/case_studies.md) ---
 
-from dataclasses import dataclass, field  # noqa: E402
+from dataclasses import dataclass  # noqa: E402
 
 COMP = {"WET": "W", "INTERMEDIATE": "I", "HARD": "H", "MEDIUM": "M", "SOFT": "S"}
 OUTCOME_LAP = 23
-HELD_GAP_S = 0.68          # 2022 held-gap median (Phase 5)
-D_SEASON = 7.15            # season green double-stack D (Silverstone)
-D_HINDSIGHT = 5.5          # implied D of Leclerc's actual stack (Part A)
+HELD_GAP_S = 0.68  # 2022 held-gap median (Phase 5)
+D_SEASON = 7.15  # season green double-stack D (Silverstone)
+D_HINDSIGHT = 5.5  # implied D of Leclerc's actual stack (Part A)
 POINTS = np.array([25, 18, 15, 12, 10, 8, 6, 4, 2, 1])
 
 
@@ -158,8 +195,14 @@ def prepared(raw: pd.DataFrame) -> pd.DataFrame:
     s["out_lap"] = s["PitOutTime"].notna()
     code = s["TrackStatus"].fillna("").astype(str)
     s["green_code"] = code.str.fullmatch("[12]+")
-    s["eligible"] = (s["green_code"] & ~s["in_lap"] & ~s["out_lap"] & (s["LapNumber"] >= 3)
-                     & s["lap_s"].notna() & s["c"].isin(list("WIHM")))
+    s["eligible"] = (
+        s["green_code"]
+        & ~s["in_lap"]
+        & ~s["out_lap"]
+        & (s["LapNumber"] >= 3)
+        & s["lap_s"].notna()
+        & s["c"].isin(list("WIHM"))
+    )
     return s
 
 
@@ -191,12 +234,10 @@ class LapModel:
         slope, icpt = np.polyfit(x, y, 1)
         return float(icpt + slope * lap)
 
-    def identified_laps(self, c: str) -> list[int]:
-        return sorted(L for (cc, L) in self.b if cc == c)
 
-
-def fit_lap_model(s: pd.DataFrame, max_lap: int, min_cars: int = 2,
-                  rng: np.random.Generator | None = None) -> LapModel:
+def fit_lap_model(
+    s: pd.DataFrame, max_lap: int, min_cars: int = 2, rng: np.random.Generator | None = None
+) -> LapModel:
     """Least squares on eligible laps 3..``max_lap``; with ``rng``, each
     compound-lap cell's laps are resampled with replacement (bootstrap)."""
     e = s[s["eligible"] & (s["LapNumber"] <= max_lap)][["Driver", "c", "LapNumber", "lap_s"]]
@@ -218,11 +259,13 @@ def fit_lap_model(s: pd.DataFrame, max_lap: int, min_cars: int = 2,
     beta, *_ = np.linalg.lstsq(X, y, rcond=None)
     r = y - X @ beta
     resid = {d: r[(e["Driver"] == d).to_numpy()] for d in cars}
-    return LapModel(a={d: float(beta[ci[d]]) for d in cars},
-                    b={k: float(beta[ki[k]]) for k in cells},
-                    sigma=float(r.std(ddof=len(cars) + len(cells) - 1) if len(r) > len(beta)
-                                else r.std()),
-                    resid=resid, cells={k: int(n[k]) for k in cells})
+    return LapModel(
+        a={d: float(beta[ci[d]]) for d in cars},
+        b={k: float(beta[ki[k]]) for k in cells},
+        sigma=float(r.std(ddof=len(cars) + len(cells) - 1) if len(r) > len(beta) else r.std()),
+        resid=resid,
+        cells={k: int(n[k]) for k in cells},
+    )
 
 
 @dataclass
@@ -231,10 +274,10 @@ class Plan:
 
     name: str
     stops: tuple[tuple[int, str], ...]
-    no_queue: bool = False          # diagnostic: the stack's queue removed
+    no_queue: bool = False  # diagnostic: the stack's queue removed
 
 
-def actual_plans(s: pd.DataFrame, cars, cutoff: int) -> dict[str, dict[int, str]]:
+def actual_plans(s: pd.DataFrame, cars: Sequence[str], cutoff: int) -> dict[str, dict[int, str]]:
     """Each car's compound letter on every lap cutoff+1..OUTCOME_LAP (actual)."""
     out = {}
     for d in cars:
@@ -243,7 +286,8 @@ def actual_plans(s: pd.DataFrame, cars, cutoff: int) -> dict[str, dict[int, str]
     return out
 
 
-def actual_stops(s: pd.DataFrame, cars, cutoff: int) -> dict[str, set[int]]:
+def actual_stops(s: pd.DataFrame, cars: Sequence[str], cutoff: int) -> dict[str, set[int]]:
+    """Each car's actual in laps between the cutoff and the outcome lap."""
     g = s[s["in_lap"] & s["LapNumber"].between(cutoff + 1, OUTCOME_LAP)]
     return {d: set(g.loc[g["Driver"] == d, "LapNumber"].astype(int)) for d in cars}
 
@@ -260,12 +304,12 @@ def plan_compounds(start: str, plan: Plan, cutoff: int) -> dict[int, str]:
     return out
 
 
-def stop_costs(s: pd.DataFrame, model: LapModel, max_out_lap: int,
-               method: str = "trend") -> np.ndarray:
+def stop_costs(
+    s: pd.DataFrame, model: LapModel, max_out_lap: int, method: str = "trend"
+) -> np.ndarray:
     """In-lap excess + out-lap excess of the race's eligible stops whose out
     lap is <= ``max_out_lap`` (green-coded laps 3+, not the second car of a
     same-lap team stop)."""
-    from f1strat.race_events import pit_lane_stops
 
     lap = s.set_index(["Driver", "LapNumber"])
     teams = s.groupby("Driver")["Team"].first()
@@ -278,10 +322,11 @@ def stop_costs(s: pd.DataFrame, model: LapModel, max_out_lap: int,
         o = lap.loc[(d, L + 1)]
         if not (r["green_code"] and o["green_code"]) or pd.isna(r["lap_s"]) or pd.isna(o["lap_s"]):
             continue
-        same = ins[(ins["LapNumber"] == L) & (ins["Driver"] != d)
-                   & (ins["Driver"].map(teams) == teams[d])]
+        same = ins[
+            (ins["LapNumber"] == L) & (ins["Driver"] != d) & (ins["Driver"].map(teams) == teams[d])
+        ]
         if len(same) and (same["PitInTime"] < r["PitInTime"]).any():
-            continue                      # second car of a double stack
+            continue  # second car of a double stack
         if d not in model.a:
             continue
         b_in, b_out = model.b_hat(r["c"], L, method), model.b_hat(o["c"], L + 1, method)
@@ -291,9 +336,16 @@ def stop_costs(s: pd.DataFrame, model: LapModel, max_out_lap: int,
     return np.array(out)
 
 
-def run_accounting(s: pd.DataFrame, cutoff: int, plans: list[Plan], version: str,
-                   n_draws: int, seed: int, method: str = "trend",
-                   focal: str = "LEC") -> dict:
+def run_accounting(
+    s: pd.DataFrame,
+    cutoff: int,
+    plans: list[Plan],
+    version: str,
+    n_draws: int,
+    seed: int,
+    method: str = "trend",
+    focal: str = "LEC",
+) -> dict:
     """Leclerc's position at the end of lap 23 under each plan, per draw.
 
     ``version``: ``"hindsight"`` (model on laps 3–26, actual laps where
@@ -308,9 +360,13 @@ def run_accounting(s: pd.DataFrame, cutoff: int, plans: list[Plan], version: str
     at_cut = s[s["LapNumber"] == cutoff].set_index("Driver")
     lead_t = at_cut["time_s"].min()
     last_lap = s[(s["LapNumber"] == cutoff)]["lap_s"].min()
-    cars = [d for d in at_cut.index if pd.notna(at_cut.at[d, "time_s"])
-            and at_cut.at[d, "time_s"] - lead_t < last_lap
-            and s[(s["Driver"] == d) & (s["LapNumber"] == OUTCOME_LAP)]["time_s"].notna().any()]
+    cars = [
+        d
+        for d in at_cut.index
+        if pd.notna(at_cut.at[d, "time_s"])
+        and at_cut.at[d, "time_s"] - lead_t < last_lap
+        and s[(s["Driver"] == d) & (s["LapNumber"] == OUTCOME_LAP)]["time_s"].notna().any()
+    ]
     comp = actual_plans(s, cars, cutoff)
     stops_act = actual_stops(s, cars, cutoff)
     team = s.groupby("Driver")["Team"].first()
@@ -322,8 +378,9 @@ def run_accounting(s: pd.DataFrame, cutoff: int, plans: list[Plan], version: str
     cf = {p.name: plan_compounds(focal_start, p, cutoff) for p in plans}
     cf_stops = {p.name: {L for L, _ in p.stops} for p in plans}
     laps = range(cutoff + 1, OUTCOME_LAP + 1)
-    res = {p.name: {"pos": [], "gap_ahead": [], "gap_behind": [], "assessable": True}
-           for p in plans}
+    res = {
+        p.name: {"pos": [], "gap_ahead": [], "gap_behind": [], "assessable": True} for p in plans
+    }
     flagged = set()
     for _ in range(n_draws):
         model = fit_lap_model(s, max_lap, rng=rng)
@@ -331,9 +388,15 @@ def run_accounting(s: pd.DataFrame, cutoff: int, plans: list[Plan], version: str
         if len(costs) == 0:
             costs = np.array([20.0])
         # Common random numbers: residuals and stop costs per (car, lap).
-        eps = {(d, L): float(rng.choice(model.resid[d] if d in model.resid
-                                        and len(model.resid[d]) >= 3 else pooled))
-               for d in cars for L in laps}
+        eps = {
+            (d, L): float(
+                rng.choice(
+                    model.resid[d] if d in model.resid and len(model.resid[d]) >= 3 else pooled
+                )
+            )
+            for d in cars
+            for L in laps
+        }
         cost = {(d, L): float(rng.choice(costs)) for d in cars for L in laps}
         for p in plans:
             comps = {d: (cf[p.name] if d == focal else comp[d]) for d in cars}
@@ -345,11 +408,19 @@ def run_accounting(s: pd.DataFrame, cutoff: int, plans: list[Plan], version: str
                 for d in cars:
                     c = comps[d][L]
                     is_in, is_out = L in stp[d], (L - 1) in stp[d]
-                    unchanged = (hind and (d != focal or (
-                        comps[d][L] == comp[d][L] and is_in == (L in stops_act[d])
-                        and is_out == ((L - 1) in stops_act[d])
-                        and (not is_out or comps[d][L] == comp[d][L])))
-                        and pd.notna(lap_act.get((d, L))))
+                    unchanged = (
+                        hind
+                        and (
+                            d != focal
+                            or (
+                                comps[d][L] == comp[d][L]
+                                and is_in == (L in stops_act[d])
+                                and is_out == ((L - 1) in stops_act[d])
+                                and (not is_out or comps[d][L] == comp[d][L])
+                            )
+                        )
+                        and pd.notna(lap_act.get((d, L)))
+                    )
                     unch[d] = bool(unchanged)
                     if unchanged:
                         t = float(lap_act[(d, L)])
@@ -378,16 +449,15 @@ def run_accounting(s: pd.DataFrame, cutoff: int, plans: list[Plan], version: str
                     if len(pair) != 2:
                         continue
                     if all(unch[d] for d in pair):
-                        continue           # actual laps already include any queue
+                        continue  # actual laps already include any queue
                     if p.no_queue and focal in pair:
                         continue
                     d1, d2 = sorted(pair, key=lambda d: T[d] + free[d])
-                    if unch[d2] and L in stops_act[d2] and d2 != focal and \
-                            d2 == "LEC":
+                    if unch[d2] and L in stops_act[d2] and d2 != focal and d2 == "LEC":
                         continue
                     wait = max(0.0, D - ((T[d2] + free[d2]) - (T[d1] + free[d1])))
                     if unch[d2] and d2 == focal:
-                        continue           # focal's actual lap already queued
+                        continue  # focal's actual lap already queued
                     arr[d2] += wait
                 # No passing on track: in T order, a car not on an in/out lap
                 # cannot arrive ahead of (or within the held gap of) the car
@@ -416,10 +486,13 @@ def run_accounting(s: pd.DataFrame, cutoff: int, plans: list[Plan], version: str
             out["plans"][p.name] = {"assessable": False}
             continue
         pos = np.array(r["pos"])
-        out["plans"][p.name] = {"assessable": True, "pos": pos,
-                                "points": np.where(pos <= 10, POINTS[np.clip(pos, 1, 10) - 1], 0),
-                                "gap_ahead": np.array(r["gap_ahead"]),
-                                "gap_behind": np.array(r["gap_behind"])}
+        out["plans"][p.name] = {
+            "assessable": True,
+            "pos": pos,
+            "points": np.where(pos <= 10, POINTS[np.clip(pos, 1, 10) - 1], 0),
+            "gap_ahead": np.array(r["gap_ahead"]),
+            "gap_behind": np.array(r["gap_behind"]),
+        }
     return out
 
 
@@ -429,22 +502,34 @@ QUEUE_ACTUAL_S = 2.45
 #: The decisions (``docs/case_studies.md``, amended): name -> (cutoff, plans);
 #: the first plan is the call.
 def decisions() -> dict[str, tuple[int, list[Plan]]]:
+    """The pre-registered decisions: name -> (cutoff lap, [call, alternatives...])."""
     P = Plan
     call_d1 = P("call: inters at 18, slicks at 21", ((18, "I"), (21, "H")))
     return {
-        "D1 inters (cutoff 17)": (17, [
-            call_d1,
-            P("inters at 19, slicks at 21", ((19, "I"), (21, "H"))),
-            P("skip inters: slicks at 21", ((21, "H"),)),
-            P("skip inters: slicks at 22", ((22, "H"),))]),
-        "D1 earlier stop (cutoff 16)": (16, [
-            call_d1, P("inters at 17, slicks at 21", ((17, "I"), (21, "H")))]),
-        "D2 slicks (cutoff 20)": (20, [
-            P("call: slicks at 21 (double stack)", ((21, "H"),)),
-            P("stay out: slicks at 22", ((22, "H"),))]),
-        "D2 earlier stop (cutoff 19)": (19, [
-            P("call: slicks at 21 (double stack)", ((21, "H"),)),
-            P("slicks at 20", ((20, "H"),))]),
+        "D1 inters (cutoff 17)": (
+            17,
+            [
+                call_d1,
+                P("inters at 19, slicks at 21", ((19, "I"), (21, "H"))),
+                P("skip inters: slicks at 21", ((21, "H"),)),
+                P("skip inters: slicks at 22", ((22, "H"),)),
+            ],
+        ),
+        "D1 earlier stop (cutoff 16)": (
+            16,
+            [call_d1, P("inters at 17, slicks at 21", ((17, "I"), (21, "H")))],
+        ),
+        "D2 slicks (cutoff 20)": (
+            20,
+            [
+                P("call: slicks at 21 (double stack)", ((21, "H"),)),
+                P("stay out: slicks at 22", ((22, "H"),)),
+            ],
+        ),
+        "D2 earlier stop (cutoff 19)": (
+            19,
+            [P("call: slicks at 21 (double stack)", ((21, "H"),)), P("slicks at 20", ((20, "H"),))],
+        ),
     }
 
 
@@ -452,6 +537,7 @@ DIAGNOSTIC = ("D2 slicks (cutoff 20)", Plan("no queue (diagnostic)", ((21, "H"),
 
 
 def summarise(r: dict, name: str) -> dict:
+    """Points and position summary of one plan in a :func:`run_accounting` result."""
     p = r["plans"][name]
     if not p["assessable"]:
         return {"assessable": False}
@@ -462,10 +548,14 @@ def summarise(r: dict, name: str) -> dict:
         m = float(np.median(np.where(np.isnan(g), np.inf, g)))
         return None if np.isinf(m) else m
 
-    return {"assessable": True, "mean_points": float(p["points"].mean()),
-            "mean_pos": float(pos.mean()),
-            "pos_dist": {int(v): float((pos == v).mean()) for v in np.unique(pos)},
-            "median_gap_ahead_s": med(ga), "median_gap_behind_s": med(gb)}
+    return {
+        "assessable": True,
+        "mean_points": float(p["points"].mean()),
+        "mean_pos": float(pos.mean()),
+        "pos_dist": {int(v): float((pos == v).mean()) for v in np.unique(pos)},
+        "median_gap_ahead_s": med(ga),
+        "median_gap_behind_s": med(gb),
+    }
 
 
 def too_close(summary: dict, sigma: float, rebuilt: bool) -> bool:
@@ -475,21 +565,33 @@ def too_close(summary: dict, sigma: float, rebuilt: bool) -> bool:
     race) has no modelled noise."""
     if not rebuilt or not summary.get("assessable"):
         return False
-    gaps = [g for g in (summary["median_gap_ahead_s"], summary["median_gap_behind_s"])
-            if g is not None]
+    gaps = [
+        g for g in (summary["median_gap_ahead_s"], summary["median_gap_behind_s"]) if g is not None
+    ]
     return bool(gaps) and min(abs(g) for g in gaps) < sigma
 
 
-def verdict(s: pd.DataFrame, cutoff: int, plans: list[Plan], version: str,
-            method: str = "trend", n_select: int = 1000, n_measure: int = 2000,
-            seeds: tuple[int, int] = (101, 202)) -> dict:
+def verdict(
+    s: pd.DataFrame,
+    cutoff: int,
+    plans: list[Plan],
+    version: str,
+    method: str = "trend",
+    n_select: int = 1000,
+    n_measure: int = 2000,
+    seeds: tuple[int, int] = (101, 202),
+) -> dict:
     """Committed rule: best plan chosen on the selection draws, loss measured
     on fresh draws; bands; too-close-to-call (amendment)."""
     sel = run_accounting(s, cutoff, plans, version, n_select, seeds[0], method)
     if not all(sel["plans"][p.name]["assessable"] for p in plans):
-        return {"version": version, "method": method, "assessable": False,
-                "why": "a compound needed has fewer than 2 identified laps by the cutoff",
-                "plans": {p.name: sel["plans"][p.name]["assessable"] for p in plans}}
+        return {
+            "version": version,
+            "method": method,
+            "assessable": False,
+            "why": "a compound needed has fewer than 2 identified laps by the cutoff",
+            "plans": {p.name: sel["plans"][p.name]["assessable"] for p in plans},
+        }
     call = plans[0].name
     means = {p.name: sel["plans"][p.name]["points"].mean() for p in plans}
     best = max(means, key=means.get)
@@ -497,8 +599,13 @@ def verdict(s: pd.DataFrame, cutoff: int, plans: list[Plan], version: str,
     pb, pc = mea["plans"][best], mea["plans"][call]
     loss = pb["points"] - pc["points"]
     level = float((pc["pos"] <= pb["pos"]).mean())
-    band = ("within range" if loss.mean() <= 1 else
-            "outside range" if loss.mean() > 3 and level < 0.25 else "marginal")
+    band = (
+        "within range"
+        if loss.mean() <= 1
+        else "outside range"
+        if loss.mean() > 3 and level < 0.25
+        else "marginal"
+    )
     summ = {p.name: summarise(mea, p.name) for p in plans}
     rebuilt = {p.name: not (version == "hindsight" and p.name == call) for p in plans}
     tcc = {n: too_close(summ[n], mea["sigma"], rebuilt[n]) for n in summ}
@@ -506,13 +613,25 @@ def verdict(s: pd.DataFrame, cutoff: int, plans: list[Plan], version: str,
         band_out = "too close to call"
     else:
         band_out = band
-    return {"version": version, "method": method, "assessable": True, "cutoff": cutoff,
-            "best": best, "call": call, "band": band_out, "band_by_points": band,
-            "mean_loss": float(loss.mean()), "loss_p10": float(np.quantile(loss, 0.1)),
-            "loss_p90": float(np.quantile(loss, 0.9)), "p_level_or_ahead": level,
-            "sigma_s": mea["sigma"], "too_close": tcc, "plans": summ,
-            "flagged_cells": [list(x) for x in mea["flagged_cells"]],
-            "selection_means": {k: float(v) for k, v in means.items()}}
+    return {
+        "version": version,
+        "method": method,
+        "assessable": True,
+        "cutoff": cutoff,
+        "best": best,
+        "call": call,
+        "band": band_out,
+        "band_by_points": band,
+        "mean_loss": float(loss.mean()),
+        "loss_p10": float(np.quantile(loss, 0.1)),
+        "loss_p90": float(np.quantile(loss, 0.9)),
+        "p_level_or_ahead": level,
+        "sigma_s": mea["sigma"],
+        "too_close": tcc,
+        "plans": summ,
+        "flagged_cells": [list(x) for x in mea["flagged_cells"]],
+        "selection_means": {k: float(v) for k, v in means.items()},
+    }
 
 
 def run_monaco() -> dict:
@@ -525,19 +644,26 @@ def run_monaco() -> dict:
     from f1strat.backtest import FIG_DIR
     from f1strat.data import load_season
 
-    raw, race = load_season(2022), load_season(2022, table="race")
+    raw = load_season(2022)
     s = prepared(raw)
     out = {"decisions": {}}
     for name, (cutoff, plans) in decisions().items():
-        d = {"hindsight": verdict(s, cutoff, plans, "hindsight"),
-             "hindsight_persistence": verdict(s, cutoff, plans, "hindsight", "persistence"),
-             "cutoff": verdict(s, cutoff, plans, "cutoff"),
-             "cutoff_exploratory_persistence": verdict(s, cutoff, plans, "cutoff",
-                                                       "persistence")}
+        d = {
+            "hindsight": verdict(s, cutoff, plans, "hindsight"),
+            "hindsight_persistence": verdict(s, cutoff, plans, "hindsight", "persistence"),
+            "cutoff": verdict(s, cutoff, plans, "cutoff"),
+            "cutoff_exploratory_persistence": verdict(s, cutoff, plans, "cutoff", "persistence"),
+        }
         out["decisions"][name] = d
         for k, v in d.items():
-            print(name, k, v.get("band", "not assessable"), v.get("best"),
-                  round(v.get("mean_loss", float("nan")), 2), flush=True)
+            print(
+                name,
+                k,
+                v.get("band", "not assessable"),
+                v.get("best"),
+                round(v.get("mean_loss", float("nan")), 2),
+                flush=True,
+            )
     dname, diag = DIAGNOSTIC
     cutoff, plans = decisions()[dname]
     for version in ("hindsight", "cutoff_exploratory_persistence"):
@@ -545,20 +671,22 @@ def run_monaco() -> dict:
         r = run_accounting(s, cutoff, [plans[0], diag], v, 2000, 202, meth)
         if r["plans"][diag.name]["assessable"]:
             out.setdefault("no_queue_diagnostic", {})[version] = {
-                n: summarise(r, n) for n in (plans[0].name, diag.name)}
+                n: summarise(r, n) for n in (plans[0].name, diag.name)
+            }
             out["no_queue_diagnostic"][version]["points_cost_of_queue"] = float(
-                (r["plans"][diag.name]["points"] - r["plans"][plans[0].name]["points"]).mean())
+                (r["plans"][diag.name]["points"] - r["plans"][plans[0].name]["points"]).mean()
+            )
     pos, gap = order_and_gaps(raw, laps=range(12, 33), drivers=FERRARI_RB)
     out["gap_timeline"] = {int(k): v for k, v in gap.to_dict("index").items()}
     (FIG_DIR / "case_monaco_results.json").write_text(json.dumps(out, indent=1, default=str))
-    plot_gap_timeline(raw, race, FIG_DIR / "case_monaco_gaps.png")
+    plot_gap_timeline(gap_timeline_frame(raw), FIG_DIR / "case_monaco_gaps.png")
     plot_positions(out, FIG_DIR / "case_monaco_positions.png")
     return out
 
 
 # --- Figures --------------------------------------------------------------------------
 
-BLUE, ORANGE, RED, GREY = "#2a78d6", "#eb6834", "#c8102e", "#8a8986"
+BLUE, ORANGE, RED = "#2a78d6", "#eb6834", "#c8102e"
 INK, INK2, GRID, SURFACE = "#0b0b0b", "#52514e", "#e4e3df", "#fcfcfb"
 CAR_COLOURS = {"LEC": RED, "SAI": "#f28e98", "PER": "#1e41ff", "VER": "#7c93ff"}
 
@@ -572,17 +700,40 @@ def _style(ax) -> None:
     ax.tick_params(colors=INK2, labelsize=9)
 
 
-def plot_gap_timeline(raw: pd.DataFrame, race: pd.DataFrame, path) -> object:
+def gap_timeline_frame(raw: pd.DataFrame, laps: range = range(12, 33)) -> pd.DataFrame:
+    """Ferrari and Red Bull per lap: gap behind the leader at the line (s),
+    compound code and whether it was an in lap (``data/figures`` table)."""
+    s = prepared(raw)
+    t = s.pivot(index="LapNumber", columns="Driver", values="time_s").loc[list(laps)]
+    gap = t.sub(t.min(axis=1), axis=0)
+    rows = []
+    for d in CAR_COLOURS:
+        g = s[s["Driver"] == d].set_index("LapNumber").reindex(list(laps))
+        for L in laps:
+            c = g.at[L, "c"]
+            rows.append(
+                {
+                    "lap": L,
+                    "driver": d,
+                    "gap_s": gap.at[L, d],
+                    "compound": c if isinstance(c, str) else None,
+                    "in_lap": bool(g.at[L, "in_lap"]),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def plot_gap_timeline(frame: pd.DataFrame, path: Path) -> object:
     """Ferrari and Red Bull through the crossover: gap behind the leader at
-    the line, with compounds, stops, the SC and the red flag."""
+    the line, with compounds, stops, the SC and the red flag
+    (``frame`` from :func:`gap_timeline_frame`)."""
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    s = prepared(raw)
-    laps = range(12, 33)
-    t = s.pivot(index="LapNumber", columns="Driver", values="time_s").loc[list(laps)]
-    gap = t.sub(t.min(axis=1), axis=0)
+    laps = range(int(frame["lap"].min()), int(frame["lap"].max()) + 1)
+    gap = frame.pivot(index="lap", columns="driver", values="gap_s")
     fig, ax = plt.subplots(figsize=(10, 5.2), facecolor=SURFACE)
     _style(ax)
     ax.axvspan(26.5, 29.5, color=GRID, alpha=0.7, lw=0)
@@ -591,35 +742,49 @@ def plot_gap_timeline(raw: pd.DataFrame, race: pd.DataFrame, path) -> object:
     ax.text(30, 26, "red\nflag", ha="center", fontsize=8, color=INK2)
     marks = {"W": "o", "I": "s", "H": "^", "M": "D"}
     for d, col in CAR_COLOURS.items():
-        g = s[s["Driver"] == d].set_index("LapNumber").reindex(list(laps))
+        g = frame[frame["driver"] == d].set_index("lap")
         ax.plot(list(laps), gap[d], color=col, lw=2, label=d)
         for L in laps:
-            c = g.at[L, "c"]
+            c = g.at[L, "compound"]
             if isinstance(c, str):
                 ax.plot(L, gap.at[L, d], marks.get(c, "o"), color=col, ms=5, mec=SURFACE)
-            if bool(g.at[L, "in_lap"]) and L < 27:   # stops, not the red-flag pit entry
-                ax.annotate(f"{d} in", (L, gap.at[L, d]), textcoords="offset points",
-                            xytext=(4, 6), fontsize=7, color=col)
+            if bool(g.at[L, "in_lap"]) and L < 27:  # stops, not the red-flag pit entry
+                ax.annotate(
+                    f"{d} in",
+                    (L, gap.at[L, d]),
+                    textcoords="offset points",
+                    xytext=(4, 6),
+                    fontsize=7,
+                    color=col,
+                )
     ax.set_ylim(28, -2)
     ax.set_xlabel("lap", color=INK2)
-    ax.set_ylabel("gap behind the leader at the line (s; in laps include the stop)",
-                  color=INK2, fontsize=9)
+    ax.set_ylabel(
+        "gap behind the leader at the line (s; in laps include the stop)", color=INK2, fontsize=9
+    )
     handles = [plt.Line2D([], [], color=c, lw=2, label=d) for d, c in CAR_COLOURS.items()]
-    handles += [plt.Line2D([], [], color=INK2, marker=m, lw=0, label=n)
-                for n, m in (("wet", "o"), ("inter", "s"), ("hard", "^"), ("medium", "D"))]
+    handles += [
+        plt.Line2D([], [], color=INK2, marker=m, lw=0, label=n)
+        for n, m in (("wet", "o"), ("inter", "s"), ("hard", "^"), ("medium", "D"))
+    ]
     ax.legend(handles=handles, fontsize=8, frameon=False, ncol=4, loc="lower left")
-    ax.set_title("Monaco 2022: Ferrari and Red Bull through the crossover", fontsize=10,
-                 color=INK, loc="left")
+    ax.set_title(
+        "Monaco 2022: Ferrari and Red Bull through the crossover",
+        fontsize=10,
+        color=INK,
+        loc="left",
+    )
     fig.tight_layout()
     fig.savefig(path, dpi=130)
     plt.close(fig)
     return path
 
 
-def plot_positions(out: dict, path) -> object:
+def plot_positions(out: dict, path: Path) -> object:
     """Leclerc's position at the end of lap 23 under each plan (hindsight,
     measurement draws), per decision."""
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
@@ -641,20 +806,31 @@ def plot_positions(out: dict, path) -> object:
             kk = min(int(k), 5)
             ax.barh(y, w - 0.003, left=left, color=colours[kk], height=0.6)
             if w > 0.08:
-                ax.text(left + w / 2, y, f"P{k}", ha="center", va="center", fontsize=7,
-                        color="white")
+                ax.text(
+                    left + w / 2, y, f"P{k}", ha="center", va="center", fontsize=7, color="white"
+                )
             left += w
-        tag = f"{ps['mean_points']:.1f} pts" + (" · too close to call" if tcc else "") + \
-              (" · best" if best else "")
+        tag = (
+            f"{ps['mean_points']:.1f} pts"
+            + (" · too close to call" if tcc else "")
+            + (" · best" if best else "")
+        )
         ax.text(1.01, y, tag, va="center", fontsize=8, color=INK)
         labels.append(f"{dname.split(' (')[0]}: {pname}")
     ax.set_yticks(range(len(rows)), labels, fontsize=8, color=INK)
     ax.set_xlim(0, 1)
-    ax.set_xlabel("share of draws (hindsight, 2,000); Leclerc's position at the end of lap 23",
-                  color=INK2, fontsize=9)
-    ax.set_title("Monaco 2022: Leclerc's position under each counterfactual "
-                 "(hindsight outcomes, not verdicts)",
-                 fontsize=10, color=INK, loc="left")
+    ax.set_xlabel(
+        "share of draws (hindsight, 2,000); Leclerc's position at the end of lap 23",
+        color=INK2,
+        fontsize=9,
+    )
+    ax.set_title(
+        "Monaco 2022: Leclerc's position under each counterfactual "
+        "(hindsight outcomes, not verdicts)",
+        fontsize=10,
+        color=INK,
+        loc="left",
+    )
     fig.tight_layout()
     fig.savefig(path, dpi=130)
     plt.close(fig)

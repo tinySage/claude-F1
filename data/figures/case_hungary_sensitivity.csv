@@ -1,0 +1,9 @@
+check,band,mean_loss,p10,p90,call_label
+main,within range,0.0,0.0,0.0,hards at 39
+widening x1.188,within range,0.0,0.0,0.0,hards at 39
+Ferrari hard wear p10,within range,-0.08,0.0,0.0,hards at 39
+Ferrari hard wear p90,within range,0.0,0.0,0.0,hards at 39
+Ferrari hard pace p10,within range,0.0,0.0,0.0,hards at 39
+Ferrari hard pace p90,within range,0.0,0.0,0.0,hards at 39
+SC/VSC rate x0.5,within range,0.0,0.0,0.0,hards at 39
+SC/VSC rate x2,within range,0.0,0.0,0.0,hards at 39
