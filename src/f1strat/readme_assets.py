@@ -91,6 +91,11 @@ def _svg(w: int, h: int, body: list[str], title: str, desc: str) -> str:
     )
 
 
+#: Leclerc's second stop (in lap 54): a separate decision, judged on its own.
+#: The forecast is for "hards to the flag", so the real race is drawn as the
+#: forecast's comparison only up to lap 53, the last lap before that stop.
+SECOND_STOP_LAP: int = 54
+
 #: First lap the simulated gap is drawn. The state at lap 38 already carries
 #: Verstappen's known out-lap loss and the simulator books Leclerc's whole pit
 #: loss on his in lap (39), so the simulated and real gaps are comparable only
@@ -201,7 +206,8 @@ def banner(theme: str, fan: pd.DataFrame, real: pd.Series) -> str:
         b.append(f'<polyline points="{_poly(laps, fan[k].to_numpy(), sx, sy)}"/>')
     b.append("</g>")
     known = real.loc[1:cut]
-    after = real.loc[cut:]
+    last = SECOND_STOP_LAP - 1
+    after = real.loc[cut:last]
     b.append(
         f'<g clip-path="url(#plot)" fill="none" stroke-width="2.5" '
         f'stroke-linejoin="round" stroke-linecap="round">'
@@ -210,6 +216,13 @@ def banner(theme: str, fan: pd.DataFrame, real: pd.Series) -> str:
         f'<polyline stroke="{c["red"]}" points="'
         f'{_poly(after.index.to_numpy(), after.to_numpy(), sx, sy)}"/></g>'
     )
+    # Where the real race leaves the forecast's plan: a tick labelled "2nd stop".
+    tx, ty = sx(last), sy(real.loc[last])
+    b += [
+        f'<line x1="{tx:.1f}" x2="{tx:.1f}" y1="{ty - 9:.1f}" y2="{ty + 9:.1f}" '
+        f'stroke="{c["ink2"]}" stroke-width="1.5"/>',
+        _text(tx + 6, ty + 22, "2nd stop", 11, c["ink2"], MONO),
+    ]
     # Legend, top right of the plot (identity never by colour alone).
     lx, ly = 900, y0 - 52
     b += [
@@ -233,7 +246,7 @@ def banner(theme: str, fan: pd.DataFrame, real: pd.Series) -> str:
         "Judging Ferrari's 2022 strategy calls using only what was known at the "
         "time. Leclerc's lead over Verstappen at Hungary 2022: the real race to "
         "lap 38, then simulated futures for new hards at lap 39 with the real race "
-        "drawn through them.",
+        "drawn through them up to lap 53, before Leclerc's second stop.",
     )
 
 
@@ -486,9 +499,15 @@ def fig_monaco(theme: str) -> Path:
                 },
             )
         )
+    counts = [len(h["plans"]) for _, h in panels]
     with plt.rc_context(_mpl(theme)):
+        # One panel per decision, stacked, each as tall as its own bars.
         fig, axes = plt.subplots(
-            1, 2, figsize=(11.5, 3.4), sharex=True, gridspec_kw={"width_ratios": [1, 1]}
+            2,
+            1,
+            figsize=(9.5, 1.0 + 0.62 * sum(counts) + 1.2),
+            sharex=True,
+            gridspec_kw={"height_ratios": counts},
         )
         for ax, (title, h) in zip(axes, panels):
             names = sorted(h["plans"], key=lambda n: h["plans"][n]["mean_points"])
@@ -496,7 +515,7 @@ def fig_monaco(theme: str) -> Path:
             for yi, n in zip(y, names):
                 call = n == h["call"]
                 v = h["plans"][n]["mean_points"]
-                ax.barh(yi, v, height=0.42, color=c["red"] if call else c["fan"])
+                ax.barh(yi, v, height=0.5, color=c["red"] if call else c["fan"])
                 ax.text(
                     v + 0.4,
                     yi,
@@ -510,16 +529,16 @@ def fig_monaco(theme: str) -> Path:
                 ("THE CALL  " + n.replace("call: ", "")) if n == h["call"] else n for n in names
             ]
             ax.set_yticks(y, labels)
-            for t, n in zip(ax.get_yticklabels(), names):
+            for lab, n in zip(ax.get_yticklabels(), names):
                 if n == h["call"]:
-                    t.set_fontweight("bold")
-                    t.set_color(c["ink"])
-            ax.set_ylim(-0.6, 3.6)
+                    lab.set_fontweight("bold")
+                    lab.set_color(c["ink"])
+            ax.set_ylim(-0.6, len(names) - 0.4)
             ax.tick_params(axis="y", length=0)
             ax.grid(axis="y", visible=False)
             ax.set_xlim(0, 28)
-            ax.set_title(title, pad=10)
-            ax.set_xlabel("Leclerc's points if the lap-23 order held")
+            ax.set_title(title, pad=8)
+        axes[-1].set_xlabel("Leclerc's points if the lap-23 order held")
         fig.suptitle(
             "Monaco in hindsight (outcomes, not verdicts)",
             x=0.01,
@@ -528,7 +547,7 @@ def fig_monaco(theme: str) -> Path:
             fontweight="bold",
             color=c["ink"],
         )
-        fig.tight_layout(w_pad=3)
+        fig.tight_layout()
         return _save(fig, "fig_monaco", theme)
 
 
@@ -617,17 +636,34 @@ def hero(theme: str, fan: pd.DataFrame, real: pd.Series) -> tuple[Path, Path]:
                     ax.plot(laps[m], sel[s], color=c["fan"], lw=0.7, alpha=0.10)
             known = real.loc[start:cut]
             ax.plot(known.index, known.to_numpy(), color=c["ink"], lw=2.2, solid_capstyle="round")
-            ra = real.loc[cut : int(np.floor(upto))]
+            now = int(np.floor(upto))
+            last = SECOND_STOP_LAP - 1
+            ra = real.loc[cut : min(now, last)]
             ax.plot(ra.index, ra.to_numpy(), color=c["red"], lw=2.4, solid_capstyle="round")
-            if len(ra):
+            # After the forecast's plan ends (the second stop), the real race is
+            # drawn dashed and muted: a different plan, not the forecast failing.
+            rb = real.loc[last:now] if now > last else real.iloc[:0]
+            if len(rb) > 1:
+                ax.plot(
+                    rb.index,
+                    rb.to_numpy(),
+                    color=c["red"],
+                    lw=1.6,
+                    alpha=0.45,
+                    ls=(0, (4, 3)),
+                    solid_capstyle="round",
+                )
+            tip = rb if len(rb) > 1 else ra
+            if len(tip):
                 ax.scatter(
-                    ra.index[-1],
-                    ra.iloc[-1],
+                    tip.index[-1],
+                    tip.iloc[-1],
                     s=40,
                     color=c["red"],
                     edgecolor=c["bg"],
                     lw=1.5,
                     zorder=5,
+                    alpha=0.45 if tip is rb else 1.0,
                 )
             ax.axvline(cut, color=c["muted"], lw=1)
             ax.axhline(0, color=c["grid"], lw=1)
@@ -658,7 +694,7 @@ def hero(theme: str, fan: pd.DataFrame, real: pd.Series) -> tuple[Path, Path]:
                     color=c["muted"],
                     fontsize=8.5,
                 )
-            if upto >= 54:
+            if upto >= SECOND_STOP_LAP:
                 ax.annotate(
                     "lap 54: second stop\n(judged separately)",
                     xy=(54.6, real.loc[55] / 2),

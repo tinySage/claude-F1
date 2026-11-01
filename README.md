@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/banner_dark.svg">
-  <img alt="What the Pit Wall Knew: judging Ferrari's 2022 strategy calls using only what was known at the time. Leclerc's lead over Verstappen at Hungary 2022: the real race to lap 38, then simulated futures for new hards at lap 39, with the real race drawn through them." src="assets/readme/banner_light.svg" width="100%">
+  <img alt="What the Pit Wall Knew: judging Ferrari's 2022 strategy calls using only what was known at the time. Leclerc's lead over Verstappen at Hungary 2022: the real race to lap 38, then simulated futures for new hards at lap 39, with the real race drawn through them up to lap 53, before Leclerc's second stop." src="assets/readme/banner_light.svg" width="100%">
 </picture>
 
 <p>
@@ -9,6 +9,8 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-333333?style=flat-square&labelColor=111111"></a>
   <a href="https://github.com/theOehrly/Fast-F1"><img alt="Data: FastF1" src="https://img.shields.io/badge/data-FastF1-c42820?style=flat-square&labelColor=111111"></a>
 </p>
+
+Ferrari's hard tyre at Hungary was the right call with what the pit wall knew; the points went fifteen laps later. Where the public data can't judge a call, the verdict says so.
 
 ## The question
 
@@ -20,7 +22,7 @@ This project refits a lap-time model and a race simulator on only the data avail
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/verdicts_dark.svg">
-  <img alt="Verdict cards. Hungary lap 39, new hards: within range. Hungary lap 54, used softs: outside range, 5.1 points lost. Silverstone lap 39, left out under the safety car: inconclusive. Monaco laps 18 and 21: not assessable at the time. The same content is in the table below." src="assets/readme/verdicts_light.svg" width="100%">
+  <img alt="Verdict cards. Hungary lap 39, new hards: within range. Hungary lap 54, used softs: outside range, 5.1 points lost (3.5 to 5.1 across passing settings). Silverstone lap 39, left out under the safety car: inconclusive. Monaco laps 18 and 21: not assessable at the time. The same content is in the table below." src="assets/readme/verdicts_light.svg" width="100%">
 </picture>
 
 The large label is the verdict with information at the decision lap. Hindsight outcomes are reported separately and never change it.
@@ -28,9 +30,9 @@ The large label is the verdict with information at the decision lap. Hindsight o
 | Race | Lap | Call | Verdict at the decision lap | Key number | Hindsight |
 |---|---|---|---|---|---|
 | Hungary 2022 | 39 | Leclerc onto new hards | **Within range** | 0.0 points lost: the call was the model's best plan | 4.1 points below the best plan (Verstappen's stop and pace) |
-| Hungary 2022 | 54 | Leclerc onto used softs | **Outside range** | 5.1 points lost to hards to the flag; level or ahead in 13% of simulations | 5.7 points lost |
+| Hungary 2022 | 54 | Leclerc onto used softs | **Outside range** | 5.1 points lost (3.5–5.1 across passing settings) to hards to the flag; level or ahead in 13% of simulations | 5.7 points lost |
 | Silverstone 2022 | 39 | Leclerc left out under the safety car | **Inconclusive** | 9 restart passes in the real race against 1–3 simulated: the model cannot reproduce the race | Replays have Leclerc P1 in 93%; he finished P4 |
-| Monaco 2022 | 18 and 21 | Inters at 18, then the double stack at 21 | **Not assessable at the time** | 1 lap of slick pace identified by lap 20 (2 cars); the rule needs 2 | Stop timing cost the win; the queue cost at most one place |
+| Monaco 2022 | 18 and 21 | Inters at 18, then the double stack at 21 | **Not assessable at the time** | 1 lap of slick pace on record by lap 20 (2 cars); the committed rule needs 2 laps | Stop timing cost the win; the queue cost at most one place |
 
 Bands, fixed before any case-study simulation: **within range** if the best plan beats the call by at most 1 point on average; **outside range** if it beats it by more than 3 points and the call finishes level or ahead in under 25% of simulations; **marginal** otherwise.
 
@@ -40,10 +42,10 @@ Bands, fixed before any case-study simulation: **within range** if the best plan
   <source media="(prefers-color-scheme: dark) and (prefers-reduced-motion: reduce)" srcset="assets/readme/hero_dark.png">
   <source media="(prefers-reduced-motion: reduce)" srcset="assets/readme/hero_light.png">
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero_dark.gif">
-  <img alt="Animation: Leclerc's lead over Verstappen from lap 38 to 70. Grey lines are 300 futures simulated at lap 38 for new hards at lap 39, drawn from lap 40 once both cars have stopped; they build lap by lap while the real race is drawn over them in red. The real race stays inside the simulated spread, in its unfavourable tail, until Leclerc's second stop at lap 54." src="assets/readme/hero_light.gif" width="100%">
+  <img alt="Animation: Leclerc's lead over Verstappen from lap 38 to 70. Grey lines are 300 futures simulated at lap 38 for new hards at lap 39, drawn from lap 40 once both cars have stopped; they build lap by lap while the real race is drawn over them in red. The real race stays inside the simulated spread, in its unfavourable tail, until Leclerc's second stop at lap 54; after it the real line is dashed and muted, because it follows a different plan." src="assets/readme/hero_light.gif" width="100%">
 </picture>
 
-The simulated gap starts at lap 40, once both cars have stopped. From there the real race ran inside the forecast's spread, in its unfavourable tail, until lap 54, when Leclerc stopped again for used softs. That second stop is a separate decision with its own verdict (outside range).
+The simulated gap starts at lap 40, once both cars have stopped. From there the real race ran inside the forecast's spread, in its unfavourable tail, until lap 54, when Leclerc stopped again for used softs. From there the real race follows a different plan from the forecast's (hards to the flag), so the animation draws it dashed and muted and the banner stops at lap 53. That second stop is a separate decision with its own verdict (outside range).
 
 The animation's 300 futures come from a rerun of the lap-38 cutoff fit (same data and sampler settings, 0 divergences; Ferrari's hard wear 0.027 s/lap in both runs). The verdict numbers come from the committed original run. The data behind it is [`data/figures/hungary_fan.csv`](data/figures/hungary_fan.csv). Still images: [dark](assets/readme/hero_dark.png), [light](assets/readme/hero_light.png).
 
@@ -160,7 +162,7 @@ Full write-up: [docs/case_studies.md, Monaco](docs/case_studies.md#monaco-2022-t
 > - **Tyre wear is linear** in tyre age. A tyre cliff, or a temperature-driven problem like Hungary's cool final third, would not be seen.
 > - **Restart laps are normal green laps** in the simulator, which is why Silverstone is inconclusive.
 > - **No wet or crossover pace model,** which is why Monaco is not assessable.
-> - **Pass difficulty for Hungary comes from the 2021 race.** 2022 cars followed more closely, so this likely overstates it; with average passing the lap-54 verdict is marginal (3.6 points), though the switch is still the worse option.
+> - **Pass difficulty for Hungary comes from the 2021 race.** 2022 cars followed more closely, so this likely overstates it. Two post-hoc readings make the lap-54 verdict marginal: average 2022 passing (3.6 points lost) and the 2021-based value updated with the passes Hungary 2022 showed before lap 53 (3.5 points). The switch is the worse option in every setting.
 > - **Verdicts concern Leclerc's points only,** not the team result. Lap 1, time penalties, blue flags and damage are not modelled. One season of data.
 
 ## Quick start
@@ -169,17 +171,9 @@ Redraw every figure in the docs, the notebooks and this page from the committed 
 
 ```bash
 git clone https://github.com/tinySage/what-the-pit-wall-knew.git
-```
-
-```bash
-cd what-the-pit-wall-knew && uv sync
-```
-
-```bash
+cd what-the-pit-wall-knew
+uv sync
 uv run pitwall figures
-```
-
-```bash
 uv run pytest
 ```
 

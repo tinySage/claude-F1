@@ -1,5 +1,5 @@
 race,lap,call,verdict,number,caption,hindsight,mark
 HUNGARY 2022,LAP 39,Leclerc onto new hards,Within range,0.0 pts,lost to the best plan: the call was the model's best plan,4.1 pts below the best plan (Verstappen's stop and pace),hollow
-HUNGARY 2022,LAP 54,Leclerc onto used softs,Outside range,5.1 pts,lost to hards to the flag; level or ahead in 13% of simulations,5.7 pts lost,red
+HUNGARY 2022,LAP 54,Leclerc onto used softs,Outside range,5.1 pts lost,(3.5–5.1 across passing settings) to hards to the flag; level or ahead in 13% of simulations,5.7 pts lost,red
 SILVERSTONE 2022,LAP 39,Leclerc left out under the safety car,Inconclusive,9 vs 1–3,"restart passes, real vs simulated: the model can't reproduce the race",replays have Leclerc P1 in 93%; he finished P4,grey
-MONACO 2022,"LAPS 18, 21","Inters at 18, then the double stack at 21",Not assessable at the time,1 lap,of slick pace identified by lap 20 (2 cars); the rule needs 2,Stop timing cost the win; the queue cost at most one place,grey
+MONACO 2022,"LAPS 18, 21","Inters at 18, then the double stack at 21",Not assessable at the time,1 lap,of slick pace on record by lap 20 (2 cars); the committed rule needs 2 laps,Stop timing cost the win; the queue cost at most one place,grey
