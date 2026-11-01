@@ -23,18 +23,18 @@ from collections.abc import Callable
 #: Rough wall-clock times on a 4-core machine, shown in ``--help``.
 RUNTIMES: dict[str, str] = {
     "data": (
-        "~5 min of downloads, but FastF1 allows 500 API calls an hour: from an empty "
-        "cache expect one rerun after the limit resets (cached in cache/)"
+        "4 min of downloads; FastF1 allows 500 API calls an hour, so from an empty "
+        "cache rerun after an hour (cached in cache/)"
     ),
-    "clean": "~1 min",
-    "fit": "~40 min for the full fit; ~60 min more for the two held-out splits",
-    "thin": "~10 s",
-    "backtest": "~25 min (params, calibrate, run, widening); rehearsals 15-75 min each",
+    "clean": "33 s",
+    "fit": "39 min for the full fit; 39 + 28 min for the two held-out splits",
+    "thin": "10 s",
+    "backtest": "98 s (params, calibrate, run, widening); rehearsals about 2 h 15 min",
     "case-study": (
-        "hungary ~3 h (two cutoff refits, 8 checks each); "
-        "silverstone ~2.5 h (v1 and v2); monaco ~2 min"
+        "hungary about 2 h 15 min (two cutoff fits, 83 min); "
+        "silverstone about 1 h 30 min; monaco 29 min"
     ),
-    "figures": "~1 min (--export adds ~2 min; --notebooks ~4 min)",
+    "figures": "40 s (--export adds 10 s; --notebooks 4 min)",
 }
 
 

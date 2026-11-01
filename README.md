@@ -183,24 +183,28 @@ uv run pitwall figures
 uv run pytest
 ```
 
-`uv run pytest` runs the fast tests (about 10 seconds). `uv run pytest -m ""` adds the Bayesian fits and the FastF1 download test (about 3 minutes).
+`uv run pytest` runs the fast tests (about 15 seconds). `uv run pytest -m ""` adds the Bayesian fits and the FastF1 download test (about 3 minutes).
 
 ## Full reproduction
 
-From raw FastF1 downloads to every result. Times are wall-clock on a 4-core machine; the fits dominate.
+From raw FastF1 downloads to every result, on a 4-core machine. "Measured" times are from a run of each step in a fresh clone during Phase 7; "logged" ones add up the fit times recorded in the docs.
 
-| Step | Command | Time |
-|---|---|---|
-| Download 2022 races, practice long runs and 2021 pass events | `uv run pitwall data` | ~25 min (network) |
-| Clean laps and estimate pit losses | `uv run pitwall clean` | ~1 min |
-| Fit the full model and the two held-out splits | `uv run pitwall fit all` | ~100 min |
-| Simulator parameters, calibration, backtests | `uv run pitwall backtest` | ~25 min |
-| Dress rehearsals (Spain, Canada) | `uv run pitwall backtest rehearsal` | ~2.5 h |
-| Hungary: two cutoff refits, verdicts, sensitivities | `uv run pitwall case-study hungary` | ~3 h |
-| Silverstone: cutoff refit, v1, restart layer, v2 | `uv run pitwall case-study silverstone` | ~2.5 h |
-| Monaco: reconstruction and accounting | `uv run pitwall case-study monaco` | ~2 min |
-| Rebuild the figure tables and redraw every figure | `uv run pitwall figures --export` | ~3 min |
-| Execute the notebooks top to bottom | `uv run pitwall figures --notebooks` | ~4 min |
+| Step | Command | Time | Basis |
+|---|---|---|---|
+| Download 2022 races, practice long runs, 2021 pass events | `uv run pitwall data` | 4 min of downloads; from an empty cache, rerun after an hour (see below) | measured |
+| Clean laps and estimate pit losses | `uv run pitwall clean` | 33 s | measured |
+| Fit the full model and the two held-out splits | `uv run pitwall fit all` | 1 h 45 min (39 + 39 + 28 min) | measured (splits), logged (full) |
+| Simulator parameters, calibration, backtests | `uv run pitwall backtest` | 98 s | measured |
+| Dress rehearsals (Spain, Canada) | `uv run pitwall backtest rehearsal` | about 2 h 15 min (four cutoff fits) | logged |
+| Hungary: two cutoff fits, verdicts, sensitivities | `uv run pitwall case-study hungary` | about 2 h 15 min (fits 38 + 45 min; 9.4 min per decision) | measured (lap 38), logged (lap 53) |
+| Silverstone: cutoff fit, v1, restart layer, v2 | `uv run pitwall case-study silverstone` | about 1 h 30 min (fit 27 min) | logged fit; checks estimated from Hungary's |
+| Monaco: reconstruction and accounting | `uv run pitwall case-study monaco` | 29 min | measured |
+| Rebuild the figure tables and redraw every figure | `uv run pitwall figures --export` | 45 s | measured |
+| Execute the notebooks top to bottom | `uv run pitwall figures --notebooks` | 4 min | measured |
+
+FastF1 allows 500 API calls an hour. From an empty cache, `pitwall data` stops with a message when it reaches the limit, without saving partial tables. Rerun it after an hour; everything downloaded so far is cached.
+
+The fresh-clone runs reproduced the committed backtests (identical up to floating-point rounding), the 2022 race data and Monaco's results exactly.
 
 Cutoff fits are saved in `models/` (gitignored) and reused; a case study refits them only if they are missing. `uv run pitwall --help` lists every command.
 
